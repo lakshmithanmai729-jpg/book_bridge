@@ -1,0 +1,27 @@
+<h1>Create Your Account</h1>
+
+<form method="POST">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Sign Up</button>
+</form>
+
+<script>
+    document.querySelectorAll('input[type=password]').forEach(function(input) {
+        const toggle = document.createElement('span');
+        toggle.textContent = '👁️';
+        toggle.style.cursor = 'pointer';
+        toggle.style.marginLeft = '8px';
+        input.insertAdjacentElement('afterend', toggle);
+
+        toggle.addEventListener('click', function() {
+            if (input.type === 'password') {
+                input.type = 'text';
+                toggle.textContent = '🙈';
+            } else {
+                input.type = 'password';
+                toggle.textContent = '👁️';
+            }
+        });
+    });
+</script>
