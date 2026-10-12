@@ -1,27 +1,39 @@
-<h1>Create Your Account</h1>
-
-<form method="POST">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Sign Up</button>
-</form>
-
+{% extends 'core/base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <h2 class="mb-4">Create Your Account</h2>
+        <form method="POST">
+            {% csrf_token %}
+            {% for field in form %}
+                <div class="mb-3">
+                    <label class="form-label">{{ field.label }}</label>
+                    {{ field }}
+                    <div class="form-text">{{ field.help_text }}</div>
+                    {% for error in field.errors %}
+                        <div class="text-danger">{{ error }}</div>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary">Sign Up</button>
+        </form>
+    </div>
+</div>
 <script>
     document.querySelectorAll('input[type=password]').forEach(function(input) {
+        input.classList.add('form-control');
         const toggle = document.createElement('span');
         toggle.textContent = '👁️';
         toggle.style.cursor = 'pointer';
         toggle.style.marginLeft = '8px';
         input.insertAdjacentElement('afterend', toggle);
-
         toggle.addEventListener('click', function() {
-            if (input.type === 'password') {
-                input.type = 'text';
-                toggle.textContent = '🙈';
-            } else {
-                input.type = 'password';
-                toggle.textContent = '👁️';
-            }
+            input.type = input.type === 'password' ? 'text' : 'password';
+            toggle.textContent = input.type === 'password' ? '👁️' : '🙈';
         });
     });
+    document.querySelectorAll('input[type=text], input[type=email]').forEach(function(input) {
+        input.classList.add('form-control');
+    });
 </script>
+{% endblock %}

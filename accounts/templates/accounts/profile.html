@@ -1,6 +1,11 @@
-<h1>My Profile</h1>
-
-<p><strong>Username:</strong> {{ user.username }}</p>
-<p><strong>Email:</strong> {{ user.email }}</p>
-
-<p><a href="{% url 'core:home' %}">Back to Home</a></p>
+{% extends 'core/base.html' %}
+{% block content %}
+<div class="card" style="max-width: 400px;">
+    <div class="card-body">
+        <h3 class="card-title">My Profile</h3>
+        <p><strong>Username:</strong> {{ user.username }}</p>
+        <p><strong>Email:</strong> {{ user.email }}</p>
+        <a href="{% url 'core:home' %}" class="btn btn-secondary">Back to Home</a>
+    </div>
+</div>
+{% endblock %}

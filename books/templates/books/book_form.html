@@ -1,0 +1,39 @@
+{% extends 'core/base.html' %}
+{% block content %}
+<h2 class="mb-4">Add / Edit Book</h2>
+<form method="POST" enctype="multipart/form-data" style="max-width: 600px;">
+    {% csrf_token %}
+    {% for field in form %}
+        <div class="mb-3">
+            <label class="form-label">{{ field.label }}</label>
+            {{ field }}
+            {% if field.name == 'price' %}
+                <div id="price-suggestion" class="form-text text-success"></div>
+            {% endif %}
+        </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-primary">Save</button>
+</form>
+<script>
+    document.querySelectorAll('input, select, textarea').forEach(function(el) {
+        if (el.type !== 'file' && el.type !== 'checkbox') el.classList.add('form-control');
+    });
+
+    function fetchSuggestion() {
+        const category = document.getElementById('id_category').value;
+        const condition = document.getElementById('id_condition').value;
+        if (!condition) return;
+        fetch(`/ai/suggest-price/?category=${category}&condition=${condition}`)
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('price-suggestion').textContent =
+                    `💡 AI Suggested Price: ₹${data.suggested_price}`;
+            });
+    }
+
+    const categoryEl = document.getElementById('id_category');
+    const conditionEl = document.getElementById('id_condition');
+    if (categoryEl) categoryEl.addEventListener('change', fetchSuggestion);
+    if (conditionEl) conditionEl.addEventListener('change', fetchSuggestion);
+</script>
+{% endblock %}

@@ -1,18 +1,13 @@
-<h1>Welcome to Book Bridge!</h1>
-
-{% if user.is_authenticated %}
-    <p>Hello, {{ user.username }}!</p>
-    <p>
-        <a href="{% url 'accounts:profile' %}">My Profile</a>
-        |
-        <a href="{% url 'password_change' %}">Change Password</a>
-        |
-        <a href="{% url 'accounts:logout' %}">Logout</a>
-    </p>
-{% else %}
-    <p>
-        <a href="{% url 'accounts:signup' %}">Sign Up</a>
-        |
-        <a href="{% url 'accounts:login' %}">Login</a>
-    </p>
-{% endif %}
+{% extends 'core/base.html' %}
+{% block content %}
+<div class="text-center py-5">
+    <h1 class="display-4">📚 Welcome to Book Bridge!</h1>
+    <p class="lead">Buy and sell used books easily.</p>
+    {% if user.is_authenticated %}
+        <p class="fs-5">Hello, <strong>{{ user.username }}</strong>!</p>
+    {% else %}
+        <a href="{% url 'accounts:signup' %}" class="btn btn-primary btn-lg me-2">Sign Up</a>
+        <a href="{% url 'accounts:login' %}" class="btn btn-outline-primary btn-lg">Login</a>
+    {% endif %}
+</div>
+{% endblock %}

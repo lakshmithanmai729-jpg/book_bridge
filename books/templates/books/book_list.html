@@ -1,0 +1,79 @@
+{% extends 'core/base.html' %}
+{% block content %}
+
+<form method="GET" class="row g-2 mb-4">
+    <div class="col-md-3">
+        <input type="text" name="q" class="form-control" placeholder="Search title/author" value="{{ request.GET.q }}">
+    </div>
+    <div class="col-md-2">
+        <select name="category" class="form-select">
+            <option value="">All Categories</option>
+            {% for cat in categories %}
+                <option value="{{ cat.id }}" {% if request.GET.category == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-2">
+        <select name="condition" class="form-select">
+            <option value="">Any Condition</option>
+            <option value="new">New</option>
+            <option value="like_new">Like New</option>
+            <option value="good">Good</option>
+            <option value="fair">Fair</option>
+            <option value="poor">Poor</option>
+        </select>
+    </div>
+    <div class="col-md-1">
+        <input type="number" name="min_price" class="form-control" placeholder="Min ₹">
+    </div>
+    <div class="col-md-1">
+        <input type="number" name="max_price" class="form-control" placeholder="Max ₹">
+    </div>
+    <div class="col-md-2">
+        <select name="sort" class="form-select">
+            <option value="">Sort By</option>
+            <option value="newest">Newest</option>
+            <option value="price_low">Price: Low to High</option>
+            <option value="price_high">Price: High to Low</option>
+        </select>
+    </div>
+    <div class="col-md-1">
+        <button type="submit" class="btn btn-primary w-100">Go</button>
+    </div>
+</form>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>All Books</h2>
+    <div>
+        {% if user.is_authenticated %}
+            <a href="{% url 'books:wishlist' %}" class="btn btn-outline-danger">♥ My Wishlist</a>
+        {% endif %}
+        <a href="{% url 'books:book_add' %}" class="btn btn-success">+ Add New Book</a>
+    </div>
+</div>
+
+<div class="row">
+    {% for book in books %}
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                {% if book.image %}
+                    <img src="{{ book.image.url }}" class="card-img-top" style="height:200px; object-fit:cover;">
+                {% endif %}
+                <div class="card-body">
+                    <h5 class="card-title">{{ book.title }}</h5>
+                    <p class="card-text">by {{ book.author }}</p>
+                    <p class="card-text"><strong>₹{{ book.price }}</strong> — {{ book.get_condition_display }}</p>
+                    <a href="{% url 'books:book_detail' book.pk %}" class="btn btn-outline-primary">View Details</a>
+                    {% if user.is_authenticated %}
+                        <a href="{% url 'books:wishlist_toggle' book.pk %}" class="btn btn-outline-danger">
+                            {% if book.id in wishlist_ids %}♥ Remove{% else %}♡ Wishlist{% endif %}
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    {% empty %}
+        <p>No books found.</p>
+    {% endfor %}
+</div>
+{% endblock %}
