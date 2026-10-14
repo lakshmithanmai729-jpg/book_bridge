@@ -2,35 +2,499 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Book Bridge{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>{% block title %}BookBridge - Buy & Sell Books Nearby{% endblock %}</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Bootstrap 5 & Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    
+    <style>
+        :root {
+            --bb-primary: #0284c7;
+            --bb-primary-dark: #0369a1;
+            --bb-cyan: #38bdf8;
+            --bb-accent: #6366f1;
+            --bb-green: #10b981;
+            --bb-bg: #f8fafc;
+            --bb-surface: #ffffff;
+            --bb-text: #0f172a;
+            --bb-text-muted: #64748b;
+            --bb-border: #e2e8f0;
+            --bb-radius: 18px;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #e2e8f0;
+            color: var(--bb-text);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+
+        /* Responsive Dashboard Container (Spacious on laptop, 100% on mobile) */
+        .bb-app-container {
+            width: 100%;
+            max-width: 680px;
+            margin: 0 auto;
+            background: #ffffff;
+            min-height: 100vh;
+            position: relative;
+            box-shadow: 0 0 50px rgba(15, 23, 42, 0.12);
+            padding-bottom: 95px; /* space for bottom nav */
+        }
+
+        /* Top Brand Bar (Subtle & clean) */
+        .bb-top-brand {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 18px 4px;
+            background: #ffffff;
+        }
+        .bb-brand-title {
+            font-size: 1.25rem;
+            font-weight: 900;
+            color: #0f172a;
+            letter-spacing: -0.5px;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .bb-brand-title span {
+            color: #0284c7;
+        }
+
+        /* Floating Search Row (Matching Screenshot 1) */
+        .bb-search-chat-row {
+            padding: 8px 18px 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #ffffff;
+            position: sticky;
+            top: 0;
+            z-index: 1020;
+        }
+        .bb-search-box {
+            flex: 1;
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 14px;
+            padding: 11px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            transition: all 0.2s;
+        }
+        .bb-search-box:focus-within {
+            border-color: #0284c7;
+            box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+        }
+        .bb-search-box input {
+            border: none;
+            outline: none;
+            width: 100%;
+            font-size: 1rem;
+            color: #1e293b;
+            background: transparent;
+        }
+        .bb-search-box input::placeholder {
+            color: #64748b;
+            font-weight: 500;
+        }
+        .bb-chat-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: #1e293b;
+            color: #ffffff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.35rem;
+            text-decoration: none;
+            flex-shrink: 0;
+            box-shadow: 0 4px 10px rgba(30, 41, 59, 0.25);
+            transition: transform 0.15s;
+        }
+        .bb-chat-btn:hover {
+            transform: scale(1.05);
+            color: #ffffff;
+        }
+
+        /* Section Headers with Arrow */
+        .bb-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 18px 8px;
+        }
+        .bb-section-title {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #0f172a;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .bb-section-arrow {
+            color: #0f172a;
+            font-size: 1.25rem;
+            text-decoration: none;
+            transition: transform 0.15s;
+        }
+        .bb-section-arrow:hover {
+            transform: translateX(4px);
+            color: #0284c7;
+        }
+
+        .location-btn-pill {
+            background: #ffffff;
+            border: 1px solid #1e293b;
+            color: #0f172a;
+            font-size: 0.8rem;
+            font-weight: 700;
+            border-radius: 9999px;
+            padding: 4px 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .location-btn-pill:hover {
+            background: #f1f5f9;
+        }
+
+        /* Horizontal Scroll Carousel */
+        .bb-h-scroll {
+            display: flex;
+            gap: 14px;
+            overflow-x: auto;
+            padding: 4px 18px 16px;
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+        }
+        .bb-h-scroll::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Book Card Matching Screenshot */
+        .bb-book-card {
+            flex: 0 0 160px;
+            width: 160px;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+        }
+        .bb-card-img-wrap {
+            position: relative;
+            width: 100%;
+            height: 215px;
+            border-radius: 18px;
+            overflow: hidden;
+            background: #f1f5f9;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+        }
+        .bb-card-img-wrap img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.2s;
+        }
+        .bb-book-card:hover .bb-card-img-wrap img {
+            transform: scale(1.03);
+        }
+
+        .card-heart-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #0284c7;
+            font-size: 1.1rem;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+            border: 1px solid rgba(2, 132, 199, 0.25);
+            text-decoration: none;
+        }
+
+        .bb-price-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 8px;
+            margin-bottom: 2px;
+        }
+        .bb-price-val {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: #0f172a;
+        }
+        .bb-distance-tag {
+            background: #dcfce7;
+            color: #15803d;
+            font-size: 0.72rem;
+            font-weight: 800;
+            padding: 3px 8px;
+            border-radius: 9999px;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+        }
+        .bb-book-name {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #334155;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin: 0;
+        }
+
+        /* Trending Categories 2x3 Grid */
+        .bb-cat-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            padding: 4px 18px 18px;
+        }
+        .bb-cat-tile {
+            position: relative;
+            border-radius: 18px;
+            overflow: hidden;
+            height: 115px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .bb-cat-tile:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 18px rgba(0,0,0,0.15);
+        }
+        .bb-cat-label {
+            color: #ffffff;
+            font-weight: 900;
+            font-size: 1rem;
+            text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
+            letter-spacing: 0.3px;
+            padding: 4px 10px;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(2px);
+            border-radius: 8px;
+        }
+
+        /* Banner: GET FREE BOOKS */
+        .free-books-box {
+            margin: 8px 18px 18px;
+            border-radius: 20px;
+            overflow: hidden;
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 40%, #312e81 100%);
+            padding: 22px 20px;
+            color: #ffffff;
+            box-shadow: 0 8px 24px rgba(49, 46, 129, 0.25);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            text-decoration: none;
+        }
+        .free-books-heading {
+            font-size: 1.65rem;
+            font-weight: 900;
+            margin: 0;
+            letter-spacing: 1px;
+            line-height: 1.1;
+            background: linear-gradient(180deg, #38bdf8 0%, #a5f3fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Category Nav Rows */
+        .cat-nav-wrap {
+            padding: 0 18px;
+            margin-bottom: 12px;
+        }
+        .cat-nav-link {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px 4px;
+            text-decoration: none;
+            color: #0f172a;
+            font-weight: 800;
+            font-size: 1.1rem;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        /* Mission Card */
+        .mission-box {
+            margin: 16px 18px;
+            background: #fffbeb;
+            border: 1px solid #fef3c7;
+            border-radius: 20px;
+            padding: 20px 18px;
+            box-shadow: 0 4px 14px rgba(245, 158, 11, 0.08);
+        }
+
+        /* Bottom Navigation Bar (Matched to screenshot with center + Sell button) */
+        .bb-bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 680px;
+            background: #ffffff;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-around;
+            padding: 8px 12px 10px;
+            z-index: 1040;
+            box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.06);
+        }
+        .bb-nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            color: #64748b;
+            font-size: 0.74rem;
+            font-weight: 600;
+            flex: 1;
+            transition: color 0.15s;
+        }
+        .bb-nav-item i {
+            font-size: 1.35rem;
+            margin-bottom: 2px;
+        }
+        .bb-nav-item.active {
+            color: #0f172a;
+            font-weight: 800;
+        }
+        .center-sell-pill {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            box-shadow: 0 6px 18px rgba(2, 132, 199, 0.45);
+            text-decoration: none;
+            border: 4px solid #ffffff;
+            margin-top: -26px;
+        }
+        .center-sell-pill:hover {
+            color: #ffffff;
+            transform: scale(1.05);
+        }
+
+        /* Safe Deal Card */
+        .safe-deal-card {
+            border: 1px solid #fee2e2;
+            border-left: 5px solid #ef4444;
+            background: #ffffff;
+            border-radius: 14px;
+            padding: 18px;
+            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.06);
+        }
+    </style>
 </head>
 <body>
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
-    <div class="container">
-        <a class="navbar-brand" href="{% url 'core:home' %}">📚 Book Bridge</a>
-        <div class="navbar-nav">
-            <a class="nav-link" href="{% url 'books:book_list' %}">Browse Books</a>
-            {% if user.is_authenticated %}
-                <a class="nav-link" href="{% url 'books:book_add' %}">Add Book</a>
-                <a class="nav-link" href="{% url 'accounts:profile' %}">My Profile</a>
-                <a class="nav-link" href="{% url 'password_change' %}">Change Password</a>
-                <a class="nav-link" href="{% url 'accounts:logout' %}">Logout ({{ user.username }})</a>
-            {% else %}
-                <a class="nav-link" href="{% url 'accounts:signup' %}">Sign Up</a>
-                <a class="nav-link" href="{% url 'accounts:login' %}">Login</a>
-            {% endif %}
-        </div>
-    </div>
-</nav>
-
-<div class="container">
+<div class="bb-app-container">
     {% block content %}
     {% endblock %}
+
+    <!-- Bottom Navigation Bar (Matching Screenshot on All Devices) -->
+    <nav class="bb-bottom-nav">
+        <a href="{% url 'core:home' %}" class="bb-nav-item {% if request.path == '/' %}active{% endif %}">
+            <i class="bi bi-house-door-fill"></i>
+            <span>Home</span>
+        </a>
+        <a href="{% url 'books:wishlist' %}" class="bb-nav-item {% if '/wishlist/' in request.path %}active{% endif %}">
+            <i class="bi bi-book-half"></i>
+            <span>My Books</span>
+        </a>
+        <div class="d-flex flex-column align-items-center" style="flex: 1;">
+            <a href="{% url 'books:book_add' %}" class="center-sell-pill">
+                <i class="bi bi-plus-lg"></i>
+            </a>
+            <span style="font-size: 0.72rem; font-weight: 700; color: #64748b; margin-top: 2px;">Sell Now</span>
+        </div>
+        <a href="{% url 'books:book_list' %}" class="bb-nav-item {% if '/books/' in request.path and '/add/' not in request.path and '/wishlist/' not in request.path %}active{% endif %}">
+            <i class="bi bi-grid"></i>
+            <span>Category</span>
+        </a>
+        {% if user.is_authenticated %}
+            <a href="{% url 'accounts:profile' %}" class="bb-nav-item {% if '/accounts/' in request.path and '/messages/' not in request.path %}active{% endif %}">
+                <i class="bi bi-person"></i>
+                <span>Account</span>
+            </a>
+        {% else %}
+            <a href="{% url 'accounts:login' %}" class="bb-nav-item">
+                <i class="bi bi-person"></i>
+                <span>Account</span>
+            </a>
+        {% endif %}
+    </nav>
+</div>
+
+<!-- Location Modal -->
+<div class="modal fade" id="locationModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold"><i class="bi bi-geo-alt-fill text-danger me-2"></i>Update Location</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small">Choose your location to find books within your neighborhood or college campus.</p>
+                <form method="GET" action="{% url 'books:book_list' %}">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Location / Area</label>
+                        <input type="text" name="location" class="form-control rounded-3" placeholder="e.g. Kothapeta, Dhone" value="Kothapeta, Dhone">
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 rounded-pill py-2 fw-bold" style="background:#0284c7; border:none;">
+                        Set Location
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    function openLocationModal() {
+        new bootstrap.Modal(document.getElementById('locationModal')).show();
+    }
+</script>
 </body>
 </html>

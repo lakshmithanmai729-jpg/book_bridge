@@ -5,4 +5,13 @@ from .models import Book
 class BookForm(forms.ModelForm):
     class Meta:
         model = Book
-        fields = ['title', 'author', 'category', 'description', 'price', 'condition', 'image']
+        fields = [
+            'title', 'author', 'category', 'description', 'price', 'condition',
+            'location_city', 'location_area', 'pincode', 'contact_phone', 'image'
+        ]
+        widgets = {
+            'location_city': forms.TextInput(attrs={'placeholder': 'e.g. Hyderabad'}),
+            'location_area': forms.TextInput(attrs={'placeholder': 'e.g. Madhapur, JNTU Campus'}),
+            'pincode': forms.TextInput(attrs={'placeholder': 'e.g. 500085'}),
+            'contact_phone': forms.TextInput(attrs={'placeholder': 'e.g. 9876543210 (WhatsApp preferred)'}),
+        }

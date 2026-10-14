@@ -11,7 +11,29 @@ def book_list(request):
 
     query = request.GET.get('q')
     if query:
-        books = books.filter(Q(title__icontains=query) | Q(author__icontains=query))
+        books = books.filter(
+            Q(title__icontains=query) |
+            Q(author__icontains=query) |
+            Q(location_city__icontains=query) |
+            Q(location_area__icontains=query) |
+            Q(pincode__icontains=query)
+        )
+
+    location_query = request.GET.get('location')
+    if location_query:
+        books = books.filter(
+            Q(location_city__icontains=location_query) |
+            Q(location_area__icontains=location_query) |
+            Q(pincode__icontains=location_query)
+        )
+
+    city = request.GET.get('city')
+    if city:
+        books = books.filter(location_city__iexact=city)
+
+    pincode = request.GET.get('pincode')
+    if pincode:
+        books = books.filter(pincode__icontains=pincode)
 
     category_id = request.GET.get('category')
     if category_id:
@@ -38,6 +60,7 @@ def book_list(request):
         books = books.order_by('-created_at')
 
     categories = Category.objects.all()
+    cities = Book.objects.exclude(location_city='').values_list('location_city', flat=True).distinct()
 
     wishlist_ids = []
     if request.user.is_authenticated:
@@ -46,6 +69,7 @@ def book_list(request):
     return render(request, 'books/book_list.html', {
         'books': books,
         'categories': categories,
+        'cities': cities,
         'wishlist_ids': wishlist_ids,
     })
 
@@ -59,15 +83,58 @@ def book_detail(request, pk):
 @login_required
 def book_add(request):
     if request.method == 'POST':
-        form = BookForm(request.POST, request.FILES)
-        if form.is_valid():
-            book = form.save(commit=False)
-            book.seller = request.user
-            book.save()
-            return redirect('books:book_list')
+        title = request.POST.get('title', '').strip()
+        author = request.POST.get('author', '').strip() or 'Various'
+        category_id = request.POST.get('category')
+        price_val = request.POST.get('price', '0').strip()
+        is_donation = request.POST.get('is_donation') == 'true'
+        listing_type = request.POST.get('listing_type', 'single')
+        condition = request.POST.get('condition', 'good')
+        description = request.POST.get('description', '')
+
+        # User profile defaults
+        user_profile = getattr(request.user, 'profile', None)
+        default_phone = user_profile.phone_number if user_profile else ''
+        default_loc = user_profile.location if user_profile else 'Dhone, Andhra Pradesh'
+
+        contact_phone = request.POST.get('contact_phone', '').strip() or default_phone
+        location_area = request.POST.get('location_area', '').strip() or default_loc
+        location_city = request.POST.get('location_city', '').strip() or 'Dhone'
+        pincode = request.POST.get('pincode', '').strip() or '518222'
+
+        image_file = request.FILES.get('image')
+
+        try:
+            price = float(price_val) if not is_donation else 0.0
+        except ValueError:
+            price = 0.0
+
+        category = Category.objects.filter(id=category_id).first() if category_id else None
+
+        book = Book.objects.create(
+            seller=request.user,
+            title=title,
+            author=author,
+            category=category,
+            price=price,
+            is_donation=is_donation,
+            listing_type=listing_type,
+            condition=condition,
+            description=description,
+            location_area=location_area,
+            location_city=location_city,
+            pincode=pincode,
+            contact_phone=contact_phone,
+            image=image_file,
+        )
+        return redirect('books:book_detail', pk=book.pk)
     else:
-        form = BookForm()
-    return render(request, 'books/book_form.html', {'form': form})
+        categories = Category.objects.all()
+        user_profile = getattr(request.user, 'profile', None)
+    return render(request, 'books/book_form.html', {
+        'categories': categories,
+        'user_profile': user_profile,
+    })
 
 
 @login_required

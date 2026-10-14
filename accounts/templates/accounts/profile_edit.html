@@ -1,0 +1,103 @@
+{% extends 'core/base.html' %}
+{% block title %}My Profile - BookBridge{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6 col-md-8">
+        <!-- Header with Back Arrow (Matching Screenshot 4) -->
+        <div class="d-flex align-items-center gap-3 mb-4">
+            <a href="{% url 'accounts:profile' %}" class="btn btn-light rounded-circle shadow-sm p-2" style="width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center;">
+                <i class="bi bi-arrow-left fs-5"></i>
+            </a>
+            <h4 class="fw-bold mb-0">My Profile</h4>
+        </div>
+
+        <div class="card border-0 rounded-4 shadow-sm p-4 bg-white mb-5">
+            <form method="POST">
+                {% csrf_token %}
+
+                <!-- Name Field -->
+                <div class="mb-4">
+                    <label class="form-label text-muted small fw-bold">Name</label>
+                    <input type="text" name="name" class="form-control form-control-lg border-0 border-bottom rounded-0 px-0 fs-6 fw-semibold text-dark" value="{{ profile.name|default:user.username }}" required>
+                </div>
+
+                <!-- Phone number Field -->
+                <div class="mb-4">
+                    <label class="form-label text-muted small fw-bold">Phone number</label>
+                    <input type="text" name="phone_number" class="form-control form-control-lg border-0 border-bottom rounded-0 px-0 fs-6 fw-semibold text-dark" value="{{ profile.phone_number }}" placeholder="e.g. 918341519514">
+                </div>
+
+                <!-- Email Id Field -->
+                <div class="mb-4">
+                    <label class="form-label text-muted small fw-bold">Email Id</label>
+                    <input type="email" name="email" class="form-control form-control-lg border-0 border-bottom rounded-0 px-0 fs-6 fw-semibold text-dark" value="{{ user.email }}" placeholder="e.g. yourname@gmail.com">
+                </div>
+
+                <!-- Location Field -->
+                <div class="mb-4">
+                    <label class="form-label text-muted small fw-bold">Location</label>
+                    <input type="text" name="location" id="profile-location-input" class="form-control form-control-lg border-0 border-bottom rounded-0 px-0 fs-6 fw-semibold text-dark" value="{{ profile.location }}" placeholder="e.g. CV4G+7XX, Dhone at Dronachalam, Kothapeta, Dhone, Andhra Pradesh 518222, India">
+                </div>
+
+                <!-- Account Privacy (Matching Screenshot 4) -->
+                <div class="mb-4">
+                    <label class="form-label text-muted small fw-bold d-block">Account Privacy</label>
+                    <div class="d-flex align-items-center gap-4 mb-2">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="account_privacy" id="privacyPublic" value="public" {% if profile.account_privacy == 'public' %}checked{% endif %}>
+                            <label class="form-check-label fw-semibold" for="privacyPublic">
+                                Public
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="account_privacy" id="privacyPrivate" value="private" {% if profile.account_privacy == 'private' or not profile.account_privacy %}checked{% endif %}>
+                            <label class="form-check-label fw-semibold" for="privacyPrivate">
+                                Private
+                            </label>
+                        </div>
+                    </div>
+                    <small class="text-muted d-block line-height-sm">
+                        Public allows buyers to contact you via WhatsApp and in-app chat, while Private keeps your phone number hidden and allows chat only.
+                    </small>
+                </div>
+
+                <!-- Action Buttons (Matching Screenshot 4) -->
+                <div class="d-flex gap-3 pt-3">
+                    <button type="button" class="btn btn-light rounded-4 py-3 fw-bold flex-grow-1" style="background: #e0f2fe; color: #0284c7; border: none;" onclick="detectGPSProfile()">
+                        Change Location
+                    </button>
+                    <button type="submit" class="btn btn-primary rounded-4 py-3 fw-bold flex-grow-1 shadow-sm" style="background: #0284c7; border: none;">
+                        Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function detectGPSProfile() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                function(pos) {
+                    const loc = "Kothapeta, Dhone, Andhra Pradesh";
+                    document.getElementById('profile-location-input').value = loc;
+                    alert('Location updated to: ' + loc);
+                },
+                function(err) {
+                    const manual = prompt('Enter your location (City/Area/Pincode):', 'Kothapeta, Dhone');
+                    if (manual) {
+                        document.getElementById('profile-location-input').value = manual;
+                    }
+                }
+            );
+        } else {
+            const manual = prompt('Enter your location (City/Area/Pincode):', 'Kothapeta, Dhone');
+            if (manual) {
+                document.getElementById('profile-location-input').value = manual;
+            }
+        }
+    }
+</script>
+{% endblock %}

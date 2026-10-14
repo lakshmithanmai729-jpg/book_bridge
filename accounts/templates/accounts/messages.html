@@ -1,0 +1,32 @@
+{% extends 'core/base.html' %}
+{% block title %}Messages - BookBridge{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6 col-md-8">
+        <!-- Header with Back Arrow (Matching Screenshot 2) -->
+        <div class="d-flex align-items-center gap-3 mb-4">
+            <a href="javascript:history.back()" class="btn btn-light rounded-circle shadow-sm p-2" style="width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center;">
+                <i class="bi bi-arrow-left fs-5"></i>
+            </a>
+            <h4 class="fw-bold mb-0">Messages</h4>
+        </div>
+
+        <!-- Empty Chats State (Matching Screenshot 2) -->
+        <div class="card border-0 rounded-4 shadow-sm p-5 bg-white text-center my-4" style="min-height: 400px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+            <div class="mb-3" style="width: 72px; height: 72px; background: #f1f5f9; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                <i class="bi bi-chat-dots-fill fs-1 text-muted"></i>
+            </div>
+            <h3 class="fw-bold text-dark mb-2">No Chats yet</h3>
+            <p class="text-muted" style="max-width: 320px; font-size: 0.95rem;">
+                Buyers queries regarding your books will appear here
+            </p>
+            <div class="mt-4">
+                <a href="{% url 'books:book_list' %}" class="btn btn-outline-primary rounded-pill px-4 py-2 fw-semibold">
+                    Browse Books Nearby
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

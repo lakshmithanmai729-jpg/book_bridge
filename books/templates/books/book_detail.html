@@ -1,0 +1,171 @@
+{% extends 'core/base.html' %}
+{% block title %}{{ book.title }} - BookBridge{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7 col-md-9">
+        <!-- Header with Back Arrow, Report, Share, Wishlist (Matching Screenshot 5) -->
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <div class="d-flex align-items-center gap-2">
+                <a href="javascript:history.back()" class="btn btn-light rounded-circle shadow-sm p-2" style="width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center;">
+                    <i class="bi bi-arrow-left fs-5"></i>
+                </a>
+                <h5 class="fw-bold mb-0">Book Details</h5>
+            </div>
+
+            <div class="d-flex align-items-center gap-2">
+                <!-- Report Icon -->
+                <button type="button" class="btn btn-light rounded-circle p-2 text-dark shadow-sm" style="width: 38px; height: 38px;" onclick="alert('Thank you. BookBridge safety team will review this listing.')" title="Report Listing">
+                    <i class="bi bi-exclamation-circle fs-5"></i>
+                </button>
+                <!-- Share Icon -->
+                <button type="button" class="btn btn-light rounded-circle p-2 text-dark shadow-sm" style="width: 38px; height: 38px;" onclick="shareListing()" title="Share">
+                    <i class="bi bi-share fs-5"></i>
+                </button>
+                <!-- Wishlist Icon -->
+                {% if user.is_authenticated %}
+                    <a href="{% url 'books:wishlist_toggle' book.pk %}" class="btn btn-light rounded-circle p-2 text-primary shadow-sm" style="width: 38px; height: 38px;">
+                        <i class="bi bi-heart-fill text-danger fs-5"></i>
+                    </a>
+                {% else %}
+                    <a href="{% url 'accounts:login' %}" class="btn btn-light rounded-circle p-2 text-primary shadow-sm" style="width: 38px; height: 38px;">
+                        <i class="bi bi-heart fs-5"></i>
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Book Image -->
+        <div class="card border-0 rounded-4 shadow-sm mb-4 bg-white overflow-hidden text-center">
+            {% if book.image %}
+                <img src="{{ book.image.url }}" alt="{{ book.title }}" style="max-height: 420px; width: 100%; object-fit: contain; background: #f8fafc; padding: 12px;">
+            {% else %}
+                <div class="d-flex align-items-center justify-content-center bg-light" style="height: 280px;">
+                    <span class="fs-1 text-muted">📖</span>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Book Title & Subtitle (Matching Screenshot 5) -->
+        <div class="mb-3">
+            <h3 class="fw-bold text-dark mb-1">{{ book.title }}</h3>
+            <p class="text-muted small mb-2">{{ book.title }} (Class XI–XII, Competitive Prep).</p>
+        </div>
+
+        <!-- Pricing Details (Matching Screenshot 5) -->
+        <div class="mb-3">
+            <div class="text-muted small">Original MRP: ₹{{ book.original_price|default:"700"|floatformat:0 }}</div>
+            <div class="fs-5 fw-bold text-dark">
+                Selling Price: ₹{{ book.price|floatformat:0 }} <span class="text-muted fw-normal fs-6">({% if book.is_negotiable %}Negotiable{% else %}Fixed{% endif %})</span>
+            </div>
+        </div>
+
+        <!-- Condition & Description (Matching Screenshot 5) -->
+        <div class="mb-4">
+            <p class="text-secondary" style="font-size: 0.95rem; line-height: 1.5;">
+                {{ book.description|default:"Book is in good condition, almost new. Suitable for aspirants. Local pickup only." }}
+            </p>
+        </div>
+
+        <!-- Category & Author Pills (Matching Screenshot 5) -->
+        <div class="d-flex flex-column gap-2 mb-4">
+            <div class="d-flex align-items-center gap-3">
+                <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; background: #e0f2fe; color: #0284c7;">
+                    <i class="bi bi-grid-fill"></i>
+                </div>
+                <div class="fw-semibold text-dark">
+                    Category &nbsp;–&nbsp; <span class="fw-bold">{{ book.category.name|default:"General" }}</span>
+                </div>
+            </div>
+
+            <div class="d-flex align-items-center gap-3">
+                <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; background: #e0f2fe; color: #0284c7;">
+                    <i class="bi bi-feather"></i>
+                </div>
+                <div class="fw-semibold text-dark">
+                    Author &nbsp;–&nbsp; <span class="fw-bold">{{ book.author }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Location Box (Matching Screenshot 5) -->
+        <div class="card border rounded-4 p-3 mb-4 bg-white shadow-sm">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <small class="text-muted fw-bold d-block text-uppercase" style="letter-spacing: 0.5px;">LOCATION</small>
+                    <span class="fw-bold text-dark fs-6">
+                        {% if book.location_area %}{{ book.location_area }}{% else %}{{ book.location_city|default:"Kothapeta, Dhone" }}{% endif %}
+                    </span>
+                </div>
+                <span class="bb-distance-pill fs-6 py-1 px-3">
+                    <i class="bi bi-geo-alt-fill text-success"></i> &lt; 100 m
+                </span>
+            </div>
+        </div>
+
+        <!-- Tips for a Safe Deal Card (Matching Screenshot 5 EXACTLY) -->
+        <div class="safe-deal-card mb-5">
+            <div class="d-flex align-items-center gap-2 mb-3 text-danger fw-bold fs-6">
+                <i class="bi bi-shield-fill-exclamation fs-5"></i> Tips for a safe deal
+            </div>
+            
+            <div class="d-flex align-items-start gap-2 mb-2">
+                <i class="bi bi-exclamation-triangle text-danger mt-1"></i>
+                <span class="text-dark small">Never give money or product in advance.</span>
+            </div>
+
+            <div class="d-flex align-items-start gap-2 mb-2">
+                <i class="bi bi-credit-card text-danger mt-1"></i>
+                <span class="text-dark small">Do not enter UPI PIN while receiving money.</span>
+            </div>
+
+            <div class="d-flex align-items-start gap-2 mb-3">
+                <i class="bi bi-shield-check text-danger mt-1"></i>
+                <span class="text-dark small">Be safe, take necessary precautions while meeting with buyers and sellers.</span>
+            </div>
+
+            <hr class="text-muted my-2">
+
+            <small class="text-muted d-block" style="font-size: 0.76rem; line-height: 1.4;">
+                BookBridge is not responsible for any fraudulent activities. It is just a medium to connect you with nearby sellers.
+            </small>
+        </div>
+
+        <!-- Bottom Sticky Chat Action Bar (Matching Screenshot 5) -->
+        <div class="fixed-bottom bg-white border-top py-3 shadow-lg" style="z-index: 1045;">
+            <div class="container text-center" style="max-width: 600px;">
+                <div class="small text-muted mb-2">Available for sale</div>
+                {% if book.contact_phone %}
+                    <a href="https://wa.me/91{{ book.contact_phone }}?text=Hi%20{{ book.seller.username }},%20I%20am%20interested%20in%20your%20book%20'{{ book.title|urlencode }}'%20on%20BookBridge." 
+                       target="_blank" 
+                       class="btn btn-outline-primary w-100 rounded-pill py-2 fw-bold d-flex align-items-center justify-content-center gap-2" 
+                       style="border-color: #0284c7; color: #0284c7; font-size: 1.05rem;">
+                        <i class="bi bi-chat-dots-fill"></i> Chat
+                    </a>
+                {% else %}
+                    <a href="{% url 'accounts:messages' %}" 
+                       class="btn btn-outline-primary w-100 rounded-pill py-2 fw-bold d-flex align-items-center justify-content-center gap-2" 
+                       style="border-color: #0284c7; color: #0284c7; font-size: 1.05rem;">
+                        <i class="bi bi-chat-dots-fill"></i> Chat
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function shareListing() {
+        if (navigator.share) {
+            navigator.share({
+                title: '{{ book.title }} on BookBridge',
+                text: 'Check out this book on BookBridge!',
+                url: window.location.href,
+            });
+        } else {
+            navigator.clipboard.writeText(window.location.href);
+            alert('BookBridge link copied to clipboard!');
+        }
+    }
+</script>
+{% endblock %}

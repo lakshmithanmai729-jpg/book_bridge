@@ -1,11 +1,103 @@
 {% extends 'core/base.html' %}
+{% block title %}Your Account - BookBridge{% endblock %}
+
 {% block content %}
-<div class="card" style="max-width: 400px;">
-    <div class="card-body">
-        <h3 class="card-title">My Profile</h3>
-        <p><strong>Username:</strong> {{ user.username }}</p>
-        <p><strong>Email:</strong> {{ user.email }}</p>
-        <a href="{% url 'core:home' %}" class="btn btn-secondary">Back to Home</a>
+<div class="row justify-content-center">
+    <div class="col-lg-6 col-md-8">
+        <h4 class="fw-bold mb-3 text-center">Your Account</h4>
+
+        <!-- Profile Card -->
+        <div class="card border-0 rounded-4 shadow-sm p-3 mb-3 bg-white">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-4 bg-light d-flex align-items-center justify-content-center" style="width: 58px; height: 58px; background: #e2e8f0;">
+                        <i class="bi bi-person-fill fs-2 text-secondary"></i>
+                    </div>
+                    <div>
+                        <h5 class="fw-bold mb-0 text-dark">{{ profile.name|default:user.username }}</h5>
+                        {% if profile.location %}
+                            <small class="text-muted d-block text-truncate" style="max-width: 220px;">
+                                <i class="bi bi-geo-alt-fill text-danger"></i> {{ profile.location }}
+                            </small>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Edit Button (Matching Screenshot 1) -->
+                <a href="{% url 'accounts:profile_edit' %}" class="btn rounded-pill px-3 py-2 fw-bold d-inline-flex align-items-center gap-2" style="background: #e0f2fe; color: #0284c7; border: none;">
+                    <i class="bi bi-pencil-fill small"></i> Edit
+                </a>
+            </div>
+        </div>
+
+        <!-- Menu List Card (Matching Screenshot 1) -->
+        <div class="card border-0 rounded-4 shadow-sm bg-white mb-4 overflow-hidden">
+            <div class="list-group list-group-flush">
+                <!-- My Favourites -->
+                <a href="{% url 'books:wishlist' %}" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between py-3 px-4 border-bottom">
+                    <div class="d-flex align-items-center gap-3">
+                        <i class="bi bi-heart-fill text-primary fs-5"></i>
+                        <span class="fw-semibold text-dark">My Favourites</span>
+                    </div>
+                    <i class="bi bi-chevron-right text-dark fw-bold"></i>
+                </a>
+
+                <!-- Update Location -->
+                <a href="javascript:void(0)" onclick="openLocationModal()" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between py-3 px-4 border-bottom">
+                    <div class="d-flex align-items-center gap-3">
+                        <i class="bi bi-geo-alt-fill text-success fs-5"></i>
+                        <span class="fw-semibold text-dark">Update location</span>
+                    </div>
+                    <i class="bi bi-chevron-right text-dark fw-bold"></i>
+                </a>
+
+                <!-- Refer and Earn -->
+                <a href="javascript:void(0)" onclick="alert('Share BookBridge with your friends and earn rewards on your next book!')" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between py-3 px-4 border-bottom">
+                    <div class="d-flex align-items-center gap-3">
+                        <i class="bi bi-megaphone-fill text-dark fs-5"></i>
+                        <span class="fw-semibold text-dark">Refer and Earn</span>
+                    </div>
+                    <i class="bi bi-chevron-right text-dark fw-bold"></i>
+                </a>
+
+                <!-- Request a book -->
+                <a href="javascript:void(0)" onclick="alert('Book Request submitted! Nearby students with this book will be notified.')" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between py-3 px-4 border-bottom">
+                    <div class="d-flex align-items-center gap-3">
+                        <i class="bi bi-shop text-dark fs-5"></i>
+                        <span class="fw-semibold text-dark">Request a book</span>
+                    </div>
+                    <i class="bi bi-chevron-right text-dark fw-bold"></i>
+                </a>
+
+                <!-- Support & Help -->
+                <a href="javascript:void(0)" onclick="alert('BookBridge Support: Contact us on WhatsApp or email support@bookbridge.local')" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between py-3 px-4">
+                    <div class="d-flex align-items-center gap-3">
+                        <i class="bi bi-headset text-dark fs-5"></i>
+                        <span class="fw-semibold text-dark">Support & Help</span>
+                    </div>
+                    <i class="bi bi-chevron-right text-dark fw-bold"></i>
+                </a>
+            </div>
+
+            <!-- Follow Us Section (Matching Screenshot 1) -->
+            <div class="p-4 text-center border-top">
+                <small class="fw-bold text-muted d-block mb-3">Follow Us</small>
+                <div class="d-flex justify-content-center gap-4">
+                    <a href="https://instagram.com" target="_blank" class="text-decoration-none">
+                        <i class="bi bi-instagram fs-2" style="color: #e1306c;"></i>
+                    </a>
+                    <a href="https://youtube.com" target="_blank" class="text-decoration-none">
+                        <i class="bi bi-youtube fs-2" style="color: #ff0000;"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mb-5">
+            <a href="{% url 'accounts:logout' %}" class="btn btn-outline-danger rounded-pill px-4 py-2 fw-semibold">
+                <i class="bi bi-box-arrow-right"></i> Logout from BookBridge
+            </a>
+        </div>
     </div>
 </div>
 {% endblock %}

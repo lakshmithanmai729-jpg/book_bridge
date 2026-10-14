@@ -1,13 +1,277 @@
 {% extends 'core/base.html' %}
+{% block title %}BookBridge - Buy & Sell Books Nearby{% endblock %}
+
 {% block content %}
-<div class="text-center py-5">
-    <h1 class="display-4">📚 Welcome to Book Bridge!</h1>
-    <p class="lead">Buy and sell used books easily.</p>
-    {% if user.is_authenticated %}
-        <p class="fs-5">Hello, <strong>{{ user.username }}</strong>!</p>
-    {% else %}
-        <a href="{% url 'accounts:signup' %}" class="btn btn-primary btn-lg me-2">Sign Up</a>
-        <a href="{% url 'accounts:login' %}" class="btn btn-outline-primary btn-lg">Login</a>
-    {% endif %}
+<!-- Top Floating Search Row (Exact match to Screenshot) -->
+<div class="bb-search-chat-row">
+    <form action="{% url 'books:book_list' %}" method="GET" class="bb-search-box">
+        <i class="bi bi-search text-muted fs-5"></i>
+        <input type="text" name="q" placeholder="Class 12 books" value="{{ request.GET.q }}">
+        <i class="bi bi-mic text-muted fs-5"></i>
+    </form>
+    <a href="{% url 'accounts:messages' %}" class="bb-chat-btn" title="Messages">
+        <i class="bi bi-chat-dots-fill"></i>
+    </a>
 </div>
+
+<!-- Section 1: Your nearby books (Exact match to Screenshot) -->
+<div class="bb-section-header">
+    <div class="d-flex align-items-center gap-2">
+        <h3 class="bb-section-title">Your nearby books</h3>
+        <button type="button" class="location-btn-pill" onclick="openLocationModal()">
+            <i class="bi bi-geo-alt-fill text-dark"></i> Update Location
+        </button>
+    </div>
+    <a href="{% url 'books:book_list' %}" class="bb-section-arrow">
+        <i class="bi bi-arrow-right fs-4"></i>
+    </a>
+</div>
+
+<!-- Horizontal Scrolling Books Row -->
+<div class="bb-h-scroll">
+    {% for book in nearby_books %}
+        <div class="bb-book-card">
+            <div class="bb-card-img-wrap">
+                <a href="{% url 'books:book_detail' book.pk %}">
+                    {% if book.image %}
+                        <img src="{{ book.image.url }}" alt="{{ book.title }}">
+                    {% else %}
+                        <div class="d-flex align-items-center justify-content-center h-100 bg-light text-center p-2">
+                            <span class="text-muted fw-bold small">📖 {{ book.title|truncatechars:18 }}</span>
+                        </div>
+                    {% endif %}
+                </a>
+                
+                <!-- Wishlist Heart Button -->
+                {% if user.is_authenticated %}
+                    <a href="{% url 'books:wishlist_toggle' book.pk %}" class="card-heart-btn">
+                        <i class="bi {% if book.id in wishlist_ids %}bi-heart-fill text-danger{% else %}bi-heart text-primary{% endif %}"></i>
+                    </a>
+                {% else %}
+                    <a href="{% url 'accounts:login' %}" class="card-heart-btn">
+                        <i class="bi bi-heart text-primary"></i>
+                    </a>
+                {% endif %}
+            </div>
+
+            <!-- Price & Distance -->
+            <div class="bb-price-meta">
+                <span class="bb-price-val">₹ {{ book.price|floatformat:0 }}</span>
+                <span class="bb-distance-tag">
+                    <i class="bi bi-geo-alt-fill"></i> &lt; 100 m
+                </span>
+            </div>
+
+            <!-- Title -->
+            <a href="{% url 'books:book_detail' book.pk %}" class="text-decoration-none">
+                <p class="bb-book-name" title="{{ book.title }}">{{ book.title }}</p>
+            </a>
+        </div>
+    {% empty %}
+        <p class="text-muted small px-3">No books listed nearby yet.</p>
+    {% endfor %}
+</div>
+
+<!-- Section 2: Trending Categories (Exact match to Screenshot 2x3 Grid) -->
+<div class="bb-section-header">
+    <h3 class="bb-section-title">Trending Categories</h3>
+    <a href="{% url 'books:book_list' %}" class="bb-section-arrow">
+        <i class="bi bi-arrow-right fs-4"></i>
+    </a>
+</div>
+
+<div class="bb-cat-grid">
+    <!-- IIT-JEE -->
+    <a href="{% url 'books:book_list' %}?q=JEE" class="bb-cat-tile" style="background: linear-gradient(135deg, #0284c7 0%, #1e1b4b 100%);">
+        <div class="text-center">
+            <div class="fs-2 mb-1">🔬📚</div>
+            <span class="bb-cat-label">IIT-JEE</span>
+        </div>
+    </a>
+
+    <!-- NEET -->
+    <a href="{% url 'books:book_list' %}?q=NEET" class="bb-cat-tile" style="background: linear-gradient(135deg, #0d9488 0%, #064e3b 100%);">
+        <div class="text-center">
+            <div class="fs-2 mb-1">🧬🩺</div>
+            <span class="bb-cat-label">NEET</span>
+        </div>
+    </a>
+
+    <!-- Health -->
+    <a href="{% url 'books:book_list' %}?q=Health" class="bb-cat-tile" style="background: linear-gradient(135deg, #e11d48 0%, #4c0519 100%);">
+        <div class="text-center">
+            <div class="fs-2 mb-1">❤️💊</div>
+            <span class="bb-cat-label">Health</span>
+        </div>
+    </a>
+
+    <!-- 12th -->
+    <a href="{% url 'books:book_list' %}?q=12th" class="bb-cat-tile" style="background: linear-gradient(135deg, #4f46e5 0%, #1e1b4b 100%);">
+        <div class="text-center">
+            <div class="fs-2 mb-1">🎓📜</div>
+            <span class="bb-cat-label">12th</span>
+        </div>
+    </a>
+
+    <!-- Novels -->
+    <a href="{% url 'books:book_list' %}?q=Novel" class="bb-cat-tile" style="background: linear-gradient(135deg, #059669 0%, #14532d 100%);">
+        <div class="text-center">
+            <div class="fs-2 mb-1">📖🌄</div>
+            <span class="bb-cat-label">Novels</span>
+        </div>
+    </a>
+
+    <!-- Self-Help -->
+    <a href="{% url 'books:book_list' %}?q=Self-Help" class="bb-cat-tile" style="background: linear-gradient(135deg, #ea580c 0%, #7c2d12 100%);">
+        <div class="text-center">
+            <div class="fs-2 mb-1">🧗‍♂️🌅</div>
+            <span class="bb-cat-label">Self-Help</span>
+        </div>
+    </a>
+</div>
+
+<!-- Section 3: GET FREE BOOKS Treasure Banner -->
+<a href="{% url 'books:book_list' %}?sort=price_low" class="free-books-box">
+    <div>
+        <h2 class="free-books-heading">GET<br>FREE<br>BOOKS</h2>
+    </div>
+    <div style="font-size: 3.5rem;">
+        ✨📦📚
+    </div>
+</a>
+
+<!-- Section 4: Fiction / Non Fiction Rows -->
+<div class="cat-nav-wrap">
+    <a href="{% url 'books:book_list' %}?q=Fiction" class="cat-nav-link">
+        <span>Fiction Books</span>
+        <i class="bi bi-arrow-right fs-5"></i>
+    </a>
+    <a href="{% url 'books:book_list' %}?q=Non+Fiction" class="cat-nav-link">
+        <span>Non Fiction Books</span>
+        <i class="bi bi-arrow-right fs-5"></i>
+    </a>
+</div>
+
+<!-- Section 5: Recently Viewed -->
+<div class="bb-section-header">
+    <h3 class="bb-section-title">Recently Viewed</h3>
+    <a href="{% url 'books:book_list' %}" class="bb-section-arrow">
+        <i class="bi bi-arrow-right fs-4"></i>
+    </a>
+</div>
+
+<div class="bb-h-scroll">
+    {% for book in recent_books %}
+        <div class="bb-book-card">
+            <div class="bb-card-img-wrap">
+                <a href="{% url 'books:book_detail' book.pk %}">
+                    {% if book.image %}
+                        <img src="{{ book.image.url }}" alt="{{ book.title }}">
+                    {% else %}
+                        <div class="d-flex align-items-center justify-content-center h-100 bg-light text-center p-2">
+                            <span class="text-muted fw-bold small">📖 {{ book.title|truncatechars:18 }}</span>
+                        </div>
+                    {% endif %}
+                </a>
+                {% if user.is_authenticated %}
+                    <a href="{% url 'books:wishlist_toggle' book.pk %}" class="card-heart-btn">
+                        <i class="bi {% if book.id in wishlist_ids %}bi-heart-fill text-danger{% else %}bi-heart text-primary{% endif %}"></i>
+                    </a>
+                {% else %}
+                    <a href="{% url 'accounts:login' %}" class="card-heart-btn">
+                        <i class="bi bi-heart text-primary"></i>
+                    </a>
+                {% endif %}
+            </div>
+
+            <div class="bb-price-meta">
+                <span class="bb-price-val">₹ {{ book.price|floatformat:0 }}</span>
+                <span class="bb-distance-tag">
+                    <i class="bi bi-geo-alt-fill"></i> &lt; 100 m
+                </span>
+            </div>
+
+            <a href="{% url 'books:book_detail' book.pk %}" class="text-decoration-none">
+                <p class="bb-book-name" title="{{ book.title }}">{{ book.title }}</p>
+            </a>
+        </div>
+    {% endfor %}
+</div>
+
+<!-- Section 6: Boosted Books Nearby -->
+<div class="bb-section-header">
+    <h3 class="bb-section-title">Boosted Books Nearby</h3>
+    <a href="{% url 'books:book_list' %}" class="bb-section-arrow">
+        <i class="bi bi-arrow-right fs-4"></i>
+    </a>
+</div>
+
+<div class="bb-h-scroll">
+    {% for book in boosted_books %}
+        <div class="bb-book-card">
+            <div class="bb-card-img-wrap">
+                <a href="{% url 'books:book_detail' book.pk %}">
+                    {% if book.image %}
+                        <img src="{{ book.image.url }}" alt="{{ book.title }}">
+                    {% else %}
+                        <div class="d-flex align-items-center justify-content-center h-100 bg-light text-center p-2">
+                            <span class="text-muted fw-bold small">📖 {{ book.title|truncatechars:18 }}</span>
+                        </div>
+                    {% endif %}
+                </a>
+                {% if user.is_authenticated %}
+                    <a href="{% url 'books:wishlist_toggle' book.pk %}" class="card-heart-btn">
+                        <i class="bi {% if book.id in wishlist_ids %}bi-heart-fill text-danger{% else %}bi-heart text-primary{% endif %}"></i>
+                    </a>
+                {% else %}
+                    <a href="{% url 'accounts:login' %}" class="card-heart-btn">
+                        <i class="bi bi-heart text-primary"></i>
+                    </a>
+                {% endif %}
+            </div>
+
+            <div class="bb-price-meta">
+                <span class="bb-price-val">₹ {{ book.price|floatformat:0 }}</span>
+                <span class="bb-distance-tag">
+                    <i class="bi bi-geo-alt-fill"></i> &lt; 100 m
+                </span>
+            </div>
+
+            <a href="{% url 'books:book_detail' book.pk %}" class="text-decoration-none">
+                <p class="bb-book-name" title="{{ book.title }}">{{ book.title }}</p>
+            </a>
+        </div>
+    {% endfor %}
+</div>
+
+<!-- Section 7: Join the Mission to Make Books Affordable -->
+<div class="mission-box mb-4">
+    <div class="d-flex align-items-start gap-3">
+        <div class="fs-1 text-primary">📖</div>
+        <div>
+            <h5 class="fw-bold text-dark mb-1">Join the Mission to Make Books Affordable</h5>
+            <p class="text-muted small mb-3">
+                Millions of books are lying unused while many students cannot afford them. BookBridge connects people so books can find new readers.
+            </p>
+            <button type="button" class="btn btn-primary rounded-pill px-4 py-2 fw-bold d-inline-flex align-items-center gap-2" style="background:#0284c7; border:none;" onclick="shareBookBridge()">
+                <i class="bi bi-share-fill small"></i> Share BookBridge
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function shareBookBridge() {
+        if (navigator.share) {
+            navigator.share({
+                title: 'BookBridge - Buy & Sell Books Nearby',
+                text: 'Join the mission to make books affordable! Check out second-hand books around you on BookBridge.',
+                url: window.location.href,
+            });
+        } else {
+            navigator.clipboard.writeText(window.location.href);
+            alert('BookBridge link copied to clipboard! Share it with friends and family.');
+        }
+    }
+</script>
 {% endblock %}

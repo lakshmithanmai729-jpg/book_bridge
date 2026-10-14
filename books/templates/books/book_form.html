@@ -1,39 +1,148 @@
 {% extends 'core/base.html' %}
-{% block content %}
-<h2 class="mb-4">Add / Edit Book</h2>
-<form method="POST" enctype="multipart/form-data" style="max-width: 600px;">
-    {% csrf_token %}
-    {% for field in form %}
-        <div class="mb-3">
-            <label class="form-label">{{ field.label }}</label>
-            {{ field }}
-            {% if field.name == 'price' %}
-                <div id="price-suggestion" class="form-text text-success"></div>
-            {% endif %}
-        </div>
-    {% endfor %}
-    <button type="submit" class="btn btn-primary">Save</button>
-</form>
-<script>
-    document.querySelectorAll('input, select, textarea').forEach(function(el) {
-        if (el.type !== 'file' && el.type !== 'checkbox') el.classList.add('form-control');
-    });
+{% block title %}Add Book - BookBridge{% endblock %}
 
-    function fetchSuggestion() {
-        const category = document.getElementById('id_category').value;
-        const condition = document.getElementById('id_condition').value;
-        if (!condition) return;
-        fetch(`/ai/suggest-price/?category=${category}&condition=${condition}`)
-            .then(res => res.json())
-            .then(data => {
-                document.getElementById('price-suggestion').textContent =
-                    `💡 AI Suggested Price: ₹${data.suggested_price}`;
-            });
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6 col-md-8">
+        <!-- Header with Back Arrow (Matching Screenshot 3) -->
+        <div class="d-flex align-items-center gap-3 mb-4">
+            <a href="{% url 'core:home' %}" class="btn btn-light rounded-circle shadow-sm p-2" style="width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center;">
+                <i class="bi bi-arrow-left fs-5"></i>
+            </a>
+            <h4 class="fw-bold mb-0">Add Book</h4>
+        </div>
+
+        <div class="card border-0 rounded-4 shadow-sm p-4 bg-white mb-5">
+            <form method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+
+                <!-- Single Book / Full Set Switcher (Matching Screenshot 3) -->
+                <div class="p-1 rounded-pill mb-4 d-flex justify-content-between" style="background: #f1f5f9; border: 1px solid #e2e8f0;">
+                    <button type="button" id="btnSingle" class="btn rounded-pill flex-grow-1 fw-bold py-2 shadow-sm" style="background:#ffffff; color:#0f172a;" onclick="setListingType('single')">
+                        Single Book
+                    </button>
+                    <button type="button" id="btnSet" class="btn rounded-pill flex-grow-1 fw-semibold py-2 text-muted" onclick="setListingType('set')">
+                        Full Set
+                    </button>
+                    <input type="hidden" name="listing_type" id="listingTypeInput" value="single">
+                </div>
+
+                <!-- Circular Camera Icon (Matching Screenshot 3) -->
+                <div class="text-center mb-4">
+                    <label for="bookImageInput" style="cursor: pointer;">
+                        <div id="cameraCircle" class="rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm" style="width: 110px; height: 110px; border: 2px solid #38bdf8; background: #ffffff; overflow: hidden; position: relative;">
+                            <i id="cameraIcon" class="bi bi-camera-fill fs-1 text-dark"></i>
+                            <img id="imagePreview" src="" alt="Preview" style="display: none; width: 100%; height: 100%; object-fit: cover;">
+                        </div>
+                    </label>
+                    <input type="file" name="image" id="bookImageInput" accept="image/*" style="display: none;" onchange="previewBookImage(this)">
+                </div>
+
+                <!-- Book Name Input (Matching Screenshot 3) -->
+                <div class="mb-3">
+                    <input type="text" name="title" class="form-control form-control-lg rounded-pill px-4 fs-6" placeholder="Book Name" required>
+                </div>
+
+                <!-- Select Category Dropdown (Matching Screenshot 3) -->
+                <div class="mb-3">
+                    <select name="category" class="form-select form-select-lg rounded-pill px-4 fs-6">
+                        <option value="">Select Category</option>
+                        {% for cat in categories %}
+                            <option value="{{ cat.id }}">{{ cat.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Sell / Donate Toggle Row (Matching Screenshot 3) -->
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <button type="button" id="btnSell" class="btn btn-primary w-100 rounded-pill py-2 fw-bold shadow-sm" style="background: #0284c7; border: none;" onclick="setDonation(false)">
+                            Sell
+                        </button>
+                    </div>
+                    <div class="col-6">
+                        <button type="button" id="btnDonate" class="btn btn-outline-dark w-100 rounded-pill py-2 fw-bold" onclick="setDonation(true)">
+                            Donate
+                        </button>
+                    </div>
+                    <input type="hidden" name="is_donation" id="donationInput" value="false">
+                </div>
+
+                <!-- Offered Price (Rs) Input (Matching Screenshot 3) -->
+                <div class="mb-4" id="priceInputWrapper">
+                    <input type="number" step="0.01" name="price" class="form-control form-control-lg rounded-pill px-4 fs-6" placeholder="Offered Price (Rs)">
+                </div>
+
+                <!-- Hidden/Pre-filled user contact & location -->
+                <input type="hidden" name="location_area" value="{{ user_profile.location|default:'Kothapeta, Dhone' }}">
+                <input type="hidden" name="contact_phone" value="{{ user_profile.phone_number|default:'' }}">
+
+                <!-- Post Button (Matching Screenshot 3) -->
+                <div class="d-grid pt-2">
+                    <button type="submit" class="btn btn-primary btn-lg rounded-pill py-3 fw-bold shadow" style="background: #0284c7; border: none; font-size: 1.1rem;">
+                        <i class="bi bi-plus-lg me-1"></i> Post
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function setListingType(type) {
+        document.getElementById('listingTypeInput').value = type;
+        const btnSingle = document.getElementById('btnSingle');
+        const btnSet = document.getElementById('btnSet');
+        if (type === 'single') {
+            btnSingle.className = "btn rounded-pill flex-grow-1 fw-bold py-2 shadow-sm";
+            btnSingle.style.background = "#ffffff";
+            btnSingle.style.color = "#0f172a";
+            btnSet.className = "btn rounded-pill flex-grow-1 fw-semibold py-2 text-muted";
+            btnSet.style.background = "transparent";
+        } else {
+            btnSet.className = "btn rounded-pill flex-grow-1 fw-bold py-2 shadow-sm";
+            btnSet.style.background = "#ffffff";
+            btnSet.style.color = "#0f172a";
+            btnSingle.className = "btn rounded-pill flex-grow-1 fw-semibold py-2 text-muted";
+            btnSingle.style.background = "transparent";
+        }
     }
 
-    const categoryEl = document.getElementById('id_category');
-    const conditionEl = document.getElementById('id_condition');
-    if (categoryEl) categoryEl.addEventListener('change', fetchSuggestion);
-    if (conditionEl) conditionEl.addEventListener('change', fetchSuggestion);
+    function setDonation(isDonate) {
+        document.getElementById('donationInput').value = isDonate ? 'true' : 'false';
+        const btnSell = document.getElementById('btnSell');
+        const btnDonate = document.getElementById('btnDonate');
+        const priceWrap = document.getElementById('priceInputWrapper');
+
+        if (isDonate) {
+            btnDonate.className = "btn btn-primary w-100 rounded-pill py-2 fw-bold shadow-sm";
+            btnDonate.style.background = "#0284c7";
+            btnDonate.style.border = "none";
+            btnSell.className = "btn btn-outline-dark w-100 rounded-pill py-2 fw-bold";
+            btnSell.style.background = "transparent";
+            priceWrap.style.display = "none";
+        } else {
+            btnSell.className = "btn btn-primary w-100 rounded-pill py-2 fw-bold shadow-sm";
+            btnSell.style.background = "#0284c7";
+            btnSell.style.border = "none";
+            btnDonate.className = "btn btn-outline-dark w-100 rounded-pill py-2 fw-bold";
+            btnDonate.style.background = "transparent";
+            priceWrap.style.display = "block";
+        }
+    }
+
+    function previewBookImage(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = document.getElementById('imagePreview');
+                const icon = document.getElementById('cameraIcon');
+                img.src = e.target.result;
+                img.style.display = 'block';
+                icon.style.display = 'none';
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
 </script>
 {% endblock %}
