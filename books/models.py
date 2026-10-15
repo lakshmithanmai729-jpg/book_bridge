@@ -58,3 +58,18 @@ class Wishlist(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.book.title}"
+
+
+class BookImage(models.Model):
+    book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name='images')
+    image = models.ImageField(upload_to='book_images/')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['uploaded_at']
+
+    def __str__(self):
+        return f"{self.book.title} image"
+
+
+Book.gallery_images = property(lambda self: self.images.all().order_by('uploaded_at'))

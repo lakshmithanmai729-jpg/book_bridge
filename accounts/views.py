@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from .forms import SignUpForm
 from .models import UserProfile
 
@@ -42,6 +43,27 @@ def profile(request):
         user=request.user, 
         defaults={'name': request.user.username}
     )
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        phone_number = request.POST.get('phone_number', '').strip()
+        email = request.POST.get('email', '').strip()
+        location = request.POST.get('location', '').strip()
+        privacy = request.POST.get('account_privacy', 'private')
+
+        if name:
+            profile_obj.name = name
+        profile_obj.phone_number = phone_number
+        profile_obj.location = location
+        profile_obj.account_privacy = privacy
+        profile_obj.save()
+
+        if email:
+            request.user.email = email
+            request.user.save()
+
+        messages.success(request, 'Profile saved successfully!')
+        return redirect('accounts:profile')
+
     return render(request, 'accounts/profile.html', {'profile': profile_obj})
 
 
