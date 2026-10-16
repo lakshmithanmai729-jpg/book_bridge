@@ -26,7 +26,7 @@ Built with Django, MySQL, and Bootstrap.
 1. Clone the repo and create a virtual environment:
 
 ```bash
-git clone https://github.com/YOUR_GITHUB_USERNAME/book_bridge.git
+git clone https://github.com/lakshmithanmai729-jpg/book_bridge.git
 cd book_bridge
 python -m venv venv
 venv\Scripts\activate
