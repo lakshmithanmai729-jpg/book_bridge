@@ -15,3 +15,9 @@ class BookForm(forms.ModelForm):
             'pincode': forms.TextInput(attrs={'placeholder': 'e.g. 500085'}),
             'contact_phone': forms.TextInput(attrs={'placeholder': 'e.g. 9876543210 (WhatsApp preferred)'}),
         }
+
+    def clean_image(self):
+        image = self.cleaned_data.get('image')
+        if image and image.size > 5 * 1024 * 1024:
+            raise forms.ValidationError('Image file should be smaller than 5MB.')
+        return image

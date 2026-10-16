@@ -34,22 +34,20 @@
 
         body {
             font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-            background-color: #e2e8f0;
+            background-color: #ffffff;
             color: var(--bb-text);
             margin: 0;
             padding: 0;
             min-height: 100vh;
         }
 
-        /* Responsive Dashboard Container (Spacious on laptop, 100% on mobile) */
+        /* Full-Width Responsive Container (fills entire screen on all devices) */
         .bb-app-container {
             width: 100%;
-            max-width: 680px;
             margin: 0 auto;
             background: #ffffff;
             min-height: 100vh;
             position: relative;
-            box-shadow: 0 0 50px rgba(15, 23, 42, 0.12);
             padding-bottom: 95px; /* space for bottom nav */
         }
 
@@ -132,6 +130,43 @@
         .bb-chat-btn:hover {
             transform: scale(1.05);
             color: #ffffff;
+        }
+
+        .bb-quick-actions {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding: 0 18px 12px;
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+        }
+        .bb-quick-actions::-webkit-scrollbar {
+            display: none;
+        }
+        .bb-action-pill {
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 14px;
+            border-radius: 999px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            text-decoration: none;
+            border: 1px solid #dbeafe;
+            background: #f0f9ff;
+            color: #0f172a;
+            box-shadow: 0 4px 12px rgba(14, 165, 233, 0.06);
+        }
+        .bb-action-pill.primary {
+            background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+            color: #ffffff;
+            border-color: transparent;
+        }
+        .bb-action-pill.success {
+            background: #ecfdf5;
+            border-color: #bbf7d0;
+            color: #065f46;
         }
 
         /* Section Headers with Arrow */
@@ -363,10 +398,9 @@
         .bb-bottom-nav {
             position: fixed;
             bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
+            left: 0;
+            right: 0;
             width: 100%;
-            max-width: 680px;
             background: #ffffff;
             border-top: 1px solid #e2e8f0;
             display: flex;
@@ -423,6 +457,103 @@
             border-radius: 14px;
             padding: 18px;
             box-shadow: 0 2px 8px rgba(239, 68, 68, 0.06);
+        }
+
+        /* ===== RESPONSIVE: Laptop / Desktop Enhancements ===== */
+        @media (min-width: 768px) {
+            .bb-app-container {
+                max-width: 1400px;
+                margin: 0 auto;
+            }
+
+            .bb-search-chat-row {
+                padding: 12px 32px 16px;
+                max-width: 900px;
+            }
+
+            .bb-quick-actions {
+                padding: 0 32px 14px;
+                max-width: 900px;
+            }
+
+            .bb-section-header {
+                padding: 20px 32px 10px;
+            }
+
+            .bb-h-scroll {
+                padding: 6px 32px 20px;
+                gap: 18px;
+            }
+
+            .bb-book-card {
+                flex: 0 0 200px;
+                width: 200px;
+            }
+
+            .bb-card-img-wrap {
+                height: 260px;
+            }
+
+            .bb-cat-grid {
+                grid-template-columns: repeat(6, 1fr);
+                gap: 14px;
+                padding: 6px 32px 24px;
+            }
+
+            .bb-cat-tile {
+                height: 140px;
+            }
+
+            .free-books-box {
+                margin: 12px 32px 24px;
+                padding: 30px 28px;
+            }
+
+            .free-books-heading {
+                font-size: 2rem;
+            }
+
+            .cat-nav-wrap {
+                padding: 0 32px;
+                max-width: 900px;
+            }
+
+            .mission-box {
+                margin: 20px 32px;
+            }
+
+            .bb-bottom-nav {
+                padding: 10px 32px 12px;
+            }
+        }
+
+        @media (min-width: 1200px) {
+            .bb-h-scroll {
+                gap: 22px;
+            }
+
+            .bb-book-card {
+                flex: 0 0 220px;
+                width: 220px;
+            }
+
+            .bb-card-img-wrap {
+                height: 290px;
+            }
+
+            .bb-cat-grid {
+                grid-template-columns: repeat(6, 1fr);
+                gap: 16px;
+                max-width: 1200px;
+            }
+
+            .bb-cat-tile {
+                height: 160px;
+            }
+
+            .bb-section-title {
+                font-size: 1.4rem;
+            }
         }
     </style>
 </head>

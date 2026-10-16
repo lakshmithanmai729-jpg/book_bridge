@@ -39,12 +39,22 @@
         <div class="card border-0 rounded-4 shadow-sm mb-4 bg-white overflow-hidden text-center">
             {% if book.image %}
                 <img src="{{ book.image.url }}" alt="{{ book.title }}" style="max-height: 420px; width: 100%; object-fit: contain; background: #f8fafc; padding: 12px;">
+            {% elif book.gallery_images %}
+                <img src="{{ book.gallery_images.0.image.url }}" alt="{{ book.title }}" style="max-height: 420px; width: 100%; object-fit: contain; background: #f8fafc; padding: 12px;">
             {% else %}
                 <div class="d-flex align-items-center justify-content-center bg-light" style="height: 280px;">
                     <span class="fs-1 text-muted">📖</span>
                 </div>
             {% endif %}
         </div>
+
+        {% if book.gallery_images %}
+            <div class="d-flex flex-wrap gap-2 mb-4">
+                {% for image in book.gallery_images %}
+                    <img src="{{ image.image.url }}" alt="{{ book.title }} image {{ forloop.counter }}" class="img-fluid rounded-3 border" style="width: 90px; height: 90px; object-fit: cover;">
+                {% endfor %}
+            </div>
+        {% endif %}
 
         <!-- Book Title & Subtitle (Matching Screenshot 5) -->
         <div class="mb-3">

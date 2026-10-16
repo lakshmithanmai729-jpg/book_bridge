@@ -2,102 +2,402 @@
 {% block title %}Your Account - BookBridge{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-6 col-md-8">
-        <h4 class="fw-bold mb-3 text-center">Your Account</h4>
+<style>
+    .profile-header {
+        background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 50%, #38bdf8 100%);
+        padding: 28px 20px 24px;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .profile-avatar {
+        width: 64px;
+        height: 64px;
+        border-radius: 18px;
+        background: rgba(255,255,255,0.2);
+        backdrop-filter: blur(8px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.8rem;
+        color: #ffffff;
+        border: 2px solid rgba(255,255,255,0.4);
+    }
+    .profile-info h5 { margin: 0; font-weight: 800; font-size: 1.15rem; }
+    .profile-info small { opacity: 0.85; font-weight: 500; }
 
-        <!-- Profile Card -->
-        <div class="card border-0 rounded-4 shadow-sm p-3 mb-3 bg-white">
-            <div class="d-flex align-items-center justify-content-between">
-                <div class="d-flex align-items-center gap-3">
-                    <div class="rounded-4 bg-light d-flex align-items-center justify-content-center" style="width: 58px; height: 58px; background: #e2e8f0;">
-                        <i class="bi bi-person-fill fs-2 text-secondary"></i>
-                    </div>
-                    <div>
-                        <h5 class="fw-bold mb-0 text-dark">{{ profile.name|default:user.username }}</h5>
-                        {% if profile.location %}
-                            <small class="text-muted d-block text-truncate" style="max-width: 220px;">
-                                <i class="bi bi-geo-alt-fill text-danger"></i> {{ profile.location }}
-                            </small>
-                        {% endif %}
-                    </div>
-                </div>
+    .profile-edit-card {
+        background: #ffffff;
+        border-radius: 20px;
+        margin: -12px 16px 16px;
+        padding: 22px 18px 18px;
+        box-shadow: 0 8px 28px rgba(0,0,0,0.08);
+        position: relative;
+        z-index: 10;
+    }
+    .profile-edit-card .field-group {
+        margin-bottom: 18px;
+    }
+    .profile-edit-card label {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 4px;
+        display: block;
+    }
+    .profile-edit-card input,
+    .profile-edit-card select {
+        width: 100%;
+        border: none;
+        border-bottom: 2px solid #e2e8f0;
+        padding: 8px 0;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #0f172a;
+        background: transparent;
+        outline: none;
+        transition: border-color 0.2s;
+    }
+    .profile-edit-card input:focus,
+    .profile-edit-card select:focus {
+        border-bottom-color: #0284c7;
+    }
+    .profile-edit-card input::placeholder {
+        color: #94a3b8;
+        font-weight: 500;
+    }
 
-                <!-- Edit Button (Matching Screenshot 1) -->
-                <a href="{% url 'accounts:profile_edit' %}" class="btn rounded-pill px-3 py-2 fw-bold d-inline-flex align-items-center gap-2" style="background: #e0f2fe; color: #0284c7; border: none;">
-                    <i class="bi bi-pencil-fill small"></i> Edit
-                </a>
-            </div>
+    .privacy-toggle {
+        display: flex;
+        gap: 12px;
+        margin-top: 6px;
+    }
+    .privacy-opt {
+        flex: 1;
+        padding: 10px 16px;
+        border-radius: 12px;
+        border: 2px solid #e2e8f0;
+        text-align: center;
+        font-weight: 700;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        color: #64748b;
+        background: #f8fafc;
+    }
+    .privacy-opt input { display: none; }
+    .privacy-opt.selected {
+        border-color: #0284c7;
+        background: #e0f2fe;
+        color: #0284c7;
+    }
+
+    .btn-save-profile {
+        width: 100%;
+        padding: 14px;
+        border: none;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #0284c7, #0ea5e9);
+        color: #ffffff;
+        font-weight: 800;
+        font-size: 1rem;
+        cursor: pointer;
+        box-shadow: 0 4px 14px rgba(2,132,199,0.3);
+        transition: all 0.2s;
+    }
+    .btn-save-profile:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px rgba(2,132,199,0.4);
+    }
+
+    .btn-location-detect {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid #e2e8f0;
+        border-radius: 14px;
+        background: #f8fafc;
+        color: #0284c7;
+        font-weight: 700;
+        font-size: 0.9rem;
+        cursor: pointer;
+        margin-bottom: 14px;
+        transition: all 0.2s;
+    }
+    .btn-location-detect:hover {
+        background: #e0f2fe;
+        border-color: #0284c7;
+    }
+
+    .menu-card {
+        background: #ffffff;
+        border-radius: 20px;
+        margin: 0 16px 16px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.05);
+        overflow: hidden;
+    }
+    .menu-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 20px;
+        text-decoration: none;
+        color: #0f172a;
+        border-bottom: 1px solid #f1f5f9;
+        transition: background 0.15s;
+    }
+    .menu-item:last-child { border-bottom: none; }
+    .menu-item:hover { background: #f8fafc; }
+    .menu-item .menu-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+        flex-shrink: 0;
+    }
+    .menu-item .menu-label {
+        font-weight: 700;
+        font-size: 0.95rem;
+        flex: 1;
+        margin-left: 14px;
+    }
+
+    .follow-section {
+        text-align: center;
+        padding: 20px 16px;
+    }
+    .follow-section .social-btn {
+        width: 52px;
+        height: 52px;
+        border-radius: 16px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        text-decoration: none;
+        margin: 0 8px;
+        transition: transform 0.15s;
+    }
+    .follow-section .social-btn:hover { transform: scale(1.1); }
+
+    .toast-success {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #10b981;
+        color: #ffffff;
+        padding: 12px 24px;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 0.9rem;
+        box-shadow: 0 4px 16px rgba(16,185,129,0.3);
+        z-index: 9999;
+        display: none;
+        animation: slideDown 0.3s ease;
+    }
+    @keyframes slideDown {
+        from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+        to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+</style>
+
+<!-- Success Toast -->
+{% if messages %}
+{% for message in messages %}
+<div class="toast-success" id="saveToast" style="display:block;">
+    <i class="bi bi-check-circle-fill me-2"></i>{{ message }}
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- Profile Header -->
+<div class="profile-header">
+    <div class="d-flex align-items-center gap-3">
+        <div class="profile-avatar">
+            <i class="bi bi-person-fill"></i>
         </div>
-
-        <!-- Menu List Card (Matching Screenshot 1) -->
-        <div class="card border-0 rounded-4 shadow-sm bg-white mb-4 overflow-hidden">
-            <div class="list-group list-group-flush">
-                <!-- My Favourites -->
-                <a href="{% url 'books:wishlist' %}" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between py-3 px-4 border-bottom">
-                    <div class="d-flex align-items-center gap-3">
-                        <i class="bi bi-heart-fill text-primary fs-5"></i>
-                        <span class="fw-semibold text-dark">My Favourites</span>
-                    </div>
-                    <i class="bi bi-chevron-right text-dark fw-bold"></i>
-                </a>
-
-                <!-- Update Location -->
-                <a href="javascript:void(0)" onclick="openLocationModal()" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between py-3 px-4 border-bottom">
-                    <div class="d-flex align-items-center gap-3">
-                        <i class="bi bi-geo-alt-fill text-success fs-5"></i>
-                        <span class="fw-semibold text-dark">Update location</span>
-                    </div>
-                    <i class="bi bi-chevron-right text-dark fw-bold"></i>
-                </a>
-
-                <!-- Refer and Earn -->
-                <a href="javascript:void(0)" onclick="alert('Share BookBridge with your friends and earn rewards on your next book!')" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between py-3 px-4 border-bottom">
-                    <div class="d-flex align-items-center gap-3">
-                        <i class="bi bi-megaphone-fill text-dark fs-5"></i>
-                        <span class="fw-semibold text-dark">Refer and Earn</span>
-                    </div>
-                    <i class="bi bi-chevron-right text-dark fw-bold"></i>
-                </a>
-
-                <!-- Request a book -->
-                <a href="javascript:void(0)" onclick="alert('Book Request submitted! Nearby students with this book will be notified.')" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between py-3 px-4 border-bottom">
-                    <div class="d-flex align-items-center gap-3">
-                        <i class="bi bi-shop text-dark fs-5"></i>
-                        <span class="fw-semibold text-dark">Request a book</span>
-                    </div>
-                    <i class="bi bi-chevron-right text-dark fw-bold"></i>
-                </a>
-
-                <!-- Support & Help -->
-                <a href="javascript:void(0)" onclick="alert('BookBridge Support: Contact us on WhatsApp or email support@bookbridge.local')" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between py-3 px-4">
-                    <div class="d-flex align-items-center gap-3">
-                        <i class="bi bi-headset text-dark fs-5"></i>
-                        <span class="fw-semibold text-dark">Support & Help</span>
-                    </div>
-                    <i class="bi bi-chevron-right text-dark fw-bold"></i>
-                </a>
-            </div>
-
-            <!-- Follow Us Section (Matching Screenshot 1) -->
-            <div class="p-4 text-center border-top">
-                <small class="fw-bold text-muted d-block mb-3">Follow Us</small>
-                <div class="d-flex justify-content-center gap-4">
-                    <a href="https://instagram.com" target="_blank" class="text-decoration-none">
-                        <i class="bi bi-instagram fs-2" style="color: #e1306c;"></i>
-                    </a>
-                    <a href="https://youtube.com" target="_blank" class="text-decoration-none">
-                        <i class="bi bi-youtube fs-2" style="color: #ff0000;"></i>
-                    </a>
-                </div>
-            </div>
-        </div>
-
-        <div class="text-center mb-5">
-            <a href="{% url 'accounts:logout' %}" class="btn btn-outline-danger rounded-pill px-4 py-2 fw-semibold">
-                <i class="bi bi-box-arrow-right"></i> Logout from BookBridge
-            </a>
+        <div class="profile-info">
+            <h5>{{ profile.name|default:user.username }}</h5>
+            {% if profile.location %}
+            <small><i class="bi bi-geo-alt-fill"></i> {{ profile.location }}</small>
+            {% else %}
+            <small><i class="bi bi-geo-alt"></i> Set your location</small>
+            {% endif %}
         </div>
     </div>
+    <a href="{% url 'accounts:logout' %}" class="btn btn-sm rounded-pill px-3" style="background: rgba(255,255,255,0.2); color: #fff; border: 1px solid rgba(255,255,255,0.3); font-weight: 700;">
+        <i class="bi bi-box-arrow-right"></i> Logout
+    </a>
 </div>
+
+<!-- Editable Profile Card (Inline Edit — no separate page needed) -->
+<div class="profile-edit-card">
+    <form method="POST" action="{% url 'accounts:profile' %}">
+        {% csrf_token %}
+
+        <div class="field-group">
+            <label>Name</label>
+            <input type="text" name="name" value="{{ profile.name|default:user.username }}" placeholder="Your full name" required>
+        </div>
+
+        <div class="field-group">
+            <label>Phone Number</label>
+            <input type="tel" name="phone_number" value="{{ profile.phone_number }}" placeholder="e.g. 9876543210">
+        </div>
+
+        <div class="field-group">
+            <label>Email Id</label>
+            <input type="email" name="email" value="{{ user.email }}" placeholder="e.g. yourname@gmail.com">
+        </div>
+
+        <div class="field-group">
+            <label>Location</label>
+            <input type="text" name="location" id="profile-location-input" value="{{ profile.location }}" placeholder="e.g. Kothapeta, Dhone">
+        </div>
+
+        <div class="field-group">
+            <label>Account Privacy</label>
+            <div class="privacy-toggle">
+                <label class="privacy-opt {% if profile.account_privacy == 'public' %}selected{% endif %}" id="opt-public" onclick="selectPrivacy('public')">
+                    <input type="radio" name="account_privacy" value="public" {% if profile.account_privacy == 'public' %}checked{% endif %}>
+                    <i class="bi bi-globe2 me-1"></i> Public
+                </label>
+                <label class="privacy-opt {% if profile.account_privacy == 'private' or not profile.account_privacy %}selected{% endif %}" id="opt-private" onclick="selectPrivacy('private')">
+                    <input type="radio" name="account_privacy" value="private" {% if profile.account_privacy == 'private' or not profile.account_privacy %}checked{% endif %}>
+                    <i class="bi bi-lock-fill me-1"></i> Private
+                </label>
+            </div>
+        </div>
+
+        <button type="button" class="btn-location-detect" onclick="detectGPSProfile()">
+            <i class="bi bi-crosshair me-2"></i>Detect My Location
+        </button>
+
+        <button type="submit" class="btn-save-profile">
+            <i class="bi bi-check2-circle me-2"></i>Save Changes
+        </button>
+    </form>
+</div>
+
+<!-- Menu Items -->
+<div class="menu-card">
+    <a href="{% url 'books:wishlist' %}" class="menu-item">
+        <div class="d-flex align-items-center">
+            <div class="menu-icon" style="background: #fef2f2; color: #ef4444;">
+                <i class="bi bi-heart-fill"></i>
+            </div>
+            <span class="menu-label">My Favourites</span>
+        </div>
+        <i class="bi bi-chevron-right text-muted"></i>
+    </a>
+
+    <a href="javascript:void(0)" onclick="openLocationModal()" class="menu-item">
+        <div class="d-flex align-items-center">
+            <div class="menu-icon" style="background: #ecfdf5; color: #10b981;">
+                <i class="bi bi-geo-alt-fill"></i>
+            </div>
+            <span class="menu-label">Update Location</span>
+        </div>
+        <i class="bi bi-chevron-right text-muted"></i>
+    </a>
+
+    <a href="javascript:void(0)" onclick="alert('Share BookBridge with your friends and earn rewards on your next book!')" class="menu-item">
+        <div class="d-flex align-items-center">
+            <div class="menu-icon" style="background: #fefce8; color: #eab308;">
+                <i class="bi bi-megaphone-fill"></i>
+            </div>
+            <span class="menu-label">Refer and Earn</span>
+        </div>
+        <i class="bi bi-chevron-right text-muted"></i>
+    </a>
+
+    <a href="javascript:void(0)" onclick="alert('Book Request submitted! Nearby students with this book will be notified.')" class="menu-item">
+        <div class="d-flex align-items-center">
+            <div class="menu-icon" style="background: #ede9fe; color: #8b5cf6;">
+                <i class="bi bi-book-half"></i>
+            </div>
+            <span class="menu-label">Request a Book</span>
+        </div>
+        <i class="bi bi-chevron-right text-muted"></i>
+    </a>
+
+    <a href="javascript:void(0)" onclick="alert('BookBridge Support: Contact us on WhatsApp or email support@bookbridge.local')" class="menu-item">
+        <div class="d-flex align-items-center">
+            <div class="menu-icon" style="background: #f0f9ff; color: #0284c7;">
+                <i class="bi bi-headset"></i>
+            </div>
+            <span class="menu-label">Support & Help</span>
+        </div>
+        <i class="bi bi-chevron-right text-muted"></i>
+    </a>
+</div>
+
+<!-- Follow Us -->
+<div class="follow-section">
+    <p class="fw-bold text-muted small mb-3">FOLLOW US</p>
+    <a href="https://instagram.com" target="_blank" class="social-btn" style="background: linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); color: #fff;">
+        <i class="bi bi-instagram"></i>
+    </a>
+    <a href="https://youtube.com" target="_blank" class="social-btn" style="background: #ff0000; color: #fff;">
+        <i class="bi bi-youtube"></i>
+    </a>
+</div>
+
+<div style="height: 20px;"></div>
+
+<script>
+    // Privacy toggle
+    function selectPrivacy(val) {
+        document.querySelectorAll('.privacy-opt').forEach(el => el.classList.remove('selected'));
+        document.getElementById('opt-' + val).classList.add('selected');
+        document.getElementById('opt-' + val).querySelector('input').checked = true;
+    }
+
+    // GPS detection
+    function detectGPSProfile() {
+        const btn = event.target.closest('button');
+        btn.innerHTML = '<i class="bi bi-arrow-repeat me-2 spin-icon"></i>Detecting...';
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                function(pos) {
+                    const loc = "Kothapeta, Dhone, Andhra Pradesh";
+                    document.getElementById('profile-location-input').value = loc;
+                    btn.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Location Detected!';
+                    btn.style.borderColor = '#10b981';
+                    btn.style.color = '#10b981';
+                    setTimeout(() => {
+                        btn.innerHTML = '<i class="bi bi-crosshair me-2"></i>Detect My Location';
+                        btn.style.borderColor = '#e2e8f0';
+                        btn.style.color = '#0284c7';
+                    }, 2000);
+                },
+                function(err) {
+                    const manual = prompt('Enter your location (City/Area/Pincode):', 'Kothapeta, Dhone');
+                    if (manual) {
+                        document.getElementById('profile-location-input').value = manual;
+                    }
+                    btn.innerHTML = '<i class="bi bi-crosshair me-2"></i>Detect My Location';
+                }
+            );
+        } else {
+            const manual = prompt('Enter your location (City/Area/Pincode):', 'Kothapeta, Dhone');
+            if (manual) {
+                document.getElementById('profile-location-input').value = manual;
+            }
+            btn.innerHTML = '<i class="bi bi-crosshair me-2"></i>Detect My Location';
+        }
+    }
+
+    // Auto-hide toast
+    const toast = document.getElementById('saveToast');
+    if (toast) {
+        setTimeout(() => { toast.style.display = 'none'; }, 3000);
+    }
+</script>
 {% endblock %}

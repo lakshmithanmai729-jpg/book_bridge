@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
-from .models import Book, Category, Wishlist
+from .models import Book, Category, Wishlist, BookImage
 from .forms import BookForm
 from ai_engine.utils import get_recommendations
 
@@ -92,7 +92,6 @@ def book_add(request):
         condition = request.POST.get('condition', 'good')
         description = request.POST.get('description', '')
 
-        # User profile defaults
         user_profile = getattr(request.user, 'profile', None)
         default_phone = user_profile.phone_number if user_profile else ''
         default_loc = user_profile.location if user_profile else 'Dhone, Andhra Pradesh'
@@ -103,6 +102,7 @@ def book_add(request):
         pincode = request.POST.get('pincode', '').strip() or '518222'
 
         image_file = request.FILES.get('image')
+        extra_images = request.FILES.getlist('images')
 
         try:
             price = float(price_val) if not is_donation else 0.0
@@ -127,6 +127,14 @@ def book_add(request):
             contact_phone=contact_phone,
             image=image_file,
         )
+
+        for uploaded_image in extra_images:
+            BookImage.objects.create(book=book, image=uploaded_image)
+
+        if not book.image and book.images.exists():
+            book.image = book.images.first().image
+            book.save(update_fields=['image'])
+
         return redirect('books:book_detail', pk=book.pk)
     else:
         categories = Category.objects.all()
@@ -144,6 +152,12 @@ def book_edit(request, pk):
         form = BookForm(request.POST, request.FILES, instance=book)
         if form.is_valid():
             form.save()
+            extra_images = request.FILES.getlist('images')
+            for uploaded_image in extra_images:
+                BookImage.objects.create(book=book, image=uploaded_image)
+            if not book.image and book.images.exists():
+                book.image = book.images.first().image
+                book.save(update_fields=['image'])
             return redirect('books:book_detail', pk=book.pk)
     else:
         form = BookForm(instance=book)
