@@ -221,10 +221,13 @@ def chat_detail(request, user_id):
 
     conversation = list(conversation_qs.select_related('sender').order_by('created_at'))
 
-    # Mark the other person's messages as read.
-    ChatMessage.objects.filter(
+    # Mark the other person's messages for this conversation as read.
+    unread_messages = ChatMessage.objects.filter(
         sender=other_user, receiver=request.user, is_read=False
-    ).update(is_read=True)
+    )
+    if book:
+        unread_messages = unread_messages.filter(book=book)
+    unread_messages.update(is_read=True)
 
     # Other listings this pair is talking about (quick switcher).
     related_books = (
