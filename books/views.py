@@ -1,3 +1,6 @@
+import re
+from urllib.parse import quote
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
@@ -74,10 +77,48 @@ def book_list(request):
     })
 
 
+def _whatsapp_url(phone, message=''):
+    """Build a wa.me link, adding India's 91 prefix to bare 10-digit numbers."""
+    digits = re.sub(r'\D', '', phone or '')
+    if len(digits) == 10:
+        digits = '91' + digits
+    if not digits:
+        return ''
+    url = f'https://wa.me/{digits}'
+    if message:
+        url += f'?text={quote(message)}'
+    return url
+
+
 def book_detail(request, pk):
     book = get_object_or_404(Book, pk=pk)
     recommendations = get_recommendations(book)
-    return render(request, 'books/book_detail.html', {'book': book, 'recommendations': recommendations})
+
+    seller_profile = getattr(book.seller, 'profile', None)
+    is_owner = request.user.is_authenticated and request.user.id == book.seller_id
+
+    # Telegram is safe to show to everyone: a @handle never reveals a phone number.
+    telegram_username = seller_profile.telegram_handle if seller_profile else ''
+    telegram_url = seller_profile.telegram_url if seller_profile else ''
+
+    # A phone number is only ever surfaced through WhatsApp when the seller
+    # explicitly picked the WhatsApp / Call contact preference.
+    whatsapp_url = ''
+    if seller_profile and seller_profile.contact_preference == 'whatsapp' and book.contact_phone:
+        whatsapp_url = _whatsapp_url(
+            book.contact_phone,
+            f'Hi {book.seller.username}, I am interested in your book "{book.title}" on BookBridge.',
+        )
+
+    return render(request, 'books/book_detail.html', {
+        'book': book,
+        'recommendations': recommendations,
+        'seller_profile': seller_profile,
+        'is_owner': is_owner,
+        'telegram_username': telegram_username,
+        'telegram_url': telegram_url,
+        'whatsapp_url': whatsapp_url,
+    })
 
 
 @login_required
@@ -161,7 +202,7 @@ def book_edit(request, pk):
             return redirect('books:book_detail', pk=book.pk)
     else:
         form = BookForm(instance=book)
-    return render(request, 'books/book_form.html', {'form': form})
+    return render(request, 'books/book_edit.html', {'form': form, 'book': book})
 
 
 @login_required

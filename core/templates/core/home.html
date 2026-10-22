@@ -11,6 +11,7 @@
     </form>
     <a href="{% url 'accounts:messages' %}" class="bb-chat-btn" title="Messages">
         <i class="bi bi-chat-dots-fill"></i>
+        {% if unread_message_count %}<span class="bb-unread-dot">{{ unread_message_count }}</span>{% endif %}
     </a>
 </div>
 
@@ -26,6 +27,9 @@
     </a>
     <a href="{% url 'books:book_add' %}" class="bb-action-pill">
         <i class="bi bi-plus-circle-fill"></i> Sell yours
+    </a>
+    <a href="{% url 'accounts:request_book' %}" class="bb-action-pill">
+        <i class="bi bi-search-heart"></i> Request a book
     </a>
 </div>
 

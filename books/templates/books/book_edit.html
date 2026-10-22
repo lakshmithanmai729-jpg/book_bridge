@@ -1,0 +1,143 @@
+{% extends 'core/base.html' %}
+{% block title %}Edit {{ book.title }} - BookBridge{% endblock %}
+
+{% block content %}
+<div class="bb-page">
+    <div class="bb-page-head">
+        <a href="{% url 'books:book_detail' book.pk %}" class="bb-back-btn" aria-label="Back">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div>
+            <h1>Edit Listing</h1>
+            <small class="text-muted">{{ book.title }}</small>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="bb-panel">
+                <form method="POST" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger border-0 rounded-4 small fw-semibold">{{ form.non_field_errors }}</div>
+                    {% endif %}
+
+                    <div class="row g-3">
+                        <div class="col-md-7">
+                            <div class="bb-field">
+                                <label for="{{ form.title.id_for_label }}">Book Name</label>
+                                {{ form.title }}
+                                {% for error in form.title.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-md-5">
+                            <div class="bb-field">
+                                <label for="{{ form.author.id_for_label }}">Author</label>
+                                {{ form.author }}
+                                {% for error in form.author.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="bb-field">
+                                <label for="{{ form.category.id_for_label }}">Category</label>
+                                {{ form.category }}
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="bb-field">
+                                <label for="{{ form.price.id_for_label }}">Price (₹)</label>
+                                {{ form.price }}
+                                {% for error in form.price.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="bb-field">
+                                <label for="{{ form.condition.id_for_label }}">Condition</label>
+                                {{ form.condition }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bb-field">
+                        <label for="{{ form.description.id_for_label }}">Description</label>
+                        {{ form.description }}
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <div class="bb-field">
+                                <label for="{{ form.location_area.id_for_label }}">Area / Locality</label>
+                                {{ form.location_area }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="bb-field">
+                                <label for="{{ form.location_city.id_for_label }}">City / Town</label>
+                                {{ form.location_city }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="bb-field">
+                                <label for="{{ form.pincode.id_for_label }}">Pincode</label>
+                                {{ form.pincode }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bb-field">
+                        <label for="{{ form.contact_phone.id_for_label }}">Phone (private)</label>
+                        {{ form.contact_phone }}
+                        <div class="privacy-note">
+                            <i class="bi bi-shield-lock-fill"></i>
+                            <span>This number is only used when a buyer taps WhatsApp and your contact preference allows it. It is never printed on the listing.</span>
+                        </div>
+                    </div>
+
+                    <div class="bb-field">
+                        <label for="{{ form.image.id_for_label }}">Cover photo</label>
+                        {{ form.image }}
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2 pt-1">
+                        <button type="submit" class="bb-btn bb-btn-primary">
+                            <i class="bi bi-check2-circle"></i> Save changes
+                        </button>
+                        <a href="{% url 'books:book_detail' book.pk %}" class="bb-btn bb-btn-outline">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="bb-panel">
+                <span class="bb-label" style="margin-bottom:10px;">Current cover</span>
+                {% if book.image %}
+                    <img src="{{ book.image.url }}" alt="{{ book.title }}" class="w-100 rounded-4" style="max-height:320px; object-fit:contain; background:#f8fafc;">
+                {% else %}
+                    <div class="d-flex align-items-center justify-content-center rounded-4" style="height:200px; background:#f1f5f9; font-size:2.5rem;">📖</div>
+                {% endif %}
+                <div class="d-flex flex-wrap gap-2 mt-3">
+                    <a href="{% url 'books:book_detail' book.pk %}" class="bb-btn bb-btn-soft bb-btn-sm">View listing</a>
+                    <a href="{% url 'books:book_delete' book.pk %}" class="bb-btn bb-btn-sm" style="background:#fef2f2; color:#b91c1c;">Delete</a>
+                </div>
+            </div>
+
+            <div class="bb-panel mt-4" style="background:#f0f9ff; border-color:#e0f2fe;">
+                <h6 class="bb-panel-title"><i class="bi bi-shield-lock-fill" style="color:#0284c7;"></i> Contact privacy</h6>
+                <p class="bb-panel-sub mb-2">Buyers see your Telegram handle or use in-app chat — never your phone number, unless you chose WhatsApp / Call.</p>
+                <a href="{% url 'accounts:profile_edit' %}" class="bb-btn bb-btn-outline bb-btn-sm">Edit contact preference</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.querySelectorAll('.bb-field input, .bb-field select, .bb-field textarea').forEach(function (el) {
+        if (el.type !== 'hidden' && el.type !== 'file' && el.type !== 'checkbox') {
+            el.classList.add('bb-input');
+        }
+        if (el.type === 'file') { el.classList.add('form-control'); }
+    });
+</script>
+{% endblock %}

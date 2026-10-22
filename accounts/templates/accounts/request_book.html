@@ -1,0 +1,147 @@
+{% extends 'core/base.html' %}
+{% block title %}Request a Book - BookBridge{% endblock %}
+
+{% block content %}
+<div class="bb-page">
+    <div class="bb-page-head">
+        <a href="{% url 'accounts:profile' %}" class="bb-back-btn" aria-label="Back to account">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div>
+            <h1>Request a Book</h1>
+            <small class="text-muted">Tell nearby students which book you need</small>
+        </div>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-success{% endif %} border-0 rounded-4 fw-semibold d-flex align-items-center gap-2" role="alert">
+                <i class="bi {% if message.tags == 'error' %}bi-exclamation-circle-fill{% else %}bi-check-circle-fill{% endif %}"></i>
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="bb-panel">
+                <h6 class="bb-panel-title"><i class="bi bi-search-heart" style="color:#8b5cf6;"></i> What book do you need?</h6>
+                <p class="bb-panel-sub">
+                    Can't find a book nearby? Post a request — students who own it can reply through
+                    in-app chat without either of you sharing a phone number.
+                </p>
+
+                <form method="POST" action="{% url 'accounts:request_book' %}">
+                    {% csrf_token %}
+
+                    <div class="bb-field">
+                        <label for="request-title">Book Title <span class="text-danger">*</span></label>
+                        <input id="request-title" type="text" name="book_title"
+                               placeholder="e.g. Concepts of Physics — Volume 2 (HC Verma)" required
+                               value="{{ request.POST.book_title|default:'' }}">
+                        <p class="bb-hint">Add the edition or class if you know it — it helps sellers match faster.</p>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="bb-field">
+                                <label for="request-category">Category</label>
+                                <select id="request-category" name="category">
+                                    <option value="">Any category</option>
+                                    {% for cat in categories %}
+                                        <option value="{{ cat.name }}" {% if request.POST.category == cat.name %}selected{% endif %}>{{ cat.name }}</option>
+                                    {% endfor %}
+                                    <option value="IIT-JEE" {% if request.POST.category == 'IIT-JEE' %}selected{% endif %}>IIT-JEE</option>
+                                    <option value="NEET" {% if request.POST.category == 'NEET' %}selected{% endif %}>NEET</option>
+                                    <option value="School" {% if request.POST.category == 'School' %}selected{% endif %}>School / 12th</option>
+                                    <option value="Novels" {% if request.POST.category == 'Novels' %}selected{% endif %}>Novels</option>
+                                    <option value="Self-Help" {% if request.POST.category == 'Self-Help' %}selected{% endif %}>Self-Help</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="bb-field">
+                                <label for="request-location">Your Location</label>
+                                <input id="request-location" type="text" name="location"
+                                       placeholder="e.g. Kothapeta, Dhone"
+                                       value="{{ request.POST.location|default:profile.location }}">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bb-field">
+                        <label for="request-notes">Notes for sellers</label>
+                        <textarea id="request-notes" name="notes" rows="4"
+                                  placeholder="Budget, condition you need, when you can pick it up...">{{ request.POST.notes|default:'' }}</textarea>
+                    </div>
+
+                    <div class="privacy-note mb-4">
+                        <i class="bi bi-shield-lock-fill"></i>
+                        <span>Your request shows only your name and area. Buyers reply through in-app chat or Telegram — your phone number is never shared.</span>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="submit" class="bb-btn bb-btn-primary">
+                            <i class="bi bi-send-fill"></i> Submit Request
+                        </button>
+                        <a href="{% url 'books:book_list' %}" class="bb-btn bb-btn-outline">
+                            <i class="bi bi-compass"></i> Browse Books Instead
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="bb-panel">
+                <h6 class="bb-panel-title"><i class="bi bi-clock-history" style="color:#0284c7;"></i> My requests</h6>
+                {% if book_requests %}
+                    <div class="mt-2">
+                        {% for req in book_requests %}
+                            <div class="d-flex align-items-start justify-content-between gap-2 py-3" style="border-bottom:1px solid #f1f5f9;">
+                                <div style="min-width:0;">
+                                    <div class="fw-bold text-dark text-truncate">{{ req.book_title }}</div>
+                                    <small class="text-muted d-block">
+                                        {{ req.category|default:"Any category" }}
+                                        {% if req.location %} · {{ req.location }}{% endif %}
+                                    </small>
+                                    <small class="text-muted">{{ req.created_at|date:"d M Y, H:i" }}</small>
+                                    {% if req.notes %}<p class="small text-secondary mb-0 mt-1">{{ req.notes|truncatechars:110 }}</p>{% endif %}
+                                </div>
+                                <div class="text-end flex-shrink-0">
+                                    <span class="bb-chip {% if req.status == 'fulfilled' %}green{% else %}amber{% endif %}">{{ req.get_status_display }}</span>
+                                    <form method="POST" action="{% url 'accounts:delete_book_request' req.pk %}" class="mt-2">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-link text-danger p-0 fw-bold" style="font-size:0.72rem;" onclick="return confirm('Remove this request?');">
+                                            Remove
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted small mb-0 mt-2">
+                        No requests yet. Submit the form and your request will appear here.
+                    </p>
+                {% endif %}
+            </div>
+
+            <div class="bb-panel mt-4" style="background:#fffbeb; border-color:#fef3c7;">
+                <h6 class="bb-panel-title"><i class="bi bi-lightbulb-fill" style="color:#eab308;"></i> How it works</h6>
+                <ol class="small text-muted mb-0 ps-3" style="line-height:1.8;">
+                    <li>You post the book you need with your area.</li>
+                    <li>Nearby students who own it see the request.</li>
+                    <li>They reply via in-app chat or Telegram — no phone number needed.</li>
+                    <li>Meet safely and complete the handover.</li>
+                </ol>
+            </div>
+
+            <div class="bb-panel mt-4" style="background:#f0f9ff; border-color:#e0f2fe;">
+                <h6 class="bb-panel-title"><i class="bi bi-shield-lock-fill" style="color:#0284c7;"></i> 100% Privacy Protected</h6>
+                <p class="bb-panel-sub mb-0">BookBridge never publishes phone numbers on requests or listings. Contact happens through private chat.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

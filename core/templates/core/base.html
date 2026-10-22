@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}BookBridge - Buy & Sell Books Nearby{% endblock %}</title>
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11,7 +11,7 @@
     <!-- Bootstrap 5 & Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    
+
     <style>
         :root {
             --bb-primary: #0284c7;
@@ -25,12 +25,15 @@
             --bb-text-muted: #64748b;
             --bb-border: #e2e8f0;
             --bb-radius: 18px;
+            --bb-nav-height: 82px;
         }
 
         * {
             box-sizing: border-box;
             -webkit-tap-highlight-color: transparent;
         }
+
+        html { scroll-behavior: smooth; }
 
         body {
             font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -41,48 +44,155 @@
             min-height: 100vh;
         }
 
-        /* Full-Width Responsive Container (fills entire screen on all devices) */
+        a { text-decoration: none; }
+
+        /* ===================================================================
+           FULL-WIDTH APP SHELL
+           The mobile shell is intentionally NOT capped at 680px / 1400px — the
+           layout stretches edge to edge and simply gets more generous padding
+           and more columns on laptop & desktop screens.
+           =================================================================== */
         .bb-app-container {
             width: 100%;
-            margin: 0 auto;
+            max-width: 100%;
+            margin: 0;
             background: #ffffff;
             min-height: 100vh;
             position: relative;
-            padding-bottom: 95px; /* space for bottom nav */
+            padding-bottom: calc(var(--bb-nav-height) + 26px);
         }
 
-        /* Top Brand Bar (Subtle & clean) */
+        /* ===== TOP BRAND BAR ===== */
         .bb-top-brand {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 12px 18px 4px;
+            gap: 16px;
+            padding: 14px 18px;
             background: #ffffff;
+            border-bottom: 1px solid #f1f5f9;
+            width: 100%;
         }
         .bb-brand-title {
-            font-size: 1.25rem;
+            font-size: 1.3rem;
             font-weight: 900;
             color: #0f172a;
             letter-spacing: -0.5px;
             text-decoration: none;
-            display: flex;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+        .bb-brand-title span { color: #0284c7; }
+        .bb-brand-title .bb-brand-mark { color: #ffffff; }
+        .bb-brand-mark {
+            width: 38px;
+            height: 38px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
+            color: #ffffff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.15rem;
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+        }
+        .bb-privacy-badge {
+            display: inline-flex;
             align-items: center;
             gap: 6px;
+            background: #ecfdf5;
+            color: #047857;
+            border: 1px solid #bbf7d0;
+            border-radius: 999px;
+            padding: 6px 12px;
+            font-size: 0.76rem;
+            font-weight: 800;
+            letter-spacing: 0.1px;
+            white-space: nowrap;
         }
-        .bb-brand-title span {
-            color: #0284c7;
+        .bb-privacy-badge i { font-size: 0.9rem; }
+        .bb-top-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+        .bb-icon-btn {
+            position: relative;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            color: #0f172a;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            transition: background 0.15s, color 0.15s;
+        }
+        .bb-icon-btn:hover { background: #e0f2fe; color: #0284c7; }
+        .bb-unread-dot {
+            position: absolute;
+            top: -3px;
+            right: -3px;
+            min-width: 19px;
+            height: 19px;
+            padding: 0 5px;
+            border-radius: 999px;
+            background: #ef4444;
+            color: #ffffff;
+            font-size: 0.66rem;
+            font-weight: 800;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #ffffff;
+        }
+        .bb-user-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            color: #0f172a;
+            border-radius: 999px;
+            padding: 7px 14px 7px 8px;
+            font-size: 0.82rem;
+            font-weight: 800;
+            max-width: 190px;
+        }
+        .bb-user-chip i { font-size: 1.35rem; color: #0284c7; }
+        .bb-user-chip span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .bb-top-login {
+            background: #0f172a;
+            color: #ffffff;
+            border-radius: 999px;
+            padding: 9px 18px;
+            font-size: 0.82rem;
+            font-weight: 800;
+        }
+        .bb-top-login:hover { background: #1e293b; color: #ffffff; }
+
+        /* ===== PAGE WRAPPER ===== */
+        .bb-page {
+            width: 100%;
+            padding: 18px 18px 8px;
         }
 
-        /* Floating Search Row (Matching Screenshot 1) */
+        /* ===== HOME SEARCH ROW ===== */
         .bb-search-chat-row {
-            padding: 8px 18px 12px;
+            padding: 14px 18px 12px;
             display: flex;
             align-items: center;
             gap: 12px;
             background: #ffffff;
-            position: sticky;
-            top: 0;
-            z-index: 1020;
         }
         .bb-search-box {
             flex: 1;
@@ -108,10 +218,7 @@
             color: #1e293b;
             background: transparent;
         }
-        .bb-search-box input::placeholder {
-            color: #64748b;
-            font-weight: 500;
-        }
+        .bb-search-box input::placeholder { color: #64748b; font-weight: 500; }
         .bb-chat-btn {
             width: 48px;
             height: 48px;
@@ -124,13 +231,12 @@
             font-size: 1.35rem;
             text-decoration: none;
             flex-shrink: 0;
+            position: relative;
             box-shadow: 0 4px 10px rgba(30, 41, 59, 0.25);
             transition: transform 0.15s;
         }
-        .bb-chat-btn:hover {
-            transform: scale(1.05);
-            color: #ffffff;
-        }
+        .bb-chat-btn:hover { transform: scale(1.05); color: #ffffff; }
+        .bb-chat-btn .bb-unread-dot { top: 0; right: 0; }
 
         .bb-quick-actions {
             display: flex;
@@ -140,9 +246,7 @@
             scrollbar-width: none;
             -webkit-overflow-scrolling: touch;
         }
-        .bb-quick-actions::-webkit-scrollbar {
-            display: none;
-        }
+        .bb-quick-actions::-webkit-scrollbar { display: none; }
         .bb-action-pill {
             flex: 0 0 auto;
             display: inline-flex;
@@ -169,11 +273,13 @@
             color: #065f46;
         }
 
-        /* Section Headers with Arrow */
+        /* ===== SECTION HEADERS ===== */
         .bb-section-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 14px;
+            flex-wrap: wrap;
             padding: 16px 18px 8px;
         }
         .bb-section-title {
@@ -191,10 +297,7 @@
             text-decoration: none;
             transition: transform 0.15s;
         }
-        .bb-section-arrow:hover {
-            transform: translateX(4px);
-            color: #0284c7;
-        }
+        .bb-section-arrow:hover { transform: translateX(4px); color: #0284c7; }
 
         .location-btn-pill {
             background: #ffffff;
@@ -211,11 +314,9 @@
             cursor: pointer;
             transition: all 0.2s;
         }
-        .location-btn-pill:hover {
-            background: #f1f5f9;
-        }
+        .location-btn-pill:hover { background: #f1f5f9; }
 
-        /* Horizontal Scroll Carousel */
+        /* ===== BOOK CAROUSEL ===== */
         .bb-h-scroll {
             display: flex;
             gap: 14px;
@@ -224,11 +325,17 @@
             scrollbar-width: none;
             -webkit-overflow-scrolling: touch;
         }
-        .bb-h-scroll::-webkit-scrollbar {
-            display: none;
-        }
+        .bb-h-scroll::-webkit-scrollbar { display: none; }
 
-        /* Book Card Matching Screenshot */
+        /* Horizontally scrollable chips (categories, filters) */
+        .bb-chip-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 9px;
+            padding: 0 18px 16px;
+        }
+        .bb-chip-row .btn { border-radius: 999px; font-weight: 700; font-size: 0.82rem; padding: 8px 15px; }
+
         .bb-book-card {
             flex: 0 0 160px;
             width: 160px;
@@ -252,9 +359,7 @@
             object-fit: cover;
             transition: transform 0.2s;
         }
-        .bb-book-card:hover .bb-card-img-wrap img {
-            transform: scale(1.03);
-        }
+        .bb-book-card:hover .bb-card-img-wrap img { transform: scale(1.03); }
 
         .card-heart-btn {
             position: absolute;
@@ -278,15 +383,16 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 6px;
             margin-top: 8px;
             margin-bottom: 2px;
         }
-        .bb-price-val {
+        .bb-price, .bb-price-val {
             font-size: 1.1rem;
             font-weight: 800;
             color: #0f172a;
         }
-        .bb-distance-tag {
+        .bb-distance-tag, .bb-distance-pill {
             background: #dcfce7;
             color: #15803d;
             font-size: 0.72rem;
@@ -296,6 +402,7 @@
             display: inline-flex;
             align-items: center;
             gap: 3px;
+            white-space: nowrap;
         }
         .bb-book-name {
             font-size: 0.9rem;
@@ -307,7 +414,7 @@
             margin: 0;
         }
 
-        /* Trending Categories 2x3 Grid */
+        /* ===== CATEGORY GRID ===== */
         .bb-cat-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -342,7 +449,7 @@
             border-radius: 8px;
         }
 
-        /* Banner: GET FREE BOOKS */
+        /* ===== FREE BOOKS BANNER ===== */
         .free-books-box {
             margin: 8px 18px 18px;
             border-radius: 20px;
@@ -367,11 +474,7 @@
             -webkit-text-fill-color: transparent;
         }
 
-        /* Category Nav Rows */
-        .cat-nav-wrap {
-            padding: 0 18px;
-            margin-bottom: 12px;
-        }
+        .cat-nav-wrap { padding: 0 18px; margin-bottom: 12px; }
         .cat-nav-link {
             display: flex;
             align-items: center;
@@ -384,7 +487,6 @@
             border-bottom: 1px solid #f1f5f9;
         }
 
-        /* Mission Card */
         .mission-box {
             margin: 16px 18px;
             background: #fffbeb;
@@ -394,19 +496,466 @@
             box-shadow: 0 4px 14px rgba(245, 158, 11, 0.08);
         }
 
-        /* Bottom Navigation Bar (Matched to screenshot with center + Sell button) */
+        /* ===================================================================
+           SHARED UI COMPONENTS (buttons, cards, form fields, avatars)
+           =================================================================== */
+        .bb-panel {
+            background: #ffffff;
+            border: 1px solid #eef2f7;
+            border-radius: 20px;
+            box-shadow: 0 6px 24px rgba(15, 23, 42, 0.06);
+            padding: 22px;
+        }
+        .bb-panel-title {
+            font-size: 1.02rem;
+            font-weight: 800;
+            color: #0f172a;
+            margin: 0 0 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .bb-panel-sub { font-size: 0.82rem; color: #64748b; margin: 0 0 16px; line-height: 1.5; }
+
+        .bb-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            border: 1.5px solid transparent;
+            border-radius: 14px;
+            padding: 13px 20px;
+            font-size: 0.95rem;
+            font-weight: 800;
+            line-height: 1.2;
+            text-decoration: none;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+            white-space: nowrap;
+        }
+        .bb-btn:hover { transform: translateY(-1px); }
+        .bb-btn-primary {
+            background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+            color: #ffffff;
+            box-shadow: 0 6px 18px rgba(2, 132, 199, 0.28);
+        }
+        .bb-btn-primary:hover { color: #ffffff; box-shadow: 0 8px 22px rgba(2, 132, 199, 0.36); }
+        .bb-btn-dark { background: #0f172a; color: #ffffff; box-shadow: 0 6px 16px rgba(15, 23, 42, 0.22); }
+        .bb-btn-dark:hover { color: #ffffff; background: #1e293b; }
+        .bb-btn-telegram {
+            background: linear-gradient(135deg, #37bbfe 0%, #007dbb 100%);
+            color: #ffffff;
+            box-shadow: 0 6px 18px rgba(0, 125, 187, 0.28);
+        }
+        .bb-btn-telegram:hover { color: #ffffff; }
+        .bb-btn-whatsapp {
+            background: linear-gradient(135deg, #2ee06f 0%, #128c7e 100%);
+            color: #ffffff;
+            box-shadow: 0 6px 18px rgba(18, 140, 126, 0.26);
+        }
+        .bb-btn-whatsapp:hover { color: #ffffff; }
+        .bb-btn-outline {
+            background: #ffffff;
+            border-color: #cbd5e1;
+            color: #0f172a;
+        }
+        .bb-btn-outline:hover { background: #f8fafc; color: #0f172a; border-color: #94a3b8; }
+        .bb-btn-soft { background: #e0f2fe; color: #0284c7; }
+        .bb-btn-soft:hover { background: #bae6fd; color: #0369a1; }
+        .bb-btn-sm { padding: 9px 14px; font-size: 0.82rem; border-radius: 11px; }
+        .bb-btn-block { width: 100%; }
+
+        .bb-avatar {
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
+            color: #ffffff;
+            font-weight: 900;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.05rem;
+            flex-shrink: 0;
+            box-shadow: 0 4px 10px rgba(2, 132, 199, 0.25);
+        }
+        .bb-avatar.lg { width: 64px; height: 64px; font-size: 1.5rem; border-radius: 20px; }
+        .bb-avatar.sm { width: 36px; height: 36px; font-size: 0.85rem; }
+
+        .bb-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 800;
+            background: #f1f5f9;
+            color: #475569;
+        }
+        .bb-chip.green { background: #ecfdf5; color: #047857; }
+        .bb-chip.blue { background: #e0f2fe; color: #0369a1; }
+        .bb-chip.amber { background: #fffbeb; color: #b45309; }
+        .bb-chip.red { background: #fef2f2; color: #b91c1c; }
+
+        .bb-field { margin-bottom: 18px; }
+        .bb-field label, .bb-label {
+            display: block;
+            font-size: 0.78rem;
+            font-weight: 800;
+            color: #475569;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+            margin-bottom: 7px;
+        }
+        .bb-input, .bb-field input[type="text"], .bb-field input[type="email"],
+        .bb-field input[type="tel"], .bb-field input[type="number"],
+        .bb-field select, .bb-field textarea {
+            width: 100%;
+            border: 1.5px solid #e2e8f0;
+            background: #f8fafc;
+            border-radius: 14px;
+            padding: 12px 15px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #0f172a;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+        }
+        .bb-field input:focus, .bb-field select:focus, .bb-field textarea:focus, .bb-input:focus {
+            border-color: #0284c7;
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.13);
+        }
+        .bb-field input::placeholder, .bb-field textarea::placeholder { color: #94a3b8; font-weight: 500; }
+        .bb-hint { font-size: 0.78rem; color: #64748b; margin-top: 6px; }
+
+        .privacy-note {
+            display: flex;
+            align-items: flex-start;
+            gap: 9px;
+            background: #ecfdf5;
+            border: 1px solid #bbf7d0;
+            color: #065f46;
+            border-radius: 13px;
+            padding: 10px 13px;
+            font-size: 0.8rem;
+            line-height: 1.45;
+            font-weight: 600;
+            margin-top: 9px;
+        }
+        .privacy-note i { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+
+        .contact-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px;
+        }
+        .contact-option {
+            position: relative;
+            border: 2px solid #e2e8f0;
+            background: #f8fafc;
+            border-radius: 16px;
+            padding: 14px 15px;
+            cursor: pointer;
+            transition: all 0.18s;
+            display: block;
+        }
+        .contact-option input { position: absolute; opacity: 0; pointer-events: none; }
+        .contact-option .co-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            margin-bottom: 8px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+        }
+        .contact-option .co-title { font-size: 0.88rem; font-weight: 800; color: #0f172a; display: block; }
+        .contact-option .co-sub { font-size: 0.72rem; color: #64748b; line-height: 1.35; display: block; margin-top: 3px; font-weight: 600; }
+        .contact-option:hover { border-color: #bae6fd; }
+        .contact-option.selected,
+        .contact-option:has(input:checked) {
+            border-color: #0284c7;
+            background: #f0f9ff;
+            box-shadow: 0 4px 14px rgba(2, 132, 199, 0.12);
+        }
+        .contact-option.selected .co-icon,
+        .contact-option:has(input:checked) .co-icon {
+            background: #0284c7;
+            border-color: #0284c7;
+            color: #ffffff;
+        }
+
+        /* ===== EMPTY STATES ===== */
+        .bb-empty {
+            text-align: center;
+            padding: 48px 24px;
+            border-radius: 22px;
+            background: #ffffff;
+            border: 1px solid #eef2f7;
+        }
+        .bb-empty-icon {
+            width: 78px;
+            height: 78px;
+            border-radius: 50%;
+            background: #f1f5f9;
+            color: #94a3b8;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            margin-bottom: 16px;
+        }
+        .bb-empty h3 { font-size: 1.25rem; font-weight: 800; margin-bottom: 6px; }
+        .bb-empty p { color: #64748b; font-size: 0.92rem; max-width: 360px; margin: 0 auto 20px; }
+
+        /* ===== TOP PAGE HEADER (back arrow + title) ===== */
+        .bb-page-head {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .bb-page-head h1, .bb-page-head h4 {
+            font-size: 1.35rem;
+            font-weight: 800;
+            margin: 0;
+            letter-spacing: -0.3px;
+        }
+        .bb-back-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            color: #0f172a;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+        .bb-back-btn:hover { background: #e0f2fe; color: #0284c7; }
+
+        /* ===== SAFE DEAL CARD ===== */
+        .safe-deal-card {
+            border: 1px solid #fee2e2;
+            border-left: 5px solid #ef4444;
+            background: #ffffff;
+            border-radius: 14px;
+            padding: 18px;
+            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.06);
+        }
+
+        /* ===== FIXED ACTION BAR (book detail) ===== */
+        .bb-action-bar {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: calc(var(--bb-nav-height) + env(safe-area-inset-bottom, 0px));
+            z-index: 1030;
+            background: rgba(255, 255, 255, 0.97);
+            backdrop-filter: blur(12px);
+            border-top: 1px solid #e2e8f0;
+            box-shadow: 0 -8px 26px rgba(15, 23, 42, 0.1);
+            padding: 12px 18px;
+        }
+        .bb-action-bar-inner {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            width: 100%;
+        }
+        .bb-action-bar .bb-action-cta {
+            flex: 1 1 0;
+            min-width: 0;
+            padding: 12px 10px;
+            font-size: 0.86rem;
+            gap: 6px;
+        }
+        .bb-action-bar .bb-action-note {
+            flex: 1 1 100%;
+            font-size: 0.72rem;
+            color: #64748b;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        /* ===== CHAT ===== */
+        .chat-shell {
+            background: #ffffff;
+            border: 1px solid #eef2f7;
+            border-radius: 22px;
+            box-shadow: 0 10px 32px rgba(15, 23, 42, 0.07);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 300px);
+            min-height: 380px;
+            max-height: 760px;
+        }
+        .chat-head {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            border-bottom: 1px solid #f1f5f9;
+            background: #ffffff;
+        }
+        .chat-head .chat-name { font-weight: 800; font-size: 0.98rem; line-height: 1.2; }
+        .chat-head .chat-sub { font-size: 0.75rem; color: #64748b; font-weight: 600; }
+        .chat-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 18px;
+            background: linear-gradient(180deg, #f8fafc 0%, #ffffff 40%);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .chat-date-divider {
+            align-self: center;
+            font-size: 0.68rem;
+            font-weight: 800;
+            color: #94a3b8;
+            background: #ffffff;
+            border: 1px solid #eef2f7;
+            padding: 3px 10px;
+            border-radius: 999px;
+            margin: 4px 0;
+        }
+        .chat-row { display: flex; width: 100%; }
+        .chat-row.me { justify-content: flex-end; }
+        .chat-bubble {
+            max-width: min(72%, 560px);
+            padding: 11px 15px;
+            border-radius: 18px;
+            font-size: 0.93rem;
+            line-height: 1.5;
+            box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05);
+            word-break: break-word;
+        }
+        .chat-bubble .chat-time {
+            display: block;
+            font-size: 0.65rem;
+            margin-top: 4px;
+            opacity: 0.7;
+            font-weight: 700;
+            text-align: right;
+        }
+        .chat-row.me .chat-bubble {
+            background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%);
+            color: #ffffff;
+            border-bottom-right-radius: 6px;
+        }
+        .chat-row.them .chat-bubble {
+            background: #f1f5f9;
+            color: #0f172a;
+            border-bottom-left-radius: 6px;
+        }
+        .chat-composer {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            border-top: 1px solid #eef2f7;
+            background: #ffffff;
+        }
+        .chat-composer input[type="text"] {
+            flex: 1;
+            border: 1.5px solid #e2e8f0;
+            background: #f8fafc;
+            border-radius: 999px;
+            padding: 12px 18px;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .chat-composer input[type="text"]:focus { border-color: #0284c7; background: #ffffff; }
+        .chat-send {
+            width: 46px;
+            height: 46px;
+            border: none;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+            color: #ffffff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.15rem;
+            box-shadow: 0 4px 14px rgba(2, 132, 199, 0.32);
+            flex-shrink: 0;
+        }
+        .chat-book-strip {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 16px;
+            background: #f0f9ff;
+            border-bottom: 1px solid #e0f2fe;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #0369a1;
+        }
+        .chat-book-strip img { width: 34px; height: 44px; border-radius: 7px; object-fit: cover; }
+
+        .conversation-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 15px 18px;
+            border-bottom: 1px solid #f1f5f9;
+            color: inherit;
+            transition: background 0.15s;
+        }
+        .conversation-item:hover { background: #f8fafc; }
+        .conversation-item:last-child { border-bottom: none; }
+        .conversation-item .conv-main { flex: 1; min-width: 0; }
+        .conversation-item .conv-name { font-weight: 800; font-size: 0.93rem; }
+        .conversation-item .conv-preview {
+            font-size: 0.8rem;
+            color: #64748b;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .conversation-item .conv-meta { text-align: right; flex-shrink: 0; }
+        .conversation-item .conv-time { font-size: 0.68rem; color: #94a3b8; font-weight: 700; }
+        .conv-unread {
+            min-width: 20px;
+            height: 20px;
+            padding: 0 6px;
+            border-radius: 999px;
+            background: #ef4444;
+            color: #ffffff;
+            font-size: 0.66rem;
+            font-weight: 800;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 4px;
+        }
+
+        /* ===== BOTTOM NAV ===== */
         .bb-bottom-nav {
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
             width: 100%;
+            height: var(--bb-nav-height);
             background: #ffffff;
             border-top: 1px solid #e2e8f0;
             display: flex;
             align-items: flex-end;
             justify-content: space-around;
-            padding: 8px 12px 10px;
+            padding: 8px max(12px, calc((100% - 880px) / 2)) 10px;
             z-index: 1040;
             box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.06);
         }
@@ -420,15 +969,10 @@
             font-weight: 600;
             flex: 1;
             transition: color 0.15s;
+            padding-top: 4px;
         }
-        .bb-nav-item i {
-            font-size: 1.35rem;
-            margin-bottom: 2px;
-        }
-        .bb-nav-item.active {
-            color: #0f172a;
-            font-weight: 800;
-        }
+        .bb-nav-item i { font-size: 1.35rem; margin-bottom: 2px; }
+        .bb-nav-item.active { color: #0f172a; font-weight: 800; }
         .center-sell-pill {
             width: 56px;
             height: 56px;
@@ -444,126 +988,156 @@
             border: 4px solid #ffffff;
             margin-top: -26px;
         }
-        .center-sell-pill:hover {
-            color: #ffffff;
-            transform: scale(1.05);
-        }
+        .center-sell-pill:hover { color: #ffffff; transform: scale(1.05); }
 
-        /* Safe Deal Card */
-        .safe-deal-card {
-            border: 1px solid #fee2e2;
-            border-left: 5px solid #ef4444;
-            background: #ffffff;
-            border-radius: 14px;
-            padding: 18px;
-            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.06);
-        }
-
-        /* ===== RESPONSIVE: Laptop / Desktop Enhancements ===== */
+        /* ===================================================================
+           RESPONSIVE: TABLET (>= 768px)
+           =================================================================== */
         @media (min-width: 768px) {
-            .bb-app-container {
-                max-width: 1400px;
-                margin: 0 auto;
-            }
+            .bb-top-brand { padding: 16px 32px; }
+            .bb-brand-title { font-size: 1.45rem; }
+            .bb-privacy-badge { font-size: 0.82rem; padding: 7px 14px; }
 
-            .bb-search-chat-row {
-                padding: 12px 32px 16px;
-                max-width: 900px;
-            }
-
-            .bb-quick-actions {
-                padding: 0 32px 14px;
-                max-width: 900px;
-            }
-
-            .bb-section-header {
-                padding: 20px 32px 10px;
-            }
-
-            .bb-h-scroll {
-                padding: 6px 32px 20px;
-                gap: 18px;
-            }
-
-            .bb-book-card {
-                flex: 0 0 200px;
-                width: 200px;
-            }
-
-            .bb-card-img-wrap {
-                height: 260px;
-            }
-
+            .bb-search-chat-row { padding: 16px 32px 14px; }
+            .bb-quick-actions { padding: 0 32px 14px; }
+            .bb-section-header { padding: 20px 32px 10px; }
+            .bb-h-scroll { padding: 6px 32px 20px; gap: 18px; }
+            .bb-book-card { flex: 0 0 190px; width: 190px; }
+            .bb-card-img-wrap { height: 245px; }
             .bb-cat-grid {
-                grid-template-columns: repeat(6, 1fr);
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
                 gap: 14px;
                 padding: 6px 32px 24px;
             }
-
-            .bb-cat-tile {
-                height: 140px;
-            }
-
-            .free-books-box {
-                margin: 12px 32px 24px;
-                padding: 30px 28px;
-            }
-
-            .free-books-heading {
-                font-size: 2rem;
-            }
-
-            .cat-nav-wrap {
-                padding: 0 32px;
-                max-width: 900px;
-            }
-
-            .mission-box {
-                margin: 20px 32px;
-            }
-
+            .bb-cat-tile { height: 130px; }
+            .free-books-box { margin: 12px 32px 24px; padding: 28px 32px; }
+            .free-books-heading { font-size: 2rem; }
+            .cat-nav-wrap { padding: 0 32px; }
+            .mission-box { margin: 20px 32px; }
             .bb-bottom-nav {
-                padding: 10px 32px 12px;
+                padding: 10px max(24px, calc((100% - 900px) / 2)) 12px;
+            }
+            .bb-page { padding: 24px 32px 12px; }
+            .bb-chip-row { padding: 0 32px 18px; gap: 10px; }
+            .bb-action-bar { padding: 14px 32px; }
+            .bb-action-bar .bb-action-cta {
+                flex: 1 1 180px;
+                max-width: 320px;
+                padding: 13px 20px;
+                font-size: 0.95rem;
             }
         }
 
-        @media (min-width: 1200px) {
+        /* ===================================================================
+           RESPONSIVE: LAPTOP / DESKTOP (>= 992px)
+           Full-width, spacious layout — no narrow mobile frame.
+           =================================================================== */
+        @media (min-width: 992px) {
+            .bb-top-brand { padding: 16px 48px; }
+            .bb-search-chat-row { padding: 18px 48px 14px; }
+            .bb-quick-actions { padding: 0 48px 16px; gap: 12px; }
+            .bb-section-header { padding: 26px 48px 12px; }
+            .bb-page { padding: 28px 48px 16px; }
+            .bb-chip-row { padding: 0 48px 22px; gap: 12px; }
+
+            /* Book rows become a full-width grid on laptops */
             .bb-h-scroll {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
                 gap: 22px;
+                overflow: visible;
+                padding: 6px 48px 22px;
             }
-
-            .bb-book-card {
-                flex: 0 0 220px;
-                width: 220px;
-            }
-
-            .bb-card-img-wrap {
-                height: 290px;
-            }
+            .bb-h-scroll .bb-book-card { width: 100%; flex: initial; }
+            .bb-h-scroll .bb-card-img-wrap { height: auto; aspect-ratio: 3 / 4; }
+            .bb-h-scroll .bb-book-name { font-size: 0.95rem; }
 
             .bb-cat-grid {
-                grid-template-columns: repeat(6, 1fr);
-                gap: 16px;
-                max-width: 1200px;
+                grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+                gap: 18px;
+                padding: 6px 48px 26px;
             }
+            .bb-cat-tile { height: 150px; }
+            .free-books-box { margin: 14px 48px 28px; padding: 34px 42px; }
+            .free-books-heading { font-size: 2.4rem; }
+            .cat-nav-wrap { padding: 0 48px; }
+            .mission-box { margin: 24px 48px; padding: 26px 28px; }
+            .bb-section-title { font-size: 1.45rem; }
+            .bb-action-pill { font-size: 0.88rem; padding: 10px 16px; }
 
-            .bb-cat-tile {
-                height: 160px;
+            .bb-action-bar { padding: 14px 48px; }
+            .bb-action-bar-inner { gap: 14px; }
+            .bb-action-bar .bb-action-cta {
+                flex: 1 1 200px;
+                max-width: 320px;
+                padding: 14px 22px;
+                font-size: 0.98rem;
             }
+            .bb-action-bar .bb-action-note { flex: 0 1 auto; text-align: left; margin-left: auto; }
+        }
 
-            .bb-section-title {
-                font-size: 1.4rem;
-            }
+        @media (min-width: 1440px) {
+            .bb-top-brand { padding: 18px 64px; }
+            .bb-search-chat-row { padding: 20px 64px 16px; }
+            .bb-quick-actions { padding: 0 64px 18px; }
+            .bb-section-header { padding: 30px 64px 14px; }
+            .bb-page { padding: 32px 64px 20px; }
+            .bb-chip-row { padding: 0 64px 24px; }
+            .bb-h-scroll { padding: 8px 64px 26px; gap: 26px; }
+            .bb-cat-grid { padding: 8px 64px 30px; gap: 20px; }
+            .free-books-box { margin: 16px 64px 32px; padding: 40px 52px; }
+            .cat-nav-wrap { padding: 0 64px; }
+            .mission-box { margin: 28px 64px; }
+            .bb-action-bar { padding: 16px 64px; }
+        }
+
+        /* Small phones: keep the privacy badge compact but visible */
+        @media (max-width: 480px) {
+            .bb-top-brand { padding: 12px 16px; gap: 10px; }
+            .bb-brand-title { font-size: 1.15rem; gap: 6px; }
+            .bb-brand-mark { width: 34px; height: 34px; font-size: 1rem; border-radius: 10px; }
+            .bb-privacy-badge { font-size: 0.68rem; padding: 5px 9px; }
+            .bb-user-chip { display: none; }
+        }
+        @media (max-width: 380px) {
+            .bb-privacy-badge span { display: none; }
         }
     </style>
+    {% block extra_head %}{% endblock %}
 </head>
 <body>
 
 <div class="bb-app-container">
-    {% block content %}
-    {% endblock %}
+    <!-- Top Brand Bar: BookBridge + privacy assurance -->
+    <header class="bb-top-brand">
+        <a href="{% url 'core:home' %}" class="bb-brand-title" aria-label="BookBridge home">
+            <span class="bb-brand-mark"><i class="bi bi-book-half"></i></span>
+            <span style="color:#0f172a;">Book<span>Bridge</span></span>
+        </a>
 
-    <!-- Bottom Navigation Bar (Matching Screenshot on All Devices) -->
+        <span class="bb-privacy-badge" title="Your phone number stays hidden until you choose to share it">
+            <i class="bi bi-shield-lock-fill"></i> <span>100% Privacy Protected</span>
+        </span>
+
+        <div class="bb-top-actions">
+            {% if user.is_authenticated %}
+                <a href="{% url 'accounts:messages' %}" class="bb-icon-btn" title="Messages" aria-label="Messages">
+                    <i class="bi bi-chat-dots-fill"></i>
+                    {% if unread_message_count %}<span class="bb-unread-dot">{{ unread_message_count }}</span>{% endif %}
+                </a>
+                <a href="{% url 'accounts:profile' %}" class="bb-user-chip" title="Your account">
+                    <i class="bi bi-person-circle"></i>
+                    <span>{{ user.profile.name|default:user.username }}</span>
+                </a>
+            {% else %}
+                <a href="{% url 'accounts:login' %}" class="bb-top-login">Sign in</a>
+            {% endif %}
+        </div>
+    </header>
+
+    {% block content %}{% endblock %}
+
+    <!-- Bottom Navigation Bar (kept on every screen size) -->
     <nav class="bb-bottom-nav">
         <a href="{% url 'core:home' %}" class="bb-nav-item {% if request.path == '/' %}active{% endif %}">
             <i class="bi bi-house-door-fill"></i>
@@ -574,7 +1148,7 @@
             <span>My Books</span>
         </a>
         <div class="d-flex flex-column align-items-center" style="flex: 1;">
-            <a href="{% url 'books:book_add' %}" class="center-sell-pill">
+            <a href="{% url 'books:book_add' %}" class="center-sell-pill" aria-label="Sell a book">
                 <i class="bi bi-plus-lg"></i>
             </a>
             <span style="font-size: 0.72rem; font-weight: 700; color: #64748b; margin-top: 2px;">Sell Now</span>
@@ -603,7 +1177,7 @@
         <div class="modal-content rounded-4 border-0 shadow">
             <div class="modal-header border-0 pb-0">
                 <h5 class="modal-title fw-bold"><i class="bi bi-geo-alt-fill text-danger me-2"></i>Update Location</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <p class="text-muted small">Choose your location to find books within your neighborhood or college campus.</p>
@@ -624,8 +1198,12 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     function openLocationModal() {
-        new bootstrap.Modal(document.getElementById('locationModal')).show();
+        const modalEl = document.getElementById('locationModal');
+        if (modalEl && window.bootstrap) {
+            new bootstrap.Modal(modalEl).show();
+        }
     }
 </script>
+{% block extra_js %}{% endblock %}
 </body>
 </html>

@@ -2,29 +2,106 @@
 {% block title %}Messages - BookBridge{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-6 col-md-8">
-        <!-- Header with Back Arrow (Matching Screenshot 2) -->
-        <div class="d-flex align-items-center gap-3 mb-4">
-            <a href="javascript:history.back()" class="btn btn-light rounded-circle shadow-sm p-2" style="width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center;">
-                <i class="bi bi-arrow-left fs-5"></i>
+<div class="bb-page">
+    <div class="bb-page-head justify-content-between flex-wrap">
+        <div class="d-flex align-items-center gap-2">
+            <a href="{% url 'core:home' %}" class="bb-back-btn" aria-label="Back">
+                <i class="bi bi-arrow-left"></i>
             </a>
-            <h4 class="fw-bold mb-0">Messages</h4>
+            <div>
+                <h1>Messages</h1>
+                <small class="text-muted">Your BookBridge conversations</small>
+            </div>
+        </div>
+        <span class="bb-chip green"><i class="bi bi-shield-lock-fill"></i> 100% Privacy Protected</span>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="bb-panel p-0 overflow-hidden">
+                {% if conversations %}
+                    <div class="d-flex align-items-center justify-content-between px-4 py-3 border-bottom" style="border-color:#f1f5f9 !important;">
+                        <span class="fw-bold text-dark" style="font-size:0.92rem;">Active chats</span>
+                        <span class="bb-chip">{{ conversations|length }} conversation{{ conversations|length|pluralize }}</span>
+                    </div>
+
+                    {% for conv in conversations %}
+                        <a href="{% url 'accounts:chat_detail' conv.other.id %}{% if conv.book %}?book={{ conv.book.id }}{% endif %}" class="conversation-item">
+                            <div class="bb-avatar">
+                                {% if conv.other_profile.name %}{{ conv.other_profile.name|slice:":1"|upper }}{% else %}{{ conv.other.username|slice:":1"|upper }}{% endif %}
+                            </div>
+                            <div class="conv-main">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="conv-name text-truncate">
+                                        {% if conv.other_profile.name %}{{ conv.other_profile.name }}{% else %}{{ conv.other.username }}{% endif %}
+                                    </span>
+                                    {% if conv.other_profile.telegram_handle %}
+                                        <i class="bi bi-telegram" style="color:#0ea5e9;" title="Telegram"></i>
+                                    {% endif %}
+                                </div>
+                                {% if conv.book %}
+                                    <div class="conv-preview" style="color:#0284c7;">
+                                        <i class="bi bi-book"></i> {{ conv.book.title|truncatechars:42 }}
+                                    </div>
+                                {% endif %}
+                                <div class="conv-preview">
+                                    {% if conv.last_message.sender_id == user.id %}<span class="text-muted">You: </span>{% endif %}{{ conv.last_message.text|truncatechars:60 }}
+                                </div>
+                            </div>
+                            <div class="conv-meta">
+                                <div class="conv-time">{{ conv.last_message.created_at|date:"d M" }}</div>
+                                {% if conv.unread %}
+                                    <span class="conv-unread">{{ conv.unread }}</span>
+                                {% else %}
+                                    <i class="bi bi-check2-all text-primary" title="Read"></i>
+                                {% endif %}
+                            </div>
+                        </a>
+                    {% endfor %}
+                {% else %}
+                    <!-- Empty state for first-time users -->
+                    <div class="bb-empty" style="border:none; box-shadow:none; padding:60px 24px;">
+                        <div class="bb-empty-icon"><i class="bi bi-chat-dots-fill"></i></div>
+                        <h3>No Chats yet</h3>
+                        <p>Buyers queries regarding your books will appear here</p>
+                        <div class="d-flex flex-wrap justify-content-center gap-2">
+                            <a href="{% url 'books:book_list' %}" class="bb-btn bb-btn-primary">
+                                <i class="bi bi-book"></i> Browse Books Nearby
+                            </a>
+                            <a href="{% url 'books:book_add' %}" class="bb-btn bb-btn-outline">
+                                <i class="bi bi-plus-lg"></i> Sell a Book
+                            </a>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
         </div>
 
-        <!-- Empty Chats State (Matching Screenshot 2) -->
-        <div class="card border-0 rounded-4 shadow-sm p-5 bg-white text-center my-4" style="min-height: 400px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-            <div class="mb-3" style="width: 72px; height: 72px; background: #f1f5f9; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                <i class="bi bi-chat-dots-fill fs-1 text-muted"></i>
+        <div class="col-lg-4">
+            <div class="bb-panel" style="background:#f0f9ff; border-color:#e0f2fe;">
+                <h6 class="bb-panel-title"><i class="bi bi-shield-lock-fill" style="color:#0284c7;"></i> Private by design</h6>
+                <p class="bb-panel-sub mb-2">
+                    In-app chat never reveals phone numbers. When a seller adds a Telegram username,
+                    you can also continue the conversation on Telegram — still without a phone number.
+                </p>
+                <span class="bb-chip green"><i class="bi bi-check2-circle"></i> No number sharing required</span>
             </div>
-            <h3 class="fw-bold text-dark mb-2">No Chats yet</h3>
-            <p class="text-muted" style="max-width: 320px; font-size: 0.95rem;">
-                Buyers queries regarding your books will appear here
-            </p>
-            <div class="mt-4">
-                <a href="{% url 'books:book_list' %}" class="btn btn-outline-primary rounded-pill px-4 py-2 fw-semibold">
-                    Browse Books Nearby
+
+            <div class="bb-panel mt-4">
+                <h6 class="bb-panel-title"><i class="bi bi-book-half" style="color:#8b5cf6;"></i> Looking for a book?</h6>
+                <p class="bb-panel-sub">Post a request and let nearby students who own the book reach out to you.</p>
+                <a href="{% url 'accounts:request_book' %}" class="bb-btn bb-btn-primary bb-btn-block">
+                    <i class="bi bi-search-heart"></i> Request a Book
                 </a>
+            </div>
+
+            <div class="bb-panel mt-4">
+                <h6 class="bb-panel-title"><i class="bi bi-lightbulb-fill" style="color:#eab308;"></i> Chat safely</h6>
+                <ul class="small text-muted mb-0 ps-3" style="line-height:1.75;">
+                    <li>Keep the conversation inside BookBridge until you are comfortable.</li>
+                    <li>Never pay in advance or share OTPs / UPI PINs.</li>
+                    <li>Meet in a public place for the handover.</li>
+                </ul>
             </div>
         </div>
     </div>

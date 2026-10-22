@@ -3,401 +3,468 @@
 
 {% block content %}
 <style>
-    .profile-header {
-        background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 50%, #38bdf8 100%);
-        padding: 28px 20px 24px;
+    .profile-hero {
+        background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 55%, #38bdf8 100%);
+        border-radius: 24px;
+        padding: 26px 26px;
         color: #ffffff;
         display: flex;
         align-items: center;
         justify-content: space-between;
+        gap: 18px;
+        flex-wrap: wrap;
+        box-shadow: 0 12px 30px rgba(2, 132, 199, 0.22);
+        margin-bottom: 22px;
     }
+    .profile-hero .hero-person { display: flex; align-items: center; gap: 16px; min-width: 0; }
     .profile-avatar {
-        width: 64px;
-        height: 64px;
-        border-radius: 18px;
-        background: rgba(255,255,255,0.2);
+        width: 68px;
+        height: 68px;
+        border-radius: 20px;
+        background: rgba(255,255,255,0.18);
         backdrop-filter: blur(8px);
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.8rem;
+        font-size: 1.9rem;
         color: #ffffff;
-        border: 2px solid rgba(255,255,255,0.4);
+        border: 2px solid rgba(255,255,255,0.45);
+        flex-shrink: 0;
     }
-    .profile-info h5 { margin: 0; font-weight: 800; font-size: 1.15rem; }
-    .profile-info small { opacity: 0.85; font-weight: 500; }
-
-    .profile-edit-card {
-        background: #ffffff;
-        border-radius: 20px;
-        margin: -12px 16px 16px;
-        padding: 22px 18px 18px;
-        box-shadow: 0 8px 28px rgba(0,0,0,0.08);
-        position: relative;
-        z-index: 10;
-    }
-    .profile-edit-card .field-group {
-        margin-bottom: 18px;
-    }
-    .profile-edit-card label {
-        font-size: 0.78rem;
-        font-weight: 700;
-        color: #64748b;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 4px;
-        display: block;
-    }
-    .profile-edit-card input,
-    .profile-edit-card select {
-        width: 100%;
-        border: none;
-        border-bottom: 2px solid #e2e8f0;
-        padding: 8px 0;
-        font-size: 1rem;
-        font-weight: 600;
-        color: #0f172a;
-        background: transparent;
-        outline: none;
-        transition: border-color 0.2s;
-    }
-    .profile-edit-card input:focus,
-    .profile-edit-card select:focus {
-        border-bottom-color: #0284c7;
-    }
-    .profile-edit-card input::placeholder {
-        color: #94a3b8;
-        font-weight: 500;
-    }
-
-    .privacy-toggle {
-        display: flex;
-        gap: 12px;
-        margin-top: 6px;
-    }
-    .privacy-opt {
-        flex: 1;
-        padding: 10px 16px;
-        border-radius: 12px;
-        border: 2px solid #e2e8f0;
-        text-align: center;
-        font-weight: 700;
-        font-size: 0.9rem;
-        cursor: pointer;
-        transition: all 0.2s;
-        color: #64748b;
-        background: #f8fafc;
-    }
-    .privacy-opt input { display: none; }
-    .privacy-opt.selected {
-        border-color: #0284c7;
-        background: #e0f2fe;
-        color: #0284c7;
-    }
-
-    .btn-save-profile {
-        width: 100%;
-        padding: 14px;
-        border: none;
-        border-radius: 14px;
-        background: linear-gradient(135deg, #0284c7, #0ea5e9);
-        color: #ffffff;
+    .profile-hero h5 { margin: 0 0 3px; font-weight: 900; font-size: 1.3rem; letter-spacing: -0.3px; }
+    .profile-hero .hero-sub { opacity: 0.9; font-weight: 600; font-size: 0.85rem; display: flex; flex-wrap: wrap; gap: 12px; }
+    .hero-privacy {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(255,255,255,0.18);
+        border: 1px solid rgba(255,255,255,0.38);
+        border-radius: 999px;
+        padding: 5px 12px;
+        font-size: 0.74rem;
         font-weight: 800;
-        font-size: 1rem;
-        cursor: pointer;
-        box-shadow: 0 4px 14px rgba(2,132,199,0.3);
-        transition: all 0.2s;
+        margin-top: 8px;
     }
-    .btn-save-profile:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 6px 20px rgba(2,132,199,0.4);
+    .hero-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .hero-actions .btn {
+        border-radius: 999px;
+        font-weight: 800;
+        font-size: 0.82rem;
+        padding: 9px 16px;
+        border: 1px solid rgba(255,255,255,0.45);
+        color: #ffffff;
+        background: rgba(255,255,255,0.16);
     }
-
-    .btn-location-detect {
-        width: 100%;
-        padding: 12px;
-        border: 2px solid #e2e8f0;
-        border-radius: 14px;
-        background: #f8fafc;
-        color: #0284c7;
-        font-weight: 700;
-        font-size: 0.9rem;
-        cursor: pointer;
-        margin-bottom: 14px;
-        transition: all 0.2s;
-    }
-    .btn-location-detect:hover {
-        background: #e0f2fe;
-        border-color: #0284c7;
-    }
+    .hero-actions .btn:hover { background: rgba(255,255,255,0.28); color: #ffffff; }
 
     .menu-card {
         background: #ffffff;
+        border: 1px solid #eef2f7;
         border-radius: 20px;
-        margin: 0 16px 16px;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.05);
+        box-shadow: 0 6px 24px rgba(15, 23, 42, 0.06);
         overflow: hidden;
     }
     .menu-item {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 16px 20px;
+        gap: 12px;
+        padding: 15px 20px;
         text-decoration: none;
         color: #0f172a;
         border-bottom: 1px solid #f1f5f9;
         transition: background 0.15s;
     }
     .menu-item:last-child { border-bottom: none; }
-    .menu-item:hover { background: #f8fafc; }
+    .menu-item:hover { background: #f8fafc; color: #0f172a; }
     .menu-item .menu-icon {
-        width: 40px;
-        height: 40px;
-        border-radius: 12px;
+        width: 42px;
+        height: 42px;
+        border-radius: 13px;
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 1.1rem;
         flex-shrink: 0;
     }
-    .menu-item .menu-label {
-        font-weight: 700;
-        font-size: 0.95rem;
-        flex: 1;
-        margin-left: 14px;
+    .menu-item .menu-label { font-weight: 800; font-size: 0.92rem; flex: 1; }
+    .menu-item .menu-sub { display: block; font-size: 0.74rem; color: #64748b; font-weight: 600; margin-top: 1px; }
+    .menu-count {
+        background: #ef4444;
+        color: #fff;
+        font-size: 0.68rem;
+        font-weight: 800;
+        border-radius: 999px;
+        padding: 2px 8px;
     }
 
-    .follow-section {
-        text-align: center;
-        padding: 20px 16px;
-    }
+    .follow-section { text-align: center; padding: 18px 8px 4px; }
     .follow-section .social-btn {
-        width: 52px;
-        height: 52px;
-        border-radius: 16px;
+        width: 48px;
+        height: 48px;
+        border-radius: 15px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.5rem;
+        font-size: 1.35rem;
         text-decoration: none;
-        margin: 0 8px;
+        margin: 0 7px;
         transition: transform 0.15s;
     }
     .follow-section .social-btn:hover { transform: scale(1.1); }
 
-    .toast-success {
-        position: fixed;
-        top: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: #10b981;
-        color: #ffffff;
-        padding: 12px 24px;
-        border-radius: 12px;
-        font-weight: 700;
-        font-size: 0.9rem;
-        box-shadow: 0 4px 16px rgba(16,185,129,0.3);
-        z-index: 9999;
-        display: none;
-        animation: slideDown 0.3s ease;
+    .request-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 13px 0;
+        border-bottom: 1px solid #f1f5f9;
     }
-    @keyframes slideDown {
-        from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
-        to { opacity: 1; transform: translateX(-50%) translateY(0); }
-    }
+    .request-row:last-child { border-bottom: none; }
 </style>
 
-<!-- Success Toast -->
-{% if messages %}
-{% for message in messages %}
-<div class="toast-success" id="saveToast" style="display:block;">
-    <i class="bi bi-check-circle-fill me-2"></i>{{ message }}
-</div>
-{% endfor %}
-{% endif %}
-
-<!-- Profile Header -->
-<div class="profile-header">
-    <div class="d-flex align-items-center gap-3">
-        <div class="profile-avatar">
-            <i class="bi bi-person-fill"></i>
+<div class="bb-page">
+    {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-success border-0 rounded-4 fw-semibold d-flex align-items-center gap-2" role="alert" style="background:#ecfdf5; color:#065f46;">
+            <i class="bi bi-check-circle-fill"></i> {{ message }}
         </div>
-        <div class="profile-info">
-            <h5>{{ profile.name|default:user.username }}</h5>
-            {% if profile.location %}
-            <small><i class="bi bi-geo-alt-fill"></i> {{ profile.location }}</small>
-            {% else %}
-            <small><i class="bi bi-geo-alt"></i> Set your location</small>
-            {% endif %}
+        {% endfor %}
+    {% endif %}
+
+    <!-- Profile hero -->
+    <div class="profile-hero">
+        <div class="hero-person">
+            <div class="profile-avatar"><i class="bi bi-person-fill"></i></div>
+            <div>
+                <h5>{{ profile.name|default:user.username }}</h5>
+                <div class="hero-sub">
+                    <span>
+                        {% if profile.location %}
+                            <i class="bi bi-geo-alt-fill"></i> {{ profile.location }}
+                        {% else %}
+                            <i class="bi bi-geo-alt"></i> Set your location
+                        {% endif %}
+                    </span>
+                    <span><i class="bi bi-envelope-fill"></i> {{ user.email|default:"Add your email" }}</span>
+                </div>
+                <span class="hero-privacy"><i class="bi bi-shield-lock-fill"></i> 100% Privacy Protected</span>
+            </div>
+        </div>
+        <div class="hero-actions">
+            <a href="{% url 'accounts:messages' %}" class="btn">
+                <i class="bi bi-chat-dots-fill me-1"></i> Messages
+                {% if unread_message_count %}<span class="menu-count ms-1">{{ unread_message_count }}</span>{% endif %}
+            </a>
+            <a href="{% url 'accounts:logout' %}" class="btn"><i class="bi bi-box-arrow-right me-1"></i> Logout</a>
         </div>
     </div>
-    <a href="{% url 'accounts:logout' %}" class="btn btn-sm rounded-pill px-3" style="background: rgba(255,255,255,0.2); color: #fff; border: 1px solid rgba(255,255,255,0.3); font-weight: 700;">
-        <i class="bi bi-box-arrow-right"></i> Logout
-    </a>
+
+    <div class="row g-4">
+        <!-- ================= LEFT: contact + privacy ================= -->
+        <div class="col-lg-7">
+            <div class="bb-panel">
+                <h6 class="bb-panel-title"><i class="bi bi-person-gear text-primary"></i> Profile &amp; Contact Privacy</h6>
+                <p class="bb-panel-sub">
+                    Choose how buyers reach you. Your phone number is never displayed on your listings —
+                    buyers can message you on Telegram or in-app without seeing it.
+                </p>
+
+                <form method="POST" action="{% url 'accounts:profile' %}">
+                    {% csrf_token %}
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="bb-field">
+                                <label for="profile-name">Name</label>
+                                <input id="profile-name" type="text" name="name" value="{{ profile.name|default:user.username }}" placeholder="Your full name" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="bb-field">
+                                <label for="profile-email">Email Id</label>
+                                <input id="profile-email" type="email" name="email" value="{{ user.email }}" placeholder="e.g. yourname@gmail.com">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="bb-field">
+                                <label for="profile-phone">Phone Number (private)</label>
+                                <input id="profile-phone" type="tel" name="phone_number" value="{{ profile.phone_number }}" placeholder="e.g. 9876543210">
+                                <p class="bb-hint"><i class="bi bi-eye-slash"></i> Hidden from buyers unless you pick WhatsApp / Call below.</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="bb-field">
+                                <label for="profile-location-input">Location</label>
+                                <input id="profile-location-input" type="text" name="location" value="{{ profile.location }}" placeholder="e.g. Kothapeta, Dhone">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Telegram username -->
+                    <div class="bb-field">
+                        <label for="profile-telegram">Telegram Username (@username)</label>
+                        <div class="input-group">
+                            <span class="input-group-text fw-bold" style="background:#f0f9ff; border:1.5px solid #e2e8f0; border-right:none; border-radius:14px 0 0 14px; color:#0284c7;">@</span>
+                            <input id="profile-telegram" type="text" name="telegram_username"
+                                   value="{{ profile.telegram_handle }}"
+                                   placeholder="your_telegram_username"
+                                   style="border-radius:0 14px 14px 0;">
+                        </div>
+                        <div class="privacy-note">
+                            <i class="bi bi-shield-lock-fill"></i>
+                            <span>Buyers can chat with you on Telegram without seeing your real phone number.</span>
+                        </div>
+                    </div>
+
+                    <!-- Preferred contact mode -->
+                    <div class="bb-field">
+                        <span class="bb-label">Preferred Contact Mode</span>
+                        <div class="contact-options" id="contactOptions">
+                            <label class="contact-option {% if profile.contact_preference == 'telegram' %}selected{% endif %}">
+                                <input type="radio" name="contact_preference" value="telegram" {% if profile.contact_preference == 'telegram' %}checked{% endif %}>
+                                <span class="co-icon" style="color:#0ea5e9;"><i class="bi bi-telegram"></i></span>
+                                <span class="co-title">Telegram <span class="bb-chip green">Recommended</span></span>
+                                <span class="co-sub">No phone shared — buyers message your @handle.</span>
+                            </label>
+                            <label class="contact-option {% if profile.contact_preference == 'in_app' or not profile.contact_preference %}selected{% endif %}">
+                                <input type="radio" name="contact_preference" value="in_app" {% if profile.contact_preference == 'in_app' or not profile.contact_preference %}checked{% endif %}>
+                                <span class="co-icon" style="color:#6366f1;"><i class="bi bi-chat-dots-fill"></i></span>
+                                <span class="co-title">In-App Chat</span>
+                                <span class="co-sub">Talk inside BookBridge. Phone stays private.</span>
+                            </label>
+                            <label class="contact-option {% if profile.contact_preference == 'whatsapp' %}selected{% endif %}">
+                                <input type="radio" name="contact_preference" value="whatsapp" {% if profile.contact_preference == 'whatsapp' %}checked{% endif %}>
+                                <span class="co-icon" style="color:#16a34a;"><i class="bi bi-whatsapp"></i></span>
+                                <span class="co-title">WhatsApp / Call</span>
+                                <span class="co-sub">Shows your phone number to interested buyers.</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Account privacy -->
+                    <div class="bb-field">
+                        <span class="bb-label">Account Privacy</span>
+                        <div class="d-flex flex-wrap gap-2">
+                            <label class="contact-option mb-0" style="min-width:150px;">
+                                <input type="radio" name="account_privacy" value="public" {% if profile.account_privacy == 'public' %}checked{% endif %}>
+                                <span class="co-title"><i class="bi bi-globe2 me-1"></i> Public</span>
+                            </label>
+                            <label class="contact-option mb-0" style="min-width:150px;">
+                                <input type="radio" name="account_privacy" value="private" {% if profile.account_privacy == 'private' or not profile.account_privacy %}checked{% endif %}>
+                                <span class="co-title"><i class="bi bi-lock-fill me-1"></i> Private</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2 pt-2">
+                        <button type="button" class="bb-btn bb-btn-outline" onclick="detectGPSProfile(this)">
+                            <i class="bi bi-crosshair"></i> Detect My Location
+                        </button>
+                        <button type="submit" class="bb-btn bb-btn-primary">
+                            <i class="bi bi-check2-circle"></i> Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Recent listings -->
+            <div class="bb-panel mt-4">
+                <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                    <h6 class="bb-panel-title mb-0"><i class="bi bi-journal-bookmark-fill text-primary"></i> My Listings</h6>
+                    <a href="{% url 'books:book_add' %}" class="bb-btn bb-btn-soft bb-btn-sm"><i class="bi bi-plus-lg"></i> Sell a book</a>
+                </div>
+                {% if user_books %}
+                    <div class="row row-cols-2 row-cols-md-3 g-3">
+                        {% for book in user_books %}
+                            <div class="col">
+                                <a href="{% url 'books:book_detail' book.pk %}" class="d-block text-decoration-none">
+                                    <div class="bb-card-img-wrap" style="height:180px;">
+                                        {% if book.image %}
+                                            <img src="{{ book.image.url }}" alt="{{ book.title }}">
+                                        {% else %}
+                                            <div class="d-flex align-items-center justify-content-center h-100 bg-light text-center p-2">
+                                                <span class="text-muted fw-bold small">📖 {{ book.title|truncatechars:18 }}</span>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    <p class="bb-book-name mt-2">{{ book.title }}</p>
+                                    <span class="fw-bold text-dark small">₹ {{ book.price|floatformat:0 }}</span>
+                                </a>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted small mb-0">You have not listed any books yet. Tap <strong>Sell Now</strong> below to add your first one.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- ================= RIGHT: actions ================= -->
+        <div class="col-lg-5">
+            <div class="menu-card">
+                <a href="{% url 'accounts:messages' %}" class="menu-item">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="menu-icon" style="background:#e0f2fe; color:#0284c7;"><i class="bi bi-chat-dots-fill"></i></div>
+                        <div>
+                            <span class="menu-label">Messages</span>
+                            <span class="menu-sub">Chats with buyers &amp; sellers</span>
+                        </div>
+                    </div>
+                    {% if unread_message_count %}
+                        <span class="menu-count">{{ unread_message_count }}</span>
+                    {% else %}
+                        <i class="bi bi-chevron-right text-muted"></i>
+                    {% endif %}
+                </a>
+
+                <a href="{% url 'accounts:request_book' %}" class="menu-item">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="menu-icon" style="background:#ede9fe; color:#8b5cf6;"><i class="bi bi-book-half"></i></div>
+                        <div>
+                            <span class="menu-label">Request a Book</span>
+                            <span class="menu-sub">Ask nearby students for a book you need</span>
+                        </div>
+                    </div>
+                    <i class="bi bi-chevron-right text-muted"></i>
+                </a>
+
+                <a href="{% url 'books:wishlist' %}" class="menu-item">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="menu-icon" style="background:#fef2f2; color:#ef4444;"><i class="bi bi-heart-fill"></i></div>
+                        <div>
+                            <span class="menu-label">My Favourites</span>
+                            <span class="menu-sub">Books you saved for later</span>
+                        </div>
+                    </div>
+                    <i class="bi bi-chevron-right text-muted"></i>
+                </a>
+
+                <a href="javascript:void(0)" onclick="openLocationModal()" class="menu-item">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="menu-icon" style="background:#ecfdf5; color:#10b981;"><i class="bi bi-geo-alt-fill"></i></div>
+                        <div>
+                            <span class="menu-label">Update Location</span>
+                            <span class="menu-sub">Find books closer to you</span>
+                        </div>
+                    </div>
+                    <i class="bi bi-chevron-right text-muted"></i>
+                </a>
+
+                <a href="{% url 'accounts:profile_edit' %}" class="menu-item">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="menu-icon" style="background:#f1f5f9; color:#475569;"><i class="bi bi-sliders"></i></div>
+                        <div>
+                            <span class="menu-label">Full Profile Editor</span>
+                            <span class="menu-sub">Open the dedicated edit page</span>
+                        </div>
+                    </div>
+                    <i class="bi bi-chevron-right text-muted"></i>
+                </a>
+
+                <a href="javascript:void(0)" onclick="alert('Share BookBridge with your friends and earn rewards on your next book!')" class="menu-item">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="menu-icon" style="background:#fefce8; color:#eab308;"><i class="bi bi-megaphone-fill"></i></div>
+                        <div>
+                            <span class="menu-label">Refer and Earn</span>
+                            <span class="menu-sub">Invite friends to BookBridge</span>
+                        </div>
+                    </div>
+                    <i class="bi bi-chevron-right text-muted"></i>
+                </a>
+
+                <a href="javascript:void(0)" onclick="alert('BookBridge Support: email support@bookbridge.local and our team will help you out.')" class="menu-item">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="menu-icon" style="background:#f0f9ff; color:#0284c7;"><i class="bi bi-headset"></i></div>
+                        <div>
+                            <span class="menu-label">Support &amp; Help</span>
+                            <span class="menu-sub">We are here for you</span>
+                        </div>
+                    </div>
+                    <i class="bi bi-chevron-right text-muted"></i>
+                </a>
+            </div>
+
+            <!-- Book requests summary -->
+            <div class="bb-panel mt-4">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <h6 class="bb-panel-title mb-0"><i class="bi bi-search-heart text-primary"></i> My Book Requests</h6>
+                    <a href="{% url 'accounts:request_book' %}" class="bb-btn bb-btn-soft bb-btn-sm">New request</a>
+                </div>
+                {% if book_requests %}
+                    {% for req in book_requests %}
+                        <div class="request-row">
+                            <div style="min-width:0;">
+                                <div class="fw-bold text-dark text-truncate">{{ req.book_title }}</div>
+                                <small class="text-muted">{{ req.category|default:"Any category" }}{% if req.location %} · {{ req.location }}{% endif %}</small>
+                            </div>
+                            <span class="bb-chip {% if req.status == 'fulfilled' %}green{% else %}amber{% endif %}">{{ req.get_status_display }}</span>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted small mb-0">Need a book that is not listed nearby? Send a request and students who own it can reach you.</p>
+                {% endif %}
+            </div>
+
+            <div class="follow-section">
+                <p class="fw-bold text-muted small mb-3">FOLLOW BOOKBRIDGE</p>
+                <a href="https://instagram.com" target="_blank" rel="noopener" class="social-btn" style="background: linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); color: #fff;" aria-label="Instagram">
+                    <i class="bi bi-instagram"></i>
+                </a>
+                <a href="https://youtube.com" target="_blank" rel="noopener" class="social-btn" style="background: #ff0000; color: #fff;" aria-label="YouTube">
+                    <i class="bi bi-youtube"></i>
+                </a>
+            </div>
+        </div>
+    </div>
 </div>
-
-<!-- Editable Profile Card (Inline Edit — no separate page needed) -->
-<div class="profile-edit-card">
-    <form method="POST" action="{% url 'accounts:profile' %}">
-        {% csrf_token %}
-
-        <div class="field-group">
-            <label>Name</label>
-            <input type="text" name="name" value="{{ profile.name|default:user.username }}" placeholder="Your full name" required>
-        </div>
-
-        <div class="field-group">
-            <label>Phone Number</label>
-            <input type="tel" name="phone_number" value="{{ profile.phone_number }}" placeholder="e.g. 9876543210">
-        </div>
-
-        <div class="field-group">
-            <label>Email Id</label>
-            <input type="email" name="email" value="{{ user.email }}" placeholder="e.g. yourname@gmail.com">
-        </div>
-
-        <div class="field-group">
-            <label>Location</label>
-            <input type="text" name="location" id="profile-location-input" value="{{ profile.location }}" placeholder="e.g. Kothapeta, Dhone">
-        </div>
-
-        <div class="field-group">
-            <label>Account Privacy</label>
-            <div class="privacy-toggle">
-                <label class="privacy-opt {% if profile.account_privacy == 'public' %}selected{% endif %}" id="opt-public" onclick="selectPrivacy('public')">
-                    <input type="radio" name="account_privacy" value="public" {% if profile.account_privacy == 'public' %}checked{% endif %}>
-                    <i class="bi bi-globe2 me-1"></i> Public
-                </label>
-                <label class="privacy-opt {% if profile.account_privacy == 'private' or not profile.account_privacy %}selected{% endif %}" id="opt-private" onclick="selectPrivacy('private')">
-                    <input type="radio" name="account_privacy" value="private" {% if profile.account_privacy == 'private' or not profile.account_privacy %}checked{% endif %}>
-                    <i class="bi bi-lock-fill me-1"></i> Private
-                </label>
-            </div>
-        </div>
-
-        <button type="button" class="btn-location-detect" onclick="detectGPSProfile()">
-            <i class="bi bi-crosshair me-2"></i>Detect My Location
-        </button>
-
-        <button type="submit" class="btn-save-profile">
-            <i class="bi bi-check2-circle me-2"></i>Save Changes
-        </button>
-    </form>
-</div>
-
-<!-- Menu Items -->
-<div class="menu-card">
-    <a href="{% url 'books:wishlist' %}" class="menu-item">
-        <div class="d-flex align-items-center">
-            <div class="menu-icon" style="background: #fef2f2; color: #ef4444;">
-                <i class="bi bi-heart-fill"></i>
-            </div>
-            <span class="menu-label">My Favourites</span>
-        </div>
-        <i class="bi bi-chevron-right text-muted"></i>
-    </a>
-
-    <a href="javascript:void(0)" onclick="openLocationModal()" class="menu-item">
-        <div class="d-flex align-items-center">
-            <div class="menu-icon" style="background: #ecfdf5; color: #10b981;">
-                <i class="bi bi-geo-alt-fill"></i>
-            </div>
-            <span class="menu-label">Update Location</span>
-        </div>
-        <i class="bi bi-chevron-right text-muted"></i>
-    </a>
-
-    <a href="javascript:void(0)" onclick="alert('Share BookBridge with your friends and earn rewards on your next book!')" class="menu-item">
-        <div class="d-flex align-items-center">
-            <div class="menu-icon" style="background: #fefce8; color: #eab308;">
-                <i class="bi bi-megaphone-fill"></i>
-            </div>
-            <span class="menu-label">Refer and Earn</span>
-        </div>
-        <i class="bi bi-chevron-right text-muted"></i>
-    </a>
-
-    <a href="javascript:void(0)" onclick="alert('Book Request submitted! Nearby students with this book will be notified.')" class="menu-item">
-        <div class="d-flex align-items-center">
-            <div class="menu-icon" style="background: #ede9fe; color: #8b5cf6;">
-                <i class="bi bi-book-half"></i>
-            </div>
-            <span class="menu-label">Request a Book</span>
-        </div>
-        <i class="bi bi-chevron-right text-muted"></i>
-    </a>
-
-    <a href="javascript:void(0)" onclick="alert('BookBridge Support: Contact us on WhatsApp or email support@bookbridge.local')" class="menu-item">
-        <div class="d-flex align-items-center">
-            <div class="menu-icon" style="background: #f0f9ff; color: #0284c7;">
-                <i class="bi bi-headset"></i>
-            </div>
-            <span class="menu-label">Support & Help</span>
-        </div>
-        <i class="bi bi-chevron-right text-muted"></i>
-    </a>
-</div>
-
-<!-- Follow Us -->
-<div class="follow-section">
-    <p class="fw-bold text-muted small mb-3">FOLLOW US</p>
-    <a href="https://instagram.com" target="_blank" class="social-btn" style="background: linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); color: #fff;">
-        <i class="bi bi-instagram"></i>
-    </a>
-    <a href="https://youtube.com" target="_blank" class="social-btn" style="background: #ff0000; color: #fff;">
-        <i class="bi bi-youtube"></i>
-    </a>
-</div>
-
-<div style="height: 20px;"></div>
 
 <script>
-    // Privacy toggle
-    function selectPrivacy(val) {
-        document.querySelectorAll('.privacy-opt').forEach(el => el.classList.remove('selected'));
-        document.getElementById('opt-' + val).classList.add('selected');
-        document.getElementById('opt-' + val).querySelector('input').checked = true;
+    // Highlight the selected contact option card.
+    function syncContactOptions() {
+        document.querySelectorAll('#contactOptions .contact-option').forEach(function (option) {
+            const input = option.querySelector('input[type="radio"]');
+            option.classList.toggle('selected', input.checked);
+        });
     }
+    function syncAccountPrivacy() {
+        document.querySelectorAll('input[name="account_privacy"]').forEach(function (input) {
+            const option = input.closest('.contact-option');
+            if (option) { option.classList.toggle('selected', input.checked); }
+        });
+    }
+    document.querySelectorAll('#contactOptions input[type="radio"]').forEach(function (input) {
+        input.addEventListener('change', syncContactOptions);
+    });
+    document.querySelectorAll('input[name="account_privacy"]').forEach(function (input) {
+        input.addEventListener('change', syncAccountPrivacy);
+    });
+    syncContactOptions();
+    syncAccountPrivacy();
 
-    // GPS detection
-    function detectGPSProfile() {
-        const btn = event.target.closest('button');
-        btn.innerHTML = '<i class="bi bi-arrow-repeat me-2 spin-icon"></i>Detecting...';
+    function detectGPSProfile(btn) {
+        const input = document.getElementById('profile-location-input');
+        const original = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>Detecting...';
+        const fallback = function () {
+            const manual = prompt('Enter your location (City/Area/Pincode):', input.value || 'Kothapeta, Dhone');
+            if (manual) { input.value = manual; }
+            btn.innerHTML = original;
+        };
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
-                function(pos) {
-                    const loc = "Kothapeta, Dhone, Andhra Pradesh";
-                    document.getElementById('profile-location-input').value = loc;
+                function () {
+                    input.value = 'Kothapeta, Dhone, Andhra Pradesh';
                     btn.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Location Detected!';
-                    btn.style.borderColor = '#10b981';
-                    btn.style.color = '#10b981';
-                    setTimeout(() => {
-                        btn.innerHTML = '<i class="bi bi-crosshair me-2"></i>Detect My Location';
-                        btn.style.borderColor = '#e2e8f0';
-                        btn.style.color = '#0284c7';
-                    }, 2000);
+                    setTimeout(function () { btn.innerHTML = original; }, 1800);
                 },
-                function(err) {
-                    const manual = prompt('Enter your location (City/Area/Pincode):', 'Kothapeta, Dhone');
-                    if (manual) {
-                        document.getElementById('profile-location-input').value = manual;
-                    }
-                    btn.innerHTML = '<i class="bi bi-crosshair me-2"></i>Detect My Location';
-                }
+                fallback,
+                { timeout: 8000 }
             );
         } else {
-            const manual = prompt('Enter your location (City/Area/Pincode):', 'Kothapeta, Dhone');
-            if (manual) {
-                document.getElementById('profile-location-input').value = manual;
-            }
-            btn.innerHTML = '<i class="bi bi-crosshair me-2"></i>Detect My Location';
+            fallback();
         }
-    }
-
-    // Auto-hide toast
-    const toast = document.getElementById('saveToast');
-    if (toast) {
-        setTimeout(() => { toast.style.display = 'none'; }, 3000);
     }
 </script>
 {% endblock %}
