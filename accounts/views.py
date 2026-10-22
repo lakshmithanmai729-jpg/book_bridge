@@ -8,8 +8,16 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 
+from django.utils import timezone
+
 from books.models import Book, Category
 
+from .emails import (
+    mark_verified,
+    notify_new_message,
+    read_verification_token,
+    send_verification_email,
+)
 from .forms import SignUpForm
 from .models import BookRequest, ChatMessage, UserProfile
 
@@ -57,9 +65,15 @@ def save_profile_from_post(request, profile_obj):
     )
     profile_obj.save()
 
-    if email:
+    if email and email != request.user.email:
         request.user.email = email
         request.user.save(update_fields=['email'])
+        profile_obj.email_verified = False
+        profile_obj.save(update_fields=['email_verified'])
+        if send_verification_email(request.user, request):
+            messages.info(request, f'We sent a confirmation link to {email}.')
+        else:
+            messages.warning(request, 'We could not send the confirmation email right now.')
 
 
 def signup(request):
@@ -68,7 +82,13 @@ def signup(request):
         if form.is_valid():
             user = form.save()
             UserProfile.objects.get_or_create(user=user, defaults={'name': user.username})
-            messages.success(request, 'Welcome to BookBridge! Please sign in to continue.')
+            if user.email:
+                send_verification_email(user, request)
+            messages.success(
+                request,
+                'Welcome to BookBridge! We sent a confirmation link to your email. '
+                'Please sign in to continue.',
+            )
             return redirect('accounts:login')
     else:
         form = SignUpForm()
@@ -202,6 +222,7 @@ def chat_detail(request, user_id):
                 book=book,
                 text=text,
             )
+            notify_new_message(other_user, request.user, book, text)
             return redirect(f"{reverse('accounts:chat_detail', args=[other_user.id])}"
                             + (f"?book={book.pk}" if book else ''))
         messages.error(request, 'Please type a message before sending.')
@@ -285,3 +306,42 @@ def delete_book_request(request, pk):
         book_request.delete()
         messages.success(request, 'Book request removed.')
     return redirect('accounts:request_book')
+
+
+@login_required
+def verify_email(request, token):
+    """Confirm an email address from the signed link sent at signup."""
+    user_id = read_verification_token(token)
+
+    if user_id is None:
+        messages.error(request, 'This confirmation link is invalid or has expired. Please request a new one.')
+        return redirect('accounts:profile')
+
+    from django.contrib.auth import get_user_model
+
+    user = get_user_model().objects.filter(pk=user_id).first()
+    if user is None:
+        messages.error(request, 'That account no longer exists.')
+        return redirect('accounts:profile')
+
+    mark_verified(user)
+    messages.success(request, 'Your email address is confirmed. Thank you!')
+    return redirect('accounts:profile')
+
+
+@login_required
+def resend_verification(request):
+    """Re-send the confirmation email on request."""
+    if request.method != 'POST':
+        return redirect('accounts:profile')
+
+    profile = get_profile(request.user)
+    if profile.email_verified:
+        messages.info(request, 'Your email is already confirmed.')
+    elif not request.user.email:
+        messages.error(request, 'Add an email address first.')
+    elif send_verification_email(request.user, request):
+        messages.success(request, f'Confirmation link sent to {request.user.email}.')
+    else:
+        messages.error(request, 'We could not send the email. Please try again later.')
+    return redirect('accounts:profile')

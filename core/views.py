@@ -3,7 +3,7 @@ from books.models import Book, Category, Wishlist
 
 
 def home(request):
-    books = Book.objects.filter(is_sold=False)
+    books = Book.objects.filter(is_sold=False, is_hidden=False)
     nearby_books = books.order_by('-created_at')[:8]
     recent_books = books.order_by('?')[:6]
     boosted_books = books.order_by('created_at')[:6]

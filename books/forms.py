@@ -1,4 +1,6 @@
 from django import forms
+
+from .images import MAX_UPLOAD_BYTES
 from .models import Book
 
 
@@ -18,6 +20,9 @@ class BookForm(forms.ModelForm):
 
     def clean_image(self):
         image = self.cleaned_data.get('image')
-        if image and image.size > 5 * 1024 * 1024:
-            raise forms.ValidationError('Image file should be smaller than 5MB.')
+        if image and getattr(image, 'size', 0) > MAX_UPLOAD_BYTES:
+            raise forms.ValidationError('Photo is too large. Please use a photo smaller than 8 MB.')
+        if image and hasattr(image, 'content_type'):
+            if not str(image.content_type).startswith('image/'):
+                raise forms.ValidationError('Please upload an image file (JPG, PNG or WebP).')
         return image

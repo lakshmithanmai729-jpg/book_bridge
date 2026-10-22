@@ -1,4 +1,5 @@
 {% extends 'core/base.html' %}
+{% load book_extras %}
 {% block title %}Chat with {{ other_user.username }} - BookBridge{% endblock %}
 
 {% block content %}
@@ -46,7 +47,7 @@
                 {% if book %}
                     <div class="chat-book-strip">
                         {% if book.image %}
-                            <img src="{{ book.image.url }}" alt="{{ book.title }}">
+                            <img src="{{ book.image|thumb:400 }}" alt="{{ book.title }}">
                         {% else %}
                             <span style="font-size:1.4rem;">📖</span>
                         {% endif %}
@@ -101,7 +102,7 @@
                     <span class="bb-label" style="margin-bottom:10px;">About this book</span>
                     <a href="{% url 'books:book_detail' book.pk %}" class="d-flex gap-3 align-items-center text-decoration-none text-dark">
                         {% if book.image %}
-                            <img src="{{ book.image.url }}" alt="{{ book.title }}" style="width:64px; height:84px; object-fit:cover; border-radius:12px;">
+                            <img src="{{ book.image|thumb:400 }}" alt="{{ book.title }}" style="width:64px; height:84px; object-fit:cover; border-radius:12px;">
                         {% else %}
                             <div class="d-flex align-items-center justify-content-center" style="width:64px; height:84px; border-radius:12px; background:#f1f5f9; font-size:1.6rem;">📖</div>
                         {% endif %}

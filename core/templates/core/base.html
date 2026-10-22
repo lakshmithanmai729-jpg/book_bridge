@@ -1143,7 +1143,7 @@
             <i class="bi bi-house-door-fill"></i>
             <span>Home</span>
         </a>
-        <a href="{% url 'books:wishlist' %}" class="bb-nav-item {% if '/wishlist/' in request.path %}active{% endif %}">
+        <a href="{% url 'books:my_listings' %}" class="bb-nav-item {% if '/books/my/' in request.path or '/wishlist/' in request.path %}active{% endif %}">
             <i class="bi bi-book-half"></i>
             <span>My Books</span>
         </a>

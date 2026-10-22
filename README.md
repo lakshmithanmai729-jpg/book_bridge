@@ -18,6 +18,12 @@ Built with Django, Bootstrap 5, and a full-width responsive UI (mobile-first, sp
 - **Book requests** — ask nearby students for a book you cannot find
 - **Preferred contact mode** — Telegram (recommended), in-app chat, or WhatsApp / Call
 - Full-width layout that keeps the mobile app feel while using the whole laptop screen
+- **Seller dashboard** — mark books sold, relist them, edit or delete listings
+- **Pagination + filters** — 20 books per page with category, condition, price and sort filters
+- **Reporting & moderation** — buyers report listings, moderators hide them from the admin
+- **Password reset + email verification** — secure account recovery over email
+- **Image optimisation** — uploads are auto-rotated, resized and converted to WebP, plus cached thumbnails
+- **Error pages & logging** — friendly 404/403/500 screens and rotating file logs
 
 ## Privacy model
 
@@ -106,15 +112,20 @@ requests. Run it with `--reset` to start over.
 | Start chat from a listing | `/accounts/chat/start/<book_id>/` |
 | Profile | `/accounts/profile/` |
 | Request a book | `/accounts/request-book/` |
+| My listings (seller dashboard) | `/books/my/` |
+| Report a listing | `/books/<id>/report/` |
+| Forgot password | `/accounts/password-reset/` |
+| Confirm email | `/accounts/email/verify/<token>/` |
 
 ## Tests
 
 ```bash
-python manage.py test accounts
+python manage.py test
 ```
 
-Covers Telegram normalisation, contact-mode privacy (phone never leaked), in-app chat send/read,
-empty chat state, and book request create/list/delete.
+**52 tests** cover Telegram normalisation, contact-mode privacy (phone never leaked), in-app chat
+send/read, empty chat state, book requests, pagination & filters, mark-sold/relist, reporting and
+moderation visibility, image optimisation, email verification, password reset and chat notifications.
 
 ## Project layout
 
@@ -124,6 +135,22 @@ empty chat state, and book request create/list/delete.
 | `accounts` | Auth, profile & privacy settings, in-app chat, book requests |
 | `books` | Listings, search, wishlist, images |
 | `ai_engine` | Price suggestion and recommendations |
+
+## Admin & moderation
+
+`python manage.py createsuperuser` then open `/admin/`:
+
+- **Reports** — review reported listings and use the actions
+  *“Hide the reported listing and close the report”*, *“Dismiss”* or *“Mark as reviewed”*.
+- **Books** — bulk actions to mark sold, relist, hide or unhide listings.
+
+## Going to production
+
+1. `.env`: set `DEBUG=False`, a strong `SECRET_KEY`, `ALLOWED_HOSTS`, `SITE_URL`, and real SMTP
+   credentials (`EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend`).
+2. `python manage.py collectstatic --noinput` (WhiteNoise serves the files — no nginx needed).
+3. Run `gunicorn config.wsgi:application --bind 0.0.0.0:8000` (or `waitress-serve` on Windows).
+4. Keep `media/` on a persistent volume or switch to object storage before scaling.
 
 ## License
 

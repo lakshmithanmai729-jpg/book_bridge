@@ -36,6 +36,10 @@ class UserProfile(models.Model):
         default=CONTACT_IN_APP,
         help_text='How buyers are allowed to reach you.',
     )
+    email_verified = models.BooleanField(
+        default=False,
+        help_text='Set automatically when the user confirms their email address.',
+    )
 
     def __str__(self):
         return f"{self.user.username} Profile"

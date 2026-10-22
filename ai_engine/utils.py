@@ -15,14 +15,14 @@ def suggest_price(category_id, condition):
     if category_id:
         try:
             cat_id = int(category_id)
-            avg_price = Book.objects.filter(category_id=cat_id, is_sold=False).aggregate(Avg('price'))['price__avg']
+            avg_price = Book.objects.filter(category_id=cat_id, is_sold=False, is_hidden=False).aggregate(Avg('price'))['price__avg']
             if not avg_price:
                 avg_price = Book.objects.filter(category_id=cat_id).aggregate(Avg('price'))['price__avg']
         except (ValueError, TypeError):
             avg_price = None
 
     if not avg_price:
-        avg_price = Book.objects.filter(is_sold=False).aggregate(Avg('price'))['price__avg']
+        avg_price = Book.objects.filter(is_sold=False, is_hidden=False).aggregate(Avg('price'))['price__avg']
     if not avg_price:
         avg_price = Book.objects.aggregate(Avg('price'))['price__avg']
     if not avg_price:
@@ -33,7 +33,7 @@ def suggest_price(category_id, condition):
 
 
 def get_recommendations(book, limit=4):
-    base_qs = Book.objects.filter(is_sold=False).exclude(pk=book.pk)
+    base_qs = Book.objects.filter(is_sold=False, is_hidden=False).exclude(pk=book.pk)
     rec_ids = []
 
     if book.category:

@@ -84,7 +84,10 @@
                     {% for error in form.username.errors %}<ul class="errorlist"><li>{{ error }}</li></ul>{% endfor %}
                 </div>
                 <div class="form-row">
-                    <label for="id_password">{{ form.password.label }}</label>
+                    <div class="d-flex align-items-center justify-content-between">
+                        <label for="id_password">{{ form.password.label }}</label>
+                        <a href="{% url 'accounts:password_reset' %}" class="fw-bold" style="font-size:0.78rem; color:#0284c7;">Forgot password?</a>
+                    </div>
                     {{ form.password }}
                     {% for error in form.password.errors %}<ul class="errorlist"><li>{{ error }}</li></ul>{% endfor %}
                 </div>

@@ -1,30 +1,297 @@
+import io
+
+from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import TestCase, override_settings
+from django.urls import reverse
+from PIL import Image
 
-from django.contrib.auth import get_user_model
+from .images import MAX_UPLOAD_BYTES, optimize_upload
+from .models import Book, Category, Report, Wishlist
 
-from .models import Book, BookImage, Category
+
+def make_image_bytes(size=(1600, 2200), color=(20, 90, 160), fmt='JPEG'):
+    buffer = io.BytesIO()
+    Image.new('RGB', size, color).save(buffer, fmt, quality=92)
+    return buffer.getvalue()
 
 
-class BookImageModelTests(TestCase):
+class BookListPaginationTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.seller = User.objects.create_user('seller', password='Bridge!2345')
+        cls.category = Category.objects.create(name='IIT-JEE')
+        for i in range(25):
+            Book.objects.create(
+                seller=cls.seller,
+                title=f'Book {i:02d}',
+                author='Author',
+                price=100 + i,
+                category=cls.category,
+                location_city='Hyderabad',
+            )
+        # hidden + sold books must never appear in the public list
+        Book.objects.create(seller=cls.seller, title='Sold book', author='A', price=10, is_sold=True)
+        Book.objects.create(seller=cls.seller, title='Hidden book', author='A', price=10, is_hidden=True)
+
+    def test_first_page_has_twenty_books(self):
+        response = self.client.get(reverse('books:book_list'))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context['books']), 20)
+        self.assertEqual(response.context['result_count'], 25)
+
+    def test_second_page_has_remaining_books(self):
+        response = self.client.get(reverse('books:book_list'), {'page': 2})
+        self.assertEqual(len(response.context['books']), 5)
+
+    def test_sold_and_hidden_books_are_excluded(self):
+        response = self.client.get(reverse('books:book_list'))
+        titles = [book.title for book in response.context['books']]
+        self.assertNotIn('Sold book', titles)
+        self.assertNotIn('Hidden book', titles)
+
+    def test_search_and_filters(self):
+        response = self.client.get(reverse('books:book_list'), {'q': 'Book 01'})
+        self.assertEqual(response.context['result_count'], 1)
+
+        response = self.client.get(reverse('books:book_list'), {'min_price': 120, 'max_price': 124})
+        self.assertEqual(response.context['result_count'], 5)
+
+    def test_invalid_page_number_is_safe(self):
+        response = self.client.get(reverse('books:book_list'), {'page': 'abc'})
+        self.assertEqual(response.status_code, 200)
+
+    def test_pagination_keeps_filters_in_links(self):
+        response = self.client.get(reverse('books:book_list'), {'category': self.category.id})
+        self.assertEqual(response.context['result_count'], 25)
+        self.assertIn('category=', response.context['query_without_page'])
+
+
+class MarkSoldTests(TestCase):
     def setUp(self):
-        self.user = get_user_model().objects.create_user(username='seller', password='secret123')
-        self.category = Category.objects.create(name='Fiction')
+        self.seller = User.objects.create_user('seller', password='Bridge!2345')
+        self.other = User.objects.create_user('other', password='Bridge!2345')
+        self.book = Book.objects.create(seller=self.seller, title='Atomic Habits', author='James Clear', price=190)
 
-    def test_book_can_have_multiple_images(self):
-        book = Book.objects.create(
-            seller=self.user,
-            category=self.category,
-            title='Sample Book',
-            author='Author',
-            price=150,
+    def test_seller_can_mark_sold_and_relist(self):
+        self.client.force_login(self.seller)
+        response = self.client.post(reverse('books:toggle_sold', args=[self.book.pk]))
+        self.assertRedirects(response, reverse('books:my_listings'))
+
+        self.book.refresh_from_db()
+        self.assertTrue(self.book.is_sold)
+        self.assertIsNotNone(self.book.sold_at)
+        self.assertEqual(self.book.status_label, 'Sold')
+
+        self.client.post(reverse('books:toggle_sold', args=[self.book.pk]))
+        self.book.refresh_from_db()
+        self.assertFalse(self.book.is_sold)
+        self.assertIsNone(self.book.sold_at)
+
+    def test_other_user_cannot_mark_sold(self):
+        self.client.force_login(self.other)
+        response = self.client.post(reverse('books:toggle_sold', args=[self.book.pk]))
+        self.assertEqual(response.status_code, 404)
+        self.book.refresh_from_db()
+        self.assertFalse(self.book.is_sold)
+
+    def test_get_request_is_rejected(self):
+        self.client.force_login(self.seller)
+        response = self.client.get(reverse('books:toggle_sold', args=[self.book.pk]))
+        self.assertEqual(response.status_code, 405)
+
+    def test_sold_book_shows_banner_and_hides_contact(self):
+        self.book.mark_sold(True)
+        response = self.client.get(reverse('books:book_detail', args=[self.book.pk]))
+        self.assertContains(response, 'This book has been sold')
+        self.assertContains(response, 'Already sold')
+        self.assertNotContains(response, '/accounts/chat/start/')
+        self.assertNotContains(response, 't.me/')
+
+
+class MyListingsTests(TestCase):
+    def setUp(self):
+        self.seller = User.objects.create_user('seller', password='Bridge!2345')
+        self.active = Book.objects.create(seller=self.seller, title='Active book', author='A', price=100)
+        self.sold = Book.objects.create(seller=self.seller, title='Sold book', author='A', price=100, is_sold=True)
+        Book.objects.create(seller=self.seller, title='Hidden book', author='A', price=100, is_hidden=True)
+
+    def test_tabs_filter_listings(self):
+        self.client.force_login(self.seller)
+
+        response = self.client.get(reverse('books:my_listings'))
+        self.assertEqual([b.title for b in response.context['books']], ['Active book'])
+
+        response = self.client.get(reverse('books:my_listings'), {'tab': 'sold'})
+        self.assertEqual([b.title for b in response.context['books']], ['Sold book'])
+
+        response = self.client.get(reverse('books:my_listings'), {'tab': 'hidden'})
+        self.assertEqual([b.title for b in response.context['books']], ['Hidden book'])
+
+    def test_counts(self):
+        self.client.force_login(self.seller)
+        response = self.client.get(reverse('books:my_listings'))
+        self.assertEqual(response.context['counts'], {'active': 1, 'sold': 1, 'hidden': 1, 'all': 3})
+
+    def test_login_required(self):
+        response = self.client.get(reverse('books:my_listings'))
+        self.assertEqual(response.status_code, 302)
+
+
+class ReportTests(TestCase):
+    def setUp(self):
+        self.seller = User.objects.create_user('seller', password='Bridge!2345')
+        self.buyer = User.objects.create_user('buyer', password='Bridge!2345')
+        self.book = Book.objects.create(seller=self.seller, title='Suspicious', author='A', price=100)
+
+    def test_buyer_can_report_listing(self):
+        self.client.force_login(self.buyer)
+        response = self.client.post(
+            reverse('books:report_book', args=[self.book.pk]),
+            {'reason': 'scam', 'details': 'Asked for advance payment'},
+        )
+        self.assertRedirects(response, reverse('books:book_detail', args=[self.book.pk]))
+
+        report = Report.objects.get()
+        self.assertEqual(report.reason, 'scam')
+        self.assertEqual(report.status, Report.STATUS_OPEN)
+        self.assertEqual(report.reporter, self.buyer)
+
+    def test_duplicate_report_is_blocked(self):
+        self.client.force_login(self.buyer)
+        url = reverse('books:report_book', args=[self.book.pk])
+        self.client.post(url, {'reason': 'fake'})
+        self.client.post(url, {'reason': 'spam'})
+        self.assertEqual(Report.objects.count(), 1)
+
+    def test_owner_cannot_report_own_listing(self):
+        self.client.force_login(self.seller)
+        response = self.client.get(reverse('books:report_book', args=[self.book.pk]))
+        self.assertRedirects(response, reverse('books:book_detail', args=[self.book.pk]))
+        self.assertEqual(Report.objects.count(), 0)
+
+    def test_invalid_reason_falls_back_to_other(self):
+        self.client.force_login(self.buyer)
+        self.client.post(reverse('books:report_book', args=[self.book.pk]), {'reason': 'nonsense'})
+        self.assertEqual(Report.objects.get().reason, 'other')
+
+    def test_hidden_listing_hides_from_public_but_not_owner(self):
+        self.book.is_hidden = True
+        self.book.save(update_fields=['is_hidden'])
+
+        anon = self.client.get(reverse('books:book_detail', args=[self.book.pk]))
+        self.assertEqual(anon.status_code, 404)
+
+        self.client.force_login(self.seller)
+        owner = self.client.get(reverse('books:book_detail', args=[self.book.pk]))
+        self.assertEqual(owner.status_code, 200)
+        self.assertContains(owner, 'hidden by moderators')
+
+
+class ImageProcessingTests(TestCase):
+    def test_upload_is_converted_to_smaller_webp(self):
+        raw = make_image_bytes((2400, 3200))
+        upload = SimpleUploadedFile('photo.jpg', raw, content_type='image/jpeg')
+
+        optimized = optimize_upload(upload)
+        self.assertTrue(optimized.name.endswith('.webp'))
+        self.assertLess(len(optimized.read()), len(raw))
+
+    def test_resizes_large_dimensions(self):
+        raw = make_image_bytes((3000, 4000))
+        upload = SimpleUploadedFile('big.jpg', raw, content_type='image/jpeg')
+        optimized = optimize_upload(upload)
+        image = Image.open(io.BytesIO(optimized.read()))
+        self.assertLessEqual(max(image.size), 1400)
+
+    def test_rejects_non_image(self):
+        upload = SimpleUploadedFile('evil.jpg', b'definitely not an image', content_type='image/jpeg')
+        with self.assertRaises(ValidationError):
+            optimize_upload(upload)
+
+    def test_rejects_oversized_file(self):
+        upload = SimpleUploadedFile('huge.jpg', b'0' * (MAX_UPLOAD_BYTES + 1), content_type='image/jpeg')
+        with self.assertRaises(ValidationError):
+            optimize_upload(upload)
+
+
+@override_settings(MEDIA_ROOT='/tmp/bookbridge-test-media')
+class BookUploadTests(TestCase):
+    def setUp(self):
+        self.seller = User.objects.create_user('seller', password='Bridge!2345')
+        self.client.force_login(self.seller)
+
+    def test_cover_and_gallery_are_stored_as_webp(self):
+        cover = SimpleUploadedFile('cover.jpg', make_image_bytes(), content_type='image/jpeg')
+        extra = SimpleUploadedFile('extra.png', make_image_bytes(fmt='PNG'), content_type='image/png')
+
+        response = self.client.post(reverse('books:book_add'), {
+            'title': 'Compressed Cover',
+            'author': 'QA',
+            'price': '199',
+            'condition': 'good',
+            'location_city': 'Hyderabad',
+            'location_area': 'Madhapur',
+            'pincode': '500081',
+            'image': cover,
+            'images': [extra],
+        })
+
+        book = Book.objects.get(title='Compressed Cover')
+        self.assertRedirects(response, reverse('books:book_detail', args=[book.pk]))
+        self.assertTrue(book.image.name.endswith('.webp'))
+        self.assertEqual(book.images.count(), 1)
+        self.assertTrue(book.images.first().image.name.endswith('.webp'))
+
+    def test_listing_requires_a_title(self):
+        response = self.client.post(reverse('books:book_add'), {'title': '   ', 'price': '10'})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Book.objects.count(), 0)
+
+
+class WishlistTests(TestCase):
+    def setUp(self):
+        self.seller = User.objects.create_user('seller', password='Bridge!2345')
+        self.buyer = User.objects.create_user('buyer', password='Bridge!2345')
+        self.book = Book.objects.create(seller=self.seller, title='Saved', author='A', price=100)
+
+    def test_toggle_adds_and_removes(self):
+        self.client.force_login(self.buyer)
+        url = reverse('books:wishlist_toggle', args=[self.book.pk])
+
+        self.client.get(url)
+        self.assertTrue(Wishlist.objects.filter(user=self.buyer, book=self.book).exists())
+
+        self.client.get(url)
+        self.assertFalse(Wishlist.objects.filter(user=self.buyer, book=self.book).exists())
+
+    def test_wishlist_page_lists_items(self):
+        Wishlist.objects.create(user=self.buyer, book=self.book)
+        self.client.force_login(self.buyer)
+        response = self.client.get(reverse('books:wishlist'))
+        self.assertContains(response, 'Saved')
+
+
+class ThumbnailTests(TestCase):
+    def setUp(self):
+        self.seller = User.objects.create_user('seller', password='Bridge!2345')
+        self.book = Book.objects.create(
+            seller=self.seller,
+            title='With cover',
+            author='A',
+            price=100,
+            image=SimpleUploadedFile('cover.jpg', make_image_bytes((900, 1200)), content_type='image/jpeg'),
         )
 
-        first = SimpleUploadedFile('first.jpg', b'file-content-1', content_type='image/jpeg')
-        second = SimpleUploadedFile('second.jpg', b'file-content-2', content_type='image/jpeg')
+    def test_list_page_uses_generated_thumbnail(self):
+        response = self.client.get(reverse('books:book_list'))
+        html = response.content.decode()
+        self.assertIn('/media/thumbs/', html)
+        self.assertIn('_400.webp', html)
 
-        BookImage.objects.create(book=book, image=first)
-        BookImage.objects.create(book=book, image=second)
+    def test_missing_image_falls_back_to_empty_string(self):
+        from .templatetags.book_extras import thumb
 
-        self.assertEqual(book.images.count(), 2)
-        self.assertTrue(book.gallery_images.exists())
+        self.assertEqual(thumb(None), '')
+        self.assertEqual(thumb(''), '')

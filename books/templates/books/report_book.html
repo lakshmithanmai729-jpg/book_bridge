@@ -1,0 +1,89 @@
+{% extends 'core/base.html' %}
+{% block title %}Report listing - BookBridge{% endblock %}
+
+{% block content %}
+<div class="bb-page">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-xl-7">
+            <div class="bb-page-head">
+                <a href="{% url 'books:book_detail' book.pk %}" class="bb-back-btn" aria-label="Back">
+                    <i class="bi bi-arrow-left"></i>
+                </a>
+                <div>
+                    <h1>Report this listing</h1>
+                    <small class="text-muted">{{ book.title }} · {{ book.seller.username }}</small>
+                </div>
+            </div>
+
+            {% if existing %}
+                <div class="bb-panel text-center">
+                    <div class="bb-empty-icon" style="background:#fffbeb; color:#d97706;"><i class="bi bi-hourglass-split"></i></div>
+                    <h2 class="fw-bold" style="font-size:1.25rem;">You already reported this listing</h2>
+                    <p class="text-muted">Our moderation team is reviewing it. Thanks for helping keep BookBridge safe.</p>
+                    <a href="{% url 'books:book_detail' book.pk %}" class="bb-btn bb-btn-primary">Back to listing</a>
+                </div>
+            {% else %}
+                <div class="bb-panel">
+                    <p class="bb-panel-sub">
+                        Reports are private — the seller will not know who reported them.
+                        False reports may lead to your account being restricted.
+                    </p>
+
+                    <form method="POST">
+                        {% csrf_token %}
+
+                        <div class="bb-field">
+                            <span class="bb-label">What is wrong with this listing?</span>
+                            <div class="report-reasons">
+                                {% for value, label in reasons %}
+                                    <label class="report-reason">
+                                        <input type="radio" name="reason" value="{{ value }}" {% if forloop.first %}checked{% endif %}>
+                                        <span>{{ label }}</span>
+                                    </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="bb-field">
+                            <label for="report-details">Extra details (optional)</label>
+                            <textarea id="report-details" name="details" rows="4"
+                                      placeholder="Tell us what happened — this helps moderators act faster."></textarea>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="submit" class="bb-btn" style="background:#ef4444; color:#fff;">
+                                <i class="bi bi-flag-fill"></i> Submit report
+                            </button>
+                            <a href="{% url 'books:book_detail' book.pk %}" class="bb-btn bb-btn-outline">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+    .report-reasons { display: flex; flex-direction: column; gap: 8px; }
+    .report-reason {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border: 1.5px solid #e2e8f0;
+        background: #f8fafc;
+        border-radius: 13px;
+        padding: 12px 14px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #0f172a;
+        cursor: pointer;
+        transition: all .15s;
+    }
+    .report-reason:hover { border-color: #fecaca; }
+    .report-reason input { accent-color: #ef4444; }
+    .report-reason:has(input:checked) {
+        border-color: #ef4444;
+        background: #fef2f2;
+    }
+</style>
+{% endblock %}

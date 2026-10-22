@@ -1,3 +1,4 @@
+from django.contrib.auth import views as auth_views
 from django.urls import path
 
 from . import views
@@ -10,6 +11,27 @@ urlpatterns = [
     path('logout/', views.user_logout, name='logout'),
     path('profile/', views.profile, name='profile'),
     path('profile/edit/', views.profile_edit, name='profile_edit'),
+    # Password reset (email link -> choose a new password)
+    path('password-reset/', auth_views.PasswordResetView.as_view(
+        template_name='accounts/password_reset.html',
+        email_template_name='emails/password_reset.txt',
+        html_email_template_name='emails/password_reset.html',
+        subject_template_name='emails/password_reset_subject.txt',
+        success_url='/accounts/password-reset/sent/',
+    ), name='password_reset'),
+    path('password-reset/sent/', auth_views.PasswordResetDoneView.as_view(
+        template_name='accounts/password_reset_sent.html',
+    ), name='password_reset_done'),
+    path('password-reset/<uidb64>/<token>/', auth_views.PasswordResetConfirmView.as_view(
+        template_name='accounts/password_reset_confirm.html',
+        success_url='/accounts/password-reset/complete/',
+    ), name='password_reset_confirm'),
+    path('password-reset/complete/', auth_views.PasswordResetCompleteView.as_view(
+        template_name='accounts/password_reset_complete.html',
+    ), name='password_reset_complete'),
+
+    path('email/verify/<str:token>/', views.verify_email, name='verify_email'),
+    path('email/resend/', views.resend_verification, name='resend_verification'),
     path('messages/', views.messages_view, name='messages'),
     path('chat/start/<int:book_id>/', views.start_chat, name='start_chat'),
     path('chat/<int:user_id>/', views.chat_detail, name='chat_detail'),

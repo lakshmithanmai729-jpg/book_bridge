@@ -1,5 +1,6 @@
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.core import mail
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from books.models import Book, Category
@@ -175,3 +176,114 @@ class BookRequestTests(TestCase):
         self.client.force_login(self.user)
         self.client.post(reverse('accounts:request_book'), {'book_title': '   '})
         self.assertEqual(BookRequest.objects.count(), 0)
+
+
+@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+class EmailVerificationTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            'newbie', email='newbie@example.com', password='Bridge!2345'
+        )
+
+    def test_signup_sends_verification_email(self):
+        response = self.client.post(reverse('accounts:signup'), {
+            'username': 'fresh',
+            'email': 'fresh@example.com',
+            'password1': 'Bridge!2345',
+            'password2': 'Bridge!2345',
+        })
+        self.assertRedirects(response, reverse('accounts:login'))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('Confirm your BookBridge email address', mail.outbox[0].subject)
+        self.assertIn('/accounts/email/verify/', mail.outbox[0].body)
+
+    def test_valid_token_marks_email_verified(self):
+        from .emails import make_verification_token
+
+        token = make_verification_token(self.user)
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('accounts:verify_email', args=[token]))
+        self.assertRedirects(response, reverse('accounts:profile'))
+
+        self.user.profile.refresh_from_db()
+        self.assertTrue(self.user.profile.email_verified)
+
+    def test_invalid_token_does_not_verify(self):
+        self.client.force_login(self.user)
+        self.client.get(reverse('accounts:verify_email', args=['not-a-token']))
+        self.user.profile.refresh_from_db()
+        self.assertFalse(self.user.profile.email_verified)
+
+    def test_resend_requires_post(self):
+        self.client.force_login(self.user)
+        self.assertEqual(self.client.get(reverse('accounts:resend_verification')).status_code, 302)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_resend_sends_new_link(self):
+        self.client.force_login(self.user)
+        self.client.post(reverse('accounts:resend_verification'))
+        self.assertEqual(len(mail.outbox), 1)
+
+
+@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+class PasswordResetTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            'forgetful', email='forgetful@example.com', password='Bridge!2345'
+        )
+
+    def test_reset_page_renders(self):
+        response = self.client.get(reverse('accounts:password_reset'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Forgot your password?')
+
+    def test_reset_email_is_sent_and_link_works(self):
+        response = self.client.post(reverse('accounts:password_reset'), {'email': 'forgetful@example.com'})
+        self.assertRedirects(response, reverse('accounts:password_reset_done'))
+        self.assertEqual(len(mail.outbox), 1)
+
+        body = mail.outbox[0].body
+        path = body.split('http://testserver')[1].split()[0]
+        response = self.client.get(path, follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'name="new_password1"')
+
+    def test_unknown_email_does_not_leak(self):
+        response = self.client.post(reverse('accounts:password_reset'), {'email': 'nobody@example.com'})
+        self.assertRedirects(response, reverse('accounts:password_reset_done'))
+        self.assertEqual(len(mail.outbox), 0)
+
+
+@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+class ChatNotificationTests(TestCase):
+    def setUp(self):
+        self.seller = User.objects.create_user('seller', email='seller@example.com', password='Bridge!2345')
+        self.buyer = User.objects.create_user('buyer', email='buyer@example.com', password='Bridge!2345')
+        self.book = Book.objects.create(seller=self.seller, title='Notify me', author='A', price=100)
+
+    def test_verified_recipient_gets_email(self):
+        self.seller.profile.email_verified = True
+        self.seller.profile.save(update_fields=['email_verified'])
+        mail.outbox = []
+
+        self.client.force_login(self.buyer)
+        self.client.post(
+            reverse('accounts:chat_detail', args=[self.seller.pk]),
+            {'text': 'Is this available?', 'book': self.book.pk},
+        )
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('New message from buyer', mail.outbox[0].subject)
+        self.assertIn('Is this available?', mail.outbox[0].body)
+
+    def test_unverified_recipient_gets_no_email(self):
+        self.seller.profile.email_verified = False
+        self.seller.profile.save(update_fields=['email_verified'])
+        mail.outbox = []
+
+        self.client.force_login(self.buyer)
+        self.client.post(
+            reverse('accounts:chat_detail', args=[self.seller.pk]),
+            {'text': 'Hello there', 'book': self.book.pk},
+        )
+        self.assertEqual(len(mail.outbox), 0)

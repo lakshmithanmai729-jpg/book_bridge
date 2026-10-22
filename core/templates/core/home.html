@@ -1,4 +1,5 @@
 {% extends 'core/base.html' %}
+{% load book_extras %}
 {% block title %}BookBridge - Buy & Sell Books Nearby{% endblock %}
 
 {% block content %}
@@ -53,7 +54,7 @@
             <div class="bb-card-img-wrap">
                 <a href="{% url 'books:book_detail' book.pk %}">
                     {% if book.image %}
-                        <img src="{{ book.image.url }}" alt="{{ book.title }}">
+                        <img src="{{ book.image|thumb:400 }}" alt="{{ book.title }}">
                     {% else %}
                         <div class="d-flex align-items-center justify-content-center h-100 bg-light text-center p-2">
                             <span class="text-muted fw-bold small">📖 {{ book.title|truncatechars:18 }}</span>
@@ -185,7 +186,7 @@
             <div class="bb-card-img-wrap">
                 <a href="{% url 'books:book_detail' book.pk %}">
                     {% if book.image %}
-                        <img src="{{ book.image.url }}" alt="{{ book.title }}">
+                        <img src="{{ book.image|thumb:400 }}" alt="{{ book.title }}">
                     {% else %}
                         <div class="d-flex align-items-center justify-content-center h-100 bg-light text-center p-2">
                             <span class="text-muted fw-bold small">📖 {{ book.title|truncatechars:18 }}</span>
@@ -231,7 +232,7 @@
             <div class="bb-card-img-wrap">
                 <a href="{% url 'books:book_detail' book.pk %}">
                     {% if book.image %}
-                        <img src="{{ book.image.url }}" alt="{{ book.title }}">
+                        <img src="{{ book.image|thumb:400 }}" alt="{{ book.title }}">
                     {% else %}
                         <div class="d-flex align-items-center justify-content-center h-100 bg-light text-center p-2">
                             <span class="text-muted fw-bold small">📖 {{ book.title|truncatechars:18 }}</span>
