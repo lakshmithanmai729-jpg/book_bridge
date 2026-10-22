@@ -5,6 +5,18 @@
 
 ---
 
+## ⚡ Server లేకుండా చూపించాలా?
+
+```bash
+python manage.py export_preview --zip
+```
+తర్వాత **`preview_static/preview.html`** double-click చేయండి — 26 pages
+(frontend + backend + API), అన్నీ offline. వివరాలు `RUN_LOCALLY.md` లో.
+
+Server ఉంటే మాత్రం ఈ కింద script నే వాడండి — అది ఇంకా బాగుంటుంది (live AI పనిచేస్తుంది).
+
+---
+
 ## 0. ముందు (demo కి 2 నిమిషాల ముందు)
 
 **Server start:**

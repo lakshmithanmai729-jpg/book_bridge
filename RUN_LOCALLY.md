@@ -186,6 +186,40 @@ To send real email, fill in the SMTP values in `.env`.
 
 ---
 
+
+---
+
+## 11. Server లేకుండా చూపించాలంటే (static preview)
+
+కొన్నిసార్లు server start చేయడం కుదరదు (ల్యాబ్ మెషిన్, sir laptop, పరీక్ష).
+అప్పుడు మొత్తం app ను **plain HTML files** గా export చేయవచ్చు:
+
+```bash
+python manage.py export_preview --zip
+```
+
+ఇది `preview_static/` folder (మరియు ఒక `.zip`) create చేస్తుంది:
+
+* **13 frontend screens** — home, browse, book detail, AI page, sell form, profile, chats…
+* **8 backend screens** — Django admin తో సహా (books, reports, users, AI log)
+* **4 API snapshots** — `/healthz/`, AI parser, AI search, AI price (pretty-printed JSON)
+* static files మరియు book photos కూడా copy అవుతాయి — అంతా offline పనిచేస్తుంది
+
+తెరవడానికి: **`preview_static/preview.html`** ను double-click చేయండి.
+Server అవసరం లేదు, internet అవసరం లేదు.
+
+> పరిమితి: forms submit అవ్వవు, live AI search పనిచేయదు, admin లో edit చేయలేరు —
+> అవి నిజంగా Django నడుస్తూ ఉండాలి. చూపించడానికి మాత్రం అన్నీ నిజమైన pages.
+>
+> మరోసారి తాజా data కావాలంటే అదే command మళ్ళీ run చేయండి.
+
+### శాశ్వత link కావాలంటే
+Render లో ఒకసారి deploy చేస్తే `https://bookbridge-XXXX.onrender.com` వస్తుంది —
+మీ laptop ఆఫ్ అయినా పనిచేస్తుంది, server start చేయాల్సిన అవసరం లేదు.
+`DEPLOY.md` చూడండి.
+
+---
+
 ## 10. When you are ready for a public link
 
 Deploying gives you a permanent `https://...` URL that works even when your

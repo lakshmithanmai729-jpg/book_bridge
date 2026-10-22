@@ -26,3 +26,7 @@ staticfiles/
 
 # Logs
 logs/
+
+# Generated static preview (python manage.py export_preview)
+preview_static/
+*.zip

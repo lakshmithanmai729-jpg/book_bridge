@@ -145,3 +145,69 @@ class BackendTourTests(TestCase):
         self.client.force_login(self.staff)
         page = self.client.get(reverse('core:staff_dashboard')).content.decode()
         self.assertIn(reverse('core:backend_tour'), page)
+
+
+class ExportPreviewTests(TestCase):
+    """`manage.py export_preview` must produce a folder that works offline."""
+
+    def setUp(self):
+        # The demo account created by `seed_demo --with-admin` is a superuser,
+        # so the export can reach the admin screens.
+        self.staff = User.objects.create_superuser(
+            'demo', email='demo@bookbridge.local', password='Bridge!2345',
+        )
+        self.category = Category.objects.create(name='NEET')
+        self.book = Book.objects.create(
+            seller=self.staff, title='Export Book', author='A', price=150, category=self.category,
+        )
+
+    def test_export_writes_pages_and_a_cover(self):
+        import tempfile
+        from pathlib import Path
+        from django.core.management import call_command
+        from io import StringIO
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / 'preview'
+            call_command('export_preview', '--out', str(out), stdout=StringIO())
+
+            self.assertTrue((out / 'preview.html').exists())
+            self.assertTrue((out / 'index.html').exists())
+            self.assertTrue((out / 'backend-tour.html').exists())
+            self.assertTrue((out / 'admin-books.html').exists())
+
+    def test_export_rewrites_every_absolute_link(self):
+        import re
+        import tempfile
+        from pathlib import Path
+        from django.core.management import call_command
+        from io import StringIO
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / 'preview'
+            call_command('export_preview', '--out', str(out), stdout=StringIO())
+
+            for page in out.glob('*.html'):
+                html = page.read_text(encoding='utf-8')
+                absolute = re.findall(r'\b(?:href|src|action)="(/[^"]*)"', html)
+                self.assertEqual(absolute, [], f'{page.name} still has absolute links')
+
+    def test_export_marks_the_pages_as_a_static_snapshot(self):
+        import tempfile
+        from pathlib import Path
+        from django.core.management import call_command
+        from io import StringIO
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / 'preview'
+            call_command('export_preview', '--out', str(out), stdout=StringIO())
+            self.assertIn('bb-static-ribbon', (out / 'index.html').read_text(encoding='utf-8'))
+
+    def test_export_refuses_an_unknown_user(self):
+        import tempfile
+        from django.core.management import call_command
+        from django.core.management.base import CommandError
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(CommandError):
+                call_command('export_preview', '--out', tmp, '--user', 'nobody', stdout=None)
