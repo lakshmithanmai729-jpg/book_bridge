@@ -14,11 +14,12 @@
                     <i class="bi bi-flag"></i> Moderation queue
                 </a>
             {% endif %}
-            {% if perms.books.change_book %}
-                <a href="/admin/" class="bb-btn bb-btn-primary bb-btn-sm">
-                    <i class="bi bi-sliders"></i> Django admin
-                </a>
-            {% endif %}
+            <a href="{% url 'core:backend_tour' %}" class="bb-btn bb-btn-primary bb-btn-sm">
+                <i class="bi bi-diagram-3-fill"></i> Backend tour
+            </a>
+            <a href="/admin/" class="bb-btn bb-btn-outline bb-btn-sm">
+                <i class="bi bi-sliders"></i> Django admin
+            </a>
         </div>
     </div>
 

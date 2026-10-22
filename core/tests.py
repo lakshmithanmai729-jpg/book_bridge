@@ -3,6 +3,7 @@ from unittest import mock
 
 from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
+from django.urls import reverse
 
 from books.models import Book, Category
 
@@ -91,3 +92,56 @@ class EnsureAdminTests(TestCase):
         self.assertTrue(user.is_superuser)
         # The old password is kept unless --rotate-password is passed.
         self.assertTrue(user.check_password('old-password'))
+
+
+class BackendTourTests(TestCase):
+    """The tour page is the demo screen — it must be staff-only and accurate."""
+
+    def setUp(self):
+        self.staff = User.objects.create_user('staffer', password='Bridge!2345', is_staff=True)
+        self.member = User.objects.create_user('member', password='Bridge!2345')
+        self.category = Category.objects.create(name='NEET')
+        self.book = Book.objects.create(
+            seller=self.staff, title='Tour Book', author='A', price=100, category=self.category,
+        )
+
+    def test_anonymous_visitors_are_sent_to_the_admin_login(self):
+        response = self.client.get(reverse('core:backend_tour'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/admin/login/', response['Location'])
+
+    def test_regular_members_cannot_open_the_tour(self):
+        self.client.force_login(self.member)
+        response = self.client.get(reverse('core:backend_tour'))
+        self.assertEqual(response.status_code, 302)
+
+    def test_staff_see_every_table_with_live_counts(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse('core:backend_tour'))
+        self.assertEqual(response.status_code, 200)
+        page = response.content.decode()
+
+        for label in ('Book listings', 'Categories', 'User profiles', 'Chat messages',
+                      'AI usage log', 'Accounts &amp; permissions'):
+            self.assertIn(label, page)
+
+        # The book we created must be counted, not hardcoded.
+        self.assertEqual(response.context['model_total'], 13)
+        books_group = next(g for g in response.context['tour_groups'] if g['app'] == 'books')
+        self.assertEqual(books_group['total'], 2)          # 1 category + 1 book
+
+    def test_zero_row_tables_show_zero_not_a_dash(self):
+        self.client.force_login(self.staff)
+        page = self.client.get(reverse('core:backend_tour')).content.decode()
+        self.assertIn('<span class="bb-tour-count">0</span>', page)
+
+    def test_tour_links_to_the_admin_changelists(self):
+        self.client.force_login(self.staff)
+        page = self.client.get(reverse('core:backend_tour')).content.decode()
+        self.assertIn('/admin/books/book/', page)
+        self.assertIn('/admin/ai_engine/aievent/', page)
+
+    def test_staff_dashboard_links_to_the_tour(self):
+        self.client.force_login(self.staff)
+        page = self.client.get(reverse('core:staff_dashboard')).content.decode()
+        self.assertIn(reverse('core:backend_tour'), page)

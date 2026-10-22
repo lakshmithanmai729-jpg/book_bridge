@@ -79,6 +79,9 @@ the seller explicitly picked **WhatsApp / Call**.
 * **[RUN_LOCALLY.md](RUN_LOCALLY.md)** — run the app on your own computer in VS Code
 * **[BACKEND.md](BACKEND.md)** — how to see the backend: Django admin (`/admin/`),
   the team dashboard (`/staff/`), the database, and the JSON API
+* **[DEMO_GUIDE.md](DEMO_GUIDE.md)** — a 5-minute script for demoing the backend
+  to a teacher/panel: which tabs to open, what to say, and the answers to
+  likely questions
 * **[AI.md](AI.md)** — how the AI layer works
 * **[DEPLOY.md](DEPLOY.md)** — put it online with a permanent link
 

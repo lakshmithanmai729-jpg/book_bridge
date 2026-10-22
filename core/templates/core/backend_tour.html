@@ -1,0 +1,267 @@
+{% extends 'core/base.html' %}
+{% block title %}Backend tour - BookBridge{% endblock %}
+{% block meta_description %}BookBridge backend map — every database table, live row counts, and the AI API.{% endblock %}
+
+{% block content %}
+<div class="bb-page">
+
+    <div class="bb-page-head justify-content-between flex-wrap">
+        <div class="d-flex align-items-center gap-2">
+            <a href="{% url 'core:staff_dashboard' %}" class="bb-back-btn" aria-label="Back">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <div>
+                <h1>Backend tour</h1>
+                <small class="text-muted">Database → Admin → API, one page. Everything below is live data.</small>
+            </div>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="/admin/" class="bb-btn bb-btn-primary bb-btn-sm">
+                <i class="bi bi-database-fill-gear"></i> Open Django admin
+            </a>
+            <a href="{% url 'core:healthz' %}" class="bb-btn bb-btn-outline bb-btn-sm" target="_blank" rel="noopener">
+                <i class="bi bi-heart-pulse"></i> /healthz/
+            </a>
+        </div>
+    </div>
+
+    <!-- ============ Summary strip ============ -->
+    <div class="row row-cols-2 row-cols-lg-4 g-3 mb-4">
+        <div class="col">
+            <div class="bb-panel mb-0 py-3 text-center h-100">
+                <div class="bb-tour-num">{{ model_total }}</div>
+                <div class="bb-tour-label">Database tables</div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="bb-panel mb-0 py-3 text-center h-100">
+                <div class="bb-tour-num">{{ row_total }}</div>
+                <div class="bb-tour-label">Rows in total</div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="bb-panel mb-0 py-3 text-center h-100">
+                <div class="bb-tour-num" style="color:{% if db_ok %}#059669{% else %}#dc2626{% endif %};">
+                    {% if db_ok %}OK{% else %}DOWN{% endif %}
+                </div>
+                <div class="bb-tour-label">Database ({{ engine }})</div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="bb-panel mb-0 py-3 text-center h-100">
+                <div class="bb-tour-num" style="color:{% if is_superuser %}#059669{% else %}#d97706{% endif %};">
+                    {% if is_superuser %}FULL{% else %}LIMITED{% endif %}
+                </div>
+                <div class="bb-tour-label">Your admin access</div>
+            </div>
+        </div>
+    </div>
+
+    {% if not is_superuser %}
+        <div class="bb-panel mb-4" style="background:#fffbeb; border-color:#fde68a;">
+            <h6 class="bb-panel-title mb-1"><i class="bi bi-info-circle-fill" style="color:#d97706;"></i> కొన్ని tables మీకు కనిపించకపోవచ్చు</h6>
+            <p class="mb-0 small text-muted">
+                ఈ account కి పరిమితమైన permissions ఉన్నాయి. పూర్తి backend చూపించాలంటే
+                <code>python manage.py createsuperuser</code> తో superuser create చేసి, ఆ account తో login అవ్వండి.
+            </p>
+        </div>
+    {% endif %}
+
+    <!-- ============ Database groups ============ -->
+    <h3 class="bb-section-title"><i class="bi bi-database-fill" style="color:#0284c7;"></i> Database — ప్రతి table కి live count</h3>
+    <p class="text-muted small mb-3">
+        ఏదైనా card నొక్కితే ఆ table యొక్క admin screen తెరుచుకుంటుంది — rows చూడవచ్చు, edit చేయవచ్చు.
+    </p>
+
+    {% for group in tour_groups %}
+        <div class="bb-tour-group">
+            <div class="bb-tour-group-head">
+                <span class="bb-tour-group-icon" style="background:{{ group.colour }}1a; color:{{ group.colour }};">
+                    <i class="bi {{ group.icon }}"></i>
+                </span>
+                <div>
+                    <h6 class="mb-0">{{ group.label }}</h6>
+                    <small class="text-muted">{{ group.models|length }} tables · {{ group.total }} rows</small>
+                </div>
+            </div>
+            <div class="bb-tour-grid">
+                {% for model in group.models %}
+                    <div class="bb-tour-card">
+                        <div class="d-flex align-items-start justify-content-between gap-2">
+                            <span class="bb-tour-card-icon"><i class="bi {{ model.icon }}"></i></span>
+                            <span class="bb-tour-count">{% if model.count is None %}—{% else %}{{ model.count }}{% endif %}</span>
+                        </div>
+                        <h6 class="bb-tour-card-title">{{ model.label }}</h6>
+                        <p class="bb-tour-card-desc">{{ model.description }}</p>
+                        <div class="d-flex gap-2 mt-auto pt-2">
+                            <a href="{{ model.url }}" class="bb-btn bb-btn-soft bb-btn-sm flex-grow-1 text-center">
+                                <i class="bi bi-list-ul"></i> Rows
+                            </a>
+                            <a href="{{ model.add_url }}" class="bb-btn bb-btn-outline bb-btn-sm" title="Add row">
+                                <i class="bi bi-plus-lg"></i>
+                            </a>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endfor %}
+
+    <!-- ============ API ============ -->
+    <h3 class="bb-section-title mt-4"><i class="bi bi-braces" style="color:#7c3aed;"></i> JSON API — browser లోనే తెరవచ్చు</h3>
+    <p class="text-muted small mb-3">
+        ఇవి అన్నీ live endpoints. క్లిక్ చేస్తే JSON response కనిపిస్తుంది — backend నిజంగా పనిచేస్తోందని చూపించడానికి.
+    </p>
+    <div class="bb-panel">
+        {% for url, label, note in api_tour %}
+            <div class="d-flex align-items-center gap-3 py-2 {% if not forloop.last %}border-bottom{% endif %}" style="border-color:#f1f5f9 !important;">
+                <span class="bb-api-badge">GET</span>
+                <div class="flex-grow-1" style="min-width:0;">
+                    <a href="{{ url }}" target="_blank" rel="noopener" class="d-block fw-semibold text-decoration-none" style="color:#0f172a;">
+                        {{ label }}
+                    </a>
+                    <code class="bb-api-path">{{ url }}</code>
+                    <div class="text-muted" style="font-size:.78rem;">{{ note }}</div>
+                </div>
+                <a href="{{ url }}" target="_blank" rel="noopener" class="bb-btn bb-btn-outline bb-btn-sm">
+                    <i class="bi bi-box-arrow-up-right"></i>
+                </a>
+            </div>
+        {% endfor %}
+    </div>
+
+    <!-- ============ Where the code is ============ -->
+    <h3 class="bb-section-title mt-4"><i class="bi bi-folder-fill" style="color:#0f766e;"></i> Code map</h3>
+    <div class="row g-3">
+        <div class="col-md-6 col-xl-3">
+            <div class="bb-panel h-100 mb-0">
+                <h6 class="bb-panel-title"><i class="bi bi-journal-bookmark-fill" style="color:#0284c7;"></i> books/</h6>
+                <p class="bb-panel-sub mb-0">Listings, search, wishlist, reports. <code>models.py</code> · <code>views.py</code> · <code>admin.py</code></p>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="bb-panel h-100 mb-0">
+                <h6 class="bb-panel-title"><i class="bi bi-people-fill" style="color:#7c3aed;"></i> accounts/</h6>
+                <p class="bb-panel-sub mb-0">Users, profiles, chat, reviews, notifications, blocks.</p>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="bb-panel h-100 mb-0">
+                <h6 class="bb-panel-title"><i class="bi bi-stars" style="color:#db2777;"></i> ai_engine/</h6>
+                <p class="bb-panel-sub mb-0">Pricing, classifier, recommendations, assistant, trust score.</p>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="bb-panel h-100 mb-0">
+                <h6 class="bb-panel-title"><i class="bi bi-gear-fill" style="color:#0f766e;"></i> config/ + core/</h6>
+                <p class="bb-panel-sub mb-0">Settings, URL map, home, staff dashboard, health check.</p>
+            </div>
+        </div>
+    </div>
+
+    <p class="text-muted small text-center mt-4 mb-4">
+        ఈ page staff users కి మాత్రమే. Data ఏదీ ఇక్కడ మారదు — అన్నీ read-only links.
+    </p>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+    .bb-tour-num {
+        font-size: 1.9rem;
+        font-weight: 900;
+        color: #0f172a;
+        line-height: 1.1;
+    }
+    .bb-tour-label {
+        font-size: .78rem;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: .4px;
+    }
+
+    .bb-tour-group { margin-bottom: 22px; }
+    .bb-tour-group-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+    .bb-tour-group-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.05rem;
+    }
+
+    .bb-tour-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 14px;
+    }
+    .bb-tour-card {
+        background: #fff;
+        border: 1px solid var(--bb-border);
+        border-radius: 16px;
+        padding: 14px 16px;
+        display: flex;
+        flex-direction: column;
+        transition: box-shadow .15s, transform .15s;
+    }
+    .bb-tour-card:hover {
+        box-shadow: 0 10px 24px rgba(15, 23, 42, .08);
+        transform: translateY(-2px);
+    }
+    .bb-tour-card-icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        background: #f1f5f9;
+        color: #0284c7;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .bb-tour-count {
+        font-size: 1.25rem;
+        font-weight: 900;
+        color: #0f172a;
+    }
+    .bb-tour-card-title {
+        font-size: .95rem;
+        font-weight: 800;
+        margin: 10px 0 4px;
+        color: #0f172a;
+    }
+    .bb-tour-card-desc {
+        font-size: .8rem;
+        color: #64748b;
+        margin: 0;
+        line-height: 1.5;
+    }
+
+    .bb-api-badge {
+        background: #ede9fe;
+        color: #5b21b6;
+        font-size: .68rem;
+        font-weight: 900;
+        padding: 3px 8px;
+        border-radius: 6px;
+        letter-spacing: .5px;
+    }
+    .bb-api-path {
+        font-size: .76rem;
+        color: #0369a1;
+        background: #f0f9ff;
+        padding: 2px 6px;
+        border-radius: 6px;
+        display: inline-block;
+        margin: 2px 0;
+        word-break: break-all;
+    }
+</style>
+{% endblock %}

@@ -17,6 +17,7 @@ urlpatterns = [
     path('safety/', views.safety, name='safety'),
     path('healthz/', views.healthz, name='healthz'),
     path('staff/', views.staff_dashboard, name='staff_dashboard'),
+    path('backend/', views.backend_tour, name='backend_tour'),
     path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='sitemap'),
     path(
         'robots.txt',

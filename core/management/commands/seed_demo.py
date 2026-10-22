@@ -24,7 +24,7 @@ from django.core.management.base import BaseCommand
 from django.utils.text import slugify
 
 from accounts.models import BookRequest, ChatMessage, Notification, SellerReview, UserProfile
-from books.models import Book, Category
+from books.models import Book, Category, Report, Wishlist
 
 PASSWORD = 'bookbridge123'
 
@@ -205,7 +205,10 @@ class Command(BaseCommand):
         parser.add_argument(
             '--with-admin',
             action='store_true',
-            help='Give the demo account staff access + moderation permissions (local preview only).',
+            help=(
+                'Give the demo account full admin access so every backend screen '
+                'can be shown in a demo (local preview only).'
+            ),
         )
         parser.add_argument(
             '--force-demo',
@@ -265,12 +268,14 @@ class Command(BaseCommand):
             profile.account_privacy = 'public' if spec['username'] == 'priya' else 'private'
             profile.save()
             if spec['username'] == 'demo' and options['with_admin']:
-                # Give the demo account exactly the permissions the moderation
-                # screens need — never a full superuser with a published password.
+                # Local preview / demo only. A live site never seeds demo
+                # accounts at all (see the DEBUG guard above), so this stays a
+                # presentation account that can open every backend screen.
                 from django.contrib.auth.models import Permission
 
                 user.is_staff = True
-                user.save(update_fields=['is_staff'])
+                user.is_superuser = True
+                user.save(update_fields=['is_staff', 'is_superuser'])
                 user.user_permissions.set(
                     Permission.objects.filter(
                         content_type__app_label__in=['books', 'accounts', 'auth'],
@@ -429,9 +434,54 @@ class Command(BaseCommand):
                 url='/accounts/profile/',
             )
 
+        # ---- Wishlists, a report and an AI usage log so every backend table
+        #      has something to show during a demo. All of it is local-only
+        #      demo data (a live site never seeds any of this). ----
+        Wishlist.objects.filter(user__username__in=['demo', 'priya', 'rahul']).delete()
+        sample_books = list(Book.objects.filter(is_sold=False, is_hidden=False)[:8])
+        for index, book in enumerate(sample_books):
+            if book.seller_id == demo.pk:
+                continue
+            buyer = [priya, rahul, demo][index % 3]
+            if buyer.pk != book.seller_id:
+                Wishlist.objects.get_or_create(user=buyer, book=book)
+
+        Report.objects.filter(reporter__username__in=['arjun', 'priya', 'rahul']).delete()
+        report_target = next((b for b in sample_books if b.seller_id != arjun.pk), None)
+        if report_target:
+            Report.objects.get_or_create(
+                book=report_target,
+                reporter=arjun,
+                defaults={
+                    'reason': 'wrong_price',
+                    'details': 'Price looks higher than the printed MRP — please check.',
+                },
+            )
+
+        from ai_engine.models import AIEvent
+
+        AIEvent.objects.all().delete()
+        ai_samples = [
+            (AIEvent.KIND_PRICE, {'category': 'comparables', 'sample': 6}),
+            (AIEvent.KIND_PRICE, {'category': 'comparables', 'sample': 4}),
+            (AIEvent.KIND_PRICE, {'category': 'mrp', 'sample': 0}),
+            (AIEvent.KIND_DESCRIBE, {}),
+            (AIEvent.KIND_DESCRIBE, {}),
+            (AIEvent.KIND_CLASSIFY, {'results': 3}),
+            (AIEvent.KIND_CLASSIFY, {'results': 3}),
+            (AIEvent.KIND_SEARCH, {'query': 'neet under 300', 'count': 2}),
+            (AIEvent.KIND_SEARCH, {'query': 'free novels', 'count': 1}),
+            (AIEvent.KIND_RISK, {'level': 'low', 'score': 8}),
+            (AIEvent.KIND_RISK, {'level': 'medium', 'score': 34}),
+            (AIEvent.KIND_RISK, {'level': 'high', 'score': 70}),
+        ]
+        for kind, payload in ai_samples:
+            AIEvent.objects.create(kind=kind, user=demo, payload=payload)
+
         self.stdout.write(self.style.SUCCESS(
             f'Demo data ready: {len(users)} users, {Book.objects.count()} books, '
             f'{ChatMessage.objects.count()} chat messages, {BookRequest.objects.count()} requests, '
-            f'{SellerReview.objects.count()} reviews.'
+            f'{SellerReview.objects.count()} reviews, {Wishlist.objects.count()} wishlists, '
+            f'{Report.objects.count()} reports, {AIEvent.objects.count()} AI events.'
         ))
         self.stdout.write('Sign in with demo / bookbridge123 (or arjun, priya, rahul — same password).')
