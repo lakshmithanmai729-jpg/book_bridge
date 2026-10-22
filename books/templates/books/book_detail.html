@@ -108,7 +108,7 @@
                             <i class="bi bi-geo-alt-fill text-danger fs-5"></i>
                             <div>
                                 <div class="fw-bold text-dark">
-                                    {% if book.location_area %}{{ book.location_area }}{% else %}{{ book.location_city|default:"Kothapeta, Dhone" }}{% endif %}
+                                    {% if book.location_area %}{{ book.location_area }}{% elif book.location_city %}{{ book.location_city }}{% else %}Nearby{% endif %}
                                 </div>
                                 <small class="text-muted">
                                     {% if book.location_city %}{{ book.location_city }}{% endif %}

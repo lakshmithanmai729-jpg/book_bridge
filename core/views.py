@@ -25,12 +25,23 @@ def home(request):
     if request.user.is_authenticated:
         wishlist_ids = list(Wishlist.objects.filter(user=request.user).values_list('book_id', flat=True))
 
+    # "Near me" must use the member's own area, never a hardcoded city.
+    my_area = ''
+    if request.user.is_authenticated:
+        location = (getattr(getattr(request.user, 'profile', None), 'location', '') or '').strip()
+        my_area = location.split(',')[0].strip() if location else ''
+    my_area = my_area or request.GET.get('location', '').strip()
+
+    novels = categories.filter(name__iexact='Novels').first()
+
     return render(request, 'core/home.html', {
         'nearby_books': nearby_books,
         'recent_books': recent_books,
         'boosted_books': boosted_books,
         'categories': categories,
         'wishlist_ids': wishlist_ids,
+        'my_area': my_area,
+        'novels_category_id': novels.pk if novels else '',
     })
 
 

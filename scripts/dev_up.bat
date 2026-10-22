@@ -21,9 +21,9 @@ echo Applying migrations
 .venv\Scripts\python.exe manage.py migrate --noinput
 
 if /I "%~1"=="--fresh" (
-    .venv\Scripts\python.exe manage.py seed_demo --reset
+    .venv\Scripts\python.exe manage.py seed_demo --reset --with-admin
 ) else (
-    .venv\Scripts\python.exe manage.py seed_demo --if-empty
+    .venv\Scripts\python.exe manage.py seed_demo --if-empty --with-admin
 )
 
 echo Starting BookBridge on http://127.0.0.1:8000

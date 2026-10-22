@@ -1,14 +1,53 @@
 {% extends 'core/base.html' %}
 {% load book_extras %}
-{% block title %}BookBridge - Buy & Sell Books Nearby{% endblock %}
+{% block title %}BookBridge - Buy & Sell Books Nearby
+<script>
+    // Voice search — only shown when the browser actually supports it.
+    (function () {
+        var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        var button = document.getElementById('bbVoiceBtn');
+        var input = document.getElementById('bbSearchInput');
+        if (!SpeechRecognition || !button || !input) { return; }
+
+        button.classList.remove('d-none');
+        var recognition = new SpeechRecognition();
+        recognition.lang = 'en-IN';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        button.addEventListener('click', function () {
+            try {
+                button.classList.add('text-primary');
+                recognition.start();
+            } catch (error) {
+                recognition.stop();
+            }
+        });
+        recognition.addEventListener('result', function (event) {
+            input.value = event.results[0][0].transcript;
+            input.form.submit();
+        });
+        recognition.addEventListener('end', function () {
+            button.classList.remove('text-primary');
+        });
+        recognition.addEventListener('error', function () {
+            button.classList.remove('text-primary');
+        });
+    })();
+</script>
+{% endblock %}
 
 {% block content %}
 <!-- Top Floating Search Row (Exact match to Screenshot) -->
 <div class="bb-search-chat-row">
     <form action="{% url 'books:book_list' %}" method="GET" class="bb-search-box">
         <i class="bi bi-search text-muted fs-5"></i>
-        <input type="text" name="q" placeholder="Class 12 books" value="{{ request.GET.q }}">
-        <i class="bi bi-mic text-muted fs-5"></i>
+        <input type="text" name="q" id="bbSearchInput" placeholder="Search books, authors, class 12…"
+               value="{{ request.GET.q }}" autocomplete="off">
+        <button type="button" id="bbVoiceBtn" class="btn btn-sm p-0 border-0 bg-transparent d-none"
+                title="Search by voice" aria-label="Search by voice">
+            <i class="bi bi-mic-fill text-muted fs-5"></i>
+        </button>
     </form>
     <a href="{% url 'accounts:messages' %}" class="bb-chat-btn" title="Messages">
         <i class="bi bi-chat-dots-fill"></i>
@@ -17,14 +56,23 @@
 </div>
 
 <div class="bb-quick-actions">
-    <a href="{% url 'books:book_list' %}?location=Kothapeta" class="bb-action-pill primary">
-        <i class="bi bi-geo-alt-fill"></i> Near me
-    </a>
-    <a href="{% url 'books:book_list' %}?sort=price_low" class="bb-action-pill success">
+    {% if my_area %}
+        <a href="{% url 'books:book_list' %}?location={{ my_area|urlencode }}" class="bb-action-pill primary">
+            <i class="bi bi-geo-alt-fill"></i> Near me
+        </a>
+    {% else %}
+        <button type="button" class="bb-action-pill primary" onclick="openLocationModal()">
+            <i class="bi bi-geo-alt-fill"></i> Set your area
+        </button>
+    {% endif %}
+    <a href="{% url 'books:book_list' %}?max_price=300" class="bb-action-pill success">
         <i class="bi bi-tags-fill"></i> Under ₹300
     </a>
-    <a href="{% url 'books:book_list' %}?q=Fiction" class="bb-action-pill">
-        <i class="bi bi-book-half"></i> Fiction
+    <a href="{% url 'books:book_list' %}?free=1" class="bb-action-pill">
+        <i class="bi bi-gift-fill"></i> Free books
+    </a>
+    <a href="{% url 'books:book_list' %}?category={{ novels_category_id|default:'' }}" class="bb-action-pill">
+        <i class="bi bi-book-half"></i> Novels
     </a>
     <a href="{% url 'books:book_add' %}" class="bb-action-pill">
         <i class="bi bi-plus-circle-fill"></i> Sell yours
@@ -280,18 +328,4 @@
     </div>
 </div>
 
-<script>
-    function shareBookBridge() {
-        if (navigator.share) {
-            navigator.share({
-                title: 'BookBridge - Buy & Sell Books Nearby',
-                text: 'Join the mission to make books affordable! Check out second-hand books around you on BookBridge.',
-                url: window.location.href,
-            });
-        } else {
-            navigator.clipboard.writeText(window.location.href);
-            alert('BookBridge link copied to clipboard! Share it with friends and family.');
-        }
-    }
-</script>
 {% endblock %}

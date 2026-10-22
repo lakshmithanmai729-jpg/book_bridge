@@ -33,7 +33,7 @@ USERS = [
         'username': 'demo',
         'name': 'Lakshmi Thanmai',
         'email': 'demo@bookbridge.local',
-        'location': 'Kothapeta, Dhone, Andhra Pradesh',
+        'location': 'Madhapur, Hyderabad',
         'phone': '9876500011',
         'telegram': 'bookbridge_demo',
         'preference': 'telegram',
@@ -122,11 +122,11 @@ BOOKS = [
      'Giving away this question bank for free — I have finished my boards. Come pick it up.',
      True, ('#16a34a', '#052e16')),
     ('Let Us C', 'Yashavant Kanetkar', 'Engineering', 140, 399, 'demo', 'good',
-     'Kothapeta', 'Dhone', '518222',
+     'Madhapur', 'Hyderabad', '500081',
      'Classic C programming guide used for my first semester. No torn pages, a few pencil notes.',
      False, ('#0369a1', '#0c1a3a')),
     ('Ikigai', 'Héctor García', 'Self-Help', 160, 499, 'demo', 'like_new',
-     'Kothapeta', 'Dhone', '518222',
+     'Madhapur', 'Hyderabad', '500081',
      'Read once, kept in perfect condition. A gentle book about finding purpose every day.',
      False, ('#b45309', '#451a03')),
     ('NEET Previous Year Papers', 'Allen Career Institute', 'NEET', 0, 400, 'priya', 'good',
@@ -197,6 +197,11 @@ class Command(BaseCommand):
             action='store_true',
             help='Only seed when the marketplace has no books yet (used by the start scripts).',
         )
+        parser.add_argument(
+            '--with-admin',
+            action='store_true',
+            help='Give the demo account staff access + moderation permissions (local preview only).',
+        )
 
     def handle(self, *args, **options):
         if options['if_empty'] and Book.objects.exists():
@@ -233,10 +238,24 @@ class Command(BaseCommand):
             # so the two modes can be compared side by side in the preview.
             profile.account_privacy = 'public' if spec['username'] == 'priya' else 'private'
             profile.save()
-            if spec['username'] == 'demo':
-                # The demo account can also open the team dashboard (/staff/).
+            if spec['username'] == 'demo' and options['with_admin']:
+                # Give the demo account exactly the permissions the moderation
+                # screens need — never a full superuser with a published password.
+                from django.contrib.auth.models import Permission
+
                 user.is_staff = True
                 user.save(update_fields=['is_staff'])
+                user.user_permissions.set(
+                    Permission.objects.filter(
+                        content_type__app_label__in=['books', 'accounts', 'auth'],
+                        content_type__model__in=[
+                            'book', 'report', 'category', 'bookimage',
+                            'sellerreview', 'userblock', 'chatmessage',
+                            'bookrequest', 'userprofile', 'notification',
+                            'user', 'group',
+                        ],
+                    )
+                )
             users[spec['username']] = user
 
         media_root = Path(settings.MEDIA_ROOT) / 'book_images'
@@ -321,14 +340,14 @@ class Command(BaseCommand):
             user=demo,
             book_title='Organic Chemistry — Morrison & Boyd',
             category='NEET',
-            location='Kothapeta, Dhone',
-            notes='Need the 7th edition. Budget around ₹300. Can pick up in Dhone or Kurnool.',
+            location='Madhapur, Hyderabad',
+            notes='Need the 7th edition. Budget around ₹300. Can pick up anywhere in Hyderabad.',
         )
         BookRequest.objects.create(
             user=demo,
             book_title='Operating Systems — Galvin',
             category='Engineering',
-            location='Kothapeta, Dhone',
+            location='Madhapur, Hyderabad',
             notes='Any recent edition is fine, even with highlights.',
             status='fulfilled',
         )

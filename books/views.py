@@ -286,12 +286,16 @@ def book_add(request):
             return render(request, 'books/book_form.html', form_context())
 
         default_phone = user_profile.phone_number if user_profile else ''
-        default_loc = user_profile.location if user_profile else 'Dhone, Andhra Pradesh'
+        # Split the seller's saved address ("Area, City, State") into the
+        # structured fields; never invent an address the seller never gave.
+        saved_parts = [part.strip() for part in (user_profile.location if user_profile else '').split(',') if part.strip()]
+        saved_area = saved_parts[0] if saved_parts else ''
+        saved_city = saved_parts[1] if len(saved_parts) > 1 else ''
 
         contact_phone = request.POST.get('contact_phone', '').strip() or default_phone
-        location_area = request.POST.get('location_area', '').strip() or default_loc
-        location_city = request.POST.get('location_city', '').strip() or 'Dhone'
-        pincode = request.POST.get('pincode', '').strip() or '518222'
+        location_area = request.POST.get('location_area', '').strip() or saved_area
+        location_city = request.POST.get('location_city', '').strip() or saved_city
+        pincode = request.POST.get('pincode', '').strip()
 
         try:
             price = float(price_val) if not is_donation else 0.0

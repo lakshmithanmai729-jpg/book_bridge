@@ -9,12 +9,16 @@
             <small class="text-muted">Everything happening on BookBridge right now</small>
         </div>
         <div class="d-flex flex-wrap gap-2">
-            <a href="/admin/books/report/" class="bb-btn bb-btn-outline bb-btn-sm">
-                <i class="bi bi-flag"></i> Moderation queue
-            </a>
-            <a href="/admin/" class="bb-btn bb-btn-primary bb-btn-sm">
-                <i class="bi bi-sliders"></i> Django admin
-            </a>
+            {% if perms.books.change_report %}
+                <a href="/admin/books/report/" class="bb-btn bb-btn-outline bb-btn-sm">
+                    <i class="bi bi-flag"></i> Moderation queue
+                </a>
+            {% endif %}
+            {% if perms.books.change_book %}
+                <a href="/admin/" class="bb-btn bb-btn-primary bb-btn-sm">
+                    <i class="bi bi-sliders"></i> Django admin
+                </a>
+            {% endif %}
         </div>
     </div>
 
@@ -139,10 +143,10 @@
             <div class="bb-panel" style="background:#f0f9ff; border-color:#e0f2fe;">
                 <h6 class="bb-panel-title"><i class="bi bi-lightning-charge-fill" style="color:#0284c7;"></i> Quick actions</h6>
                 <div class="d-flex flex-wrap gap-2">
-                    <a href="/admin/books/report/" class="bb-btn bb-btn-outline bb-btn-sm"><i class="bi bi-flag"></i> Reports</a>
-                    <a href="/admin/accounts/sellerreview/" class="bb-btn bb-btn-outline bb-btn-sm"><i class="bi bi-star"></i> Reviews</a>
-                    <a href="/admin/books/book/" class="bb-btn bb-btn-outline bb-btn-sm"><i class="bi bi-book"></i> Listings</a>
-                    <a href="/admin/auth/user/" class="bb-btn bb-btn-outline bb-btn-sm"><i class="bi bi-people"></i> Members</a>
+                    {% if perms.books.change_report %}<a href="/admin/books/report/" class="bb-btn bb-btn-outline bb-btn-sm"><i class="bi bi-flag"></i> Reports</a>{% endif %}
+                    {% if perms.accounts.change_sellerreview %}<a href="/admin/accounts/sellerreview/" class="bb-btn bb-btn-outline bb-btn-sm"><i class="bi bi-star"></i> Reviews</a>{% endif %}
+                    {% if perms.books.change_book %}<a href="/admin/books/book/" class="bb-btn bb-btn-outline bb-btn-sm"><i class="bi bi-book"></i> Listings</a>{% endif %}
+                    {% if perms.auth.change_user %}<a href="/admin/auth/user/" class="bb-btn bb-btn-outline bb-btn-sm"><i class="bi bi-people"></i> Members</a>{% endif %}
                     <a href="{% url 'core:healthz' %}" class="bb-btn bb-btn-outline bb-btn-sm"><i class="bi bi-heart-pulse"></i> Health check</a>
                 </div>
                 <p class="small text-muted mb-0 mt-3">

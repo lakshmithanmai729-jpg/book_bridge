@@ -1294,6 +1294,53 @@
         }, 6000);
     })();
 
+    // ---- shared helpers used by more than one page ----
+
+    // Small toast, reusable from any inline handler.
+    function bbToast(message, variant) {
+        var stack = document.getElementById('bbToastStack');
+        if (!stack) {
+            stack = document.createElement('div');
+            stack.id = 'bbToastStack';
+            stack.className = 'bb-toast-stack';
+            document.body.appendChild(stack);
+        }
+        var node = document.createElement('div');
+        node.className = 'bb-toast bb-toast-' + (variant || 'info');
+        node.setAttribute('role', 'status');
+        node.innerHTML = '<i class="bi bi-info-circle-fill"></i><span></span>'
+            + '<button type="button" class="bb-toast-close" aria-label="Dismiss">&times;</button>';
+        node.querySelector('span').textContent = message;
+        node.querySelector('.bb-toast-close').addEventListener('click', function () { node.remove(); });
+        stack.appendChild(node);
+        setTimeout(function () {
+            node.style.transition = 'opacity .4s';
+            node.style.opacity = '0';
+            setTimeout(function () { node.remove(); }, 420);
+        }, 5000);
+    }
+
+    // Native share sheet, with a clipboard fallback on desktop browsers.
+    function shareBookBridge() {
+        var payload = {
+            title: 'BookBridge — buy, sell and share books nearby',
+            text: 'Second-hand books from students near you. Phone numbers stay private.',
+            url: window.location.origin
+        };
+        if (navigator.share) {
+            navigator.share(payload).catch(function () {});
+            return;
+        }
+        var done = function () { bbToast('Link copied — share it with friends!', 'success'); };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(payload.url).then(done).catch(function () {
+                bbToast('Copy this link: ' + payload.url);
+            });
+        } else {
+            bbToast('Share this link: ' + payload.url);
+        }
+    }
+
     function openLocationModal() {
         const modalEl = document.getElementById('locationModal');
         if (modalEl && window.bootstrap) {

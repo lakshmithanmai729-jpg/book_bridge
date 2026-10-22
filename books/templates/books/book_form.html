@@ -35,7 +35,7 @@
                         <label for="bookImageInput" style="cursor: pointer;">
                             <div id="cameraCircle" class="rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm" style="width: 110px; height: 110px; border: 2px solid #38bdf8; background: #f0f9ff; overflow: hidden; position: relative;">
                                 <i id="cameraIcon" class="bi bi-camera-fill fs-1 text-primary"></i>
-                                <img id="imagePreview" src="" alt="Preview" style="display: none; width: 100%; height: 100%; object-fit: cover;">
+                                <img id="imagePreview" alt="Preview" style="display: none; width: 100%; height: 100%; object-fit: cover;">
                             </div>
                         </label>
                         <input type="file" name="image" id="bookImageInput" accept="image/*" style="display: none;" onchange="previewBookImage(this)">
@@ -111,7 +111,7 @@
                         <div class="col-md-4">
                             <div class="bb-field">
                                 <label for="bookArea">Area / Locality</label>
-                                <input id="bookArea" type="text" name="location_area" value="{{ form.location_area|default:user_profile.location|default:'Kothapeta, Dhone' }}" placeholder="e.g. Madhapur, JNTU">
+                                <input id="bookArea" type="text" name="location_area" value="{{ form.location_area|default:user_profile.location }}" placeholder="e.g. Madhapur, JNTU">
                             </div>
                         </div>
                         <div class="col-md-4">

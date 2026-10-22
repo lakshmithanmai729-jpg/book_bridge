@@ -57,10 +57,10 @@ say "Applying migrations"
 
 if [ "$FRESH" = "1" ]; then
     say "Recreating the demo data"
-    "$PY" manage.py seed_demo --reset
+    "$PY" manage.py seed_demo --reset --with-admin
 else
     say "Seeding demo data (only if the database is empty)"
-    "$PY" manage.py seed_demo --if-empty
+    "$PY" manage.py seed_demo --if-empty --with-admin
 fi
 
 # 3. Static files ------------------------------------------------------------
