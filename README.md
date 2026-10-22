@@ -74,6 +74,14 @@ the seller explicitly picked **WhatsApp / Call**.
 - Bootstrap 5 + Bootstrap Icons
 - Pillow (image uploads)
 
+## Guides
+
+* **[RUN_LOCALLY.md](RUN_LOCALLY.md)** — run the app on your own computer in VS Code
+* **[BACKEND.md](BACKEND.md)** — how to see the backend: Django admin (`/admin/`),
+  the team dashboard (`/staff/`), the database, and the JSON API
+* **[AI.md](AI.md)** — how the AI layer works
+* **[DEPLOY.md](DEPLOY.md)** — put it online with a permanent link
+
 ## Run it yourself (VS Code)
 
 Want to run BookBridge on your own computer without any assistant? See

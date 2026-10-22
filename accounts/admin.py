@@ -1,6 +1,8 @@
 from django.contrib import admin
 
-from .models import BookRequest, ChatMessage, SellerReview, UserBlock, UserProfile
+from .models import (
+    BookRequest, ChatMessage, Notification, SellerReview, UserBlock, UserProfile,
+)
 
 
 @admin.register(UserProfile)
@@ -60,3 +62,13 @@ class UserBlockAdmin(admin.ModelAdmin):
     list_display = ('blocker', 'blocked', 'created_at')
     search_fields = ('blocker__username', 'blocked__username')
     raw_id_fields = ('blocker', 'blocked')
+
+
+@admin.register(Notification)
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ('recipient', 'kind', 'title', 'is_read', 'created_at')
+    list_filter = ('kind', 'is_read', 'created_at')
+    search_fields = ('recipient__username', 'title', 'body')
+    date_hierarchy = 'created_at'
+    raw_id_fields = ('recipient', 'actor', 'book')
+    readonly_fields = ('created_at',)

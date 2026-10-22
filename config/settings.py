@@ -43,7 +43,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.sitemaps',
     'django.contrib.staticfiles',
-    'core',
+    'core.apps.CoreConfig',
     'accounts',
     'books',
     'ai_engine',
