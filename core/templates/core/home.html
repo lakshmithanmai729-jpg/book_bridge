@@ -80,6 +80,9 @@
     <a href="{% url 'accounts:request_book' %}" class="bb-action-pill">
         <i class="bi bi-search-heart"></i> Request a book
     </a>
+    <a href="{% url 'ai_engine:hub' %}" class="bb-action-pill" style="background:#f5f3ff; color:#5b21b6; border-color:#ddd6fe;">
+        <i class="bi bi-stars"></i> Ask AI
+    </a>
 </div>
 
 <!-- Section 1: Your nearby books (Exact match to Screenshot) -->
@@ -222,6 +225,41 @@
         <i class="bi bi-arrow-right fs-5"></i>
     </a>
 </div>
+
+<!-- AI picks for you (personalised, with the reason on every card) -->
+{% if ai_picks %}
+<div class="bb-section-header">
+    <h3 class="bb-section-title"><i class="bi bi-stars" style="color:#7c3aed;"></i> AI picks for you</h3>
+    <a href="{% url 'ai_engine:hub' %}" class="bb-section-arrow" aria-label="Open BookBridge AI">
+        <i class="bi bi-arrow-right fs-4"></i>
+    </a>
+</div>
+<div class="bb-h-scroll">
+    {% for item in ai_picks %}
+        <div class="bb-book-card">
+            <div class="bb-card-img-wrap">
+                <a href="{% url 'books:book_detail' item.book.pk %}">
+                    {% if item.book.image %}
+                        <img src="{{ item.book.image|thumb:400 }}" alt="{{ item.book.title }}">
+                    {% else %}
+                        <div class="d-flex align-items-center justify-content-center h-100 bg-light text-center p-2">
+                            <span class="text-muted fw-bold small">📖 {{ item.book.title|truncatechars:18 }}</span>
+                        </div>
+                    {% endif %}
+                </a>
+            </div>
+            <div class="bb-price-meta">
+                <span class="bb-price-val">{% if item.book.is_donation %}FREE{% else %}₹ {{ item.book.price|floatformat:0 }}{% endif %}</span>
+                <span class="bb-distance-tag"><i class="bi bi-geo-alt-fill"></i> {{ item.book.location_area|default:item.book.location_city|default:"Nearby"|truncatechars:12 }}</span>
+            </div>
+            <a href="{% url 'books:book_detail' item.book.pk %}" class="text-decoration-none">
+                <p class="bb-book-name" title="{{ item.book.title }}">{{ item.book.title }}</p>
+            </a>
+            <small class="text-muted" style="font-size:.7rem;"><i class="bi bi-stars" style="color:#7c3aed;"></i> {{ item.reason }}</small>
+        </div>
+    {% endfor %}
+</div>
+{% endif %}
 
 <!-- Section 5: Recently Viewed -->
 <div class="bb-section-header">

@@ -3,11 +3,14 @@ from datetime import timedelta
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.models import User
 from django.db import connection
+from django.db.models import Count
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
 
 from accounts.models import BookRequest, ChatMessage, Notification, SellerReview, UserBlock
+from ai_engine.models import AIEvent
+from ai_engine.recommend import picks_for_user
 from books.models import Book, Category, Report, Wishlist
 
 
@@ -24,6 +27,10 @@ def home(request):
     wishlist_ids = []
     if request.user.is_authenticated:
         wishlist_ids = list(Wishlist.objects.filter(user=request.user).values_list('book_id', flat=True))
+
+    # Personalised picks, with a reason on every card. Anonymous visitors get
+    # an empty list and the section simply does not render.
+    ai_picks = picks_for_user(request.user, limit=6) if request.user.is_authenticated else []
 
     # "Near me" must use the member's own area, never a hardcoded city.
     my_area = ''
@@ -42,6 +49,7 @@ def home(request):
         'wishlist_ids': wishlist_ids,
         'my_area': my_area,
         'novels_category_id': novels.pk if novels else '',
+        'ai_picks': ai_picks,
     })
 
 
@@ -103,9 +111,40 @@ def staff_dashboard(request):
     recent_books = books.select_related('seller').order_by('-created_at')[:8]
     recent_users = User.objects.order_by('-date_joined')[:8]
 
+    # --- AI layer: how much it is used, and which reported listings look risky ---
+    ai_week = AIEvent.objects.filter(created_at__gte=week_ago)
+    ai_usage = {
+        'total': ai_week.count(),
+        'by_kind': list(
+            ai_week.values('kind').annotate(count=Count('id')).order_by('-count')
+        ),
+    }
+    ai_kind_labels = dict(AIEvent.KIND_CHOICES)
+    for row in ai_usage['by_kind']:
+        row['label'] = ai_kind_labels.get(row['kind'], row['kind'])
+
+    from ai_engine.trust import assess_listing
+    risky_reports = []
+    for report in recent_reports[:6]:
+        try:
+            assessment = assess_listing(
+                title=report.book.title,
+                description=report.book.description,
+                price=report.book.price,
+                category_id=report.book.category_id,
+                seller=report.book.seller,
+                image_present=bool(report.book.image),
+                exclude_id=report.book_id,
+            )
+        except Exception:
+            assessment = {'score': 0, 'level': 'low', 'reasons': []}
+        risky_reports.append({'report': report, 'risk': assessment})
+
     return render(request, 'core/staff_dashboard.html', {
         'stats': stats,
         'recent_reports': recent_reports,
         'recent_books': recent_books,
         'recent_users': recent_users,
+        'ai_usage': ai_usage,
+        'risky_reports': risky_reports,
     })

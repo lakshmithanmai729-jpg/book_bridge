@@ -14,7 +14,7 @@ from django.views.decorators.http import require_POST
 
 from accounts.models import ChatMessage, SellerReview, UserBlock
 from accounts.notify import notify_back_on_sale, notify_price_drop, notify_request_matches
-from ai_engine.utils import get_recommendations
+from ai_engine.recommend import similar_books
 from core.ratelimit import throttled
 from core.validation import length_error
 
@@ -224,7 +224,7 @@ def book_detail(request, pk):
     # Cheap, race-free view counter (no full row save).
     Book.objects.filter(pk=book.pk).update(views_count=F('views_count') + 1)
 
-    recommendations = get_recommendations(book)
+    recommendations = similar_books(book, limit=8, viewer=request.user)
     seller_profile = getattr(book.seller, 'profile', None)
 
     # Telegram is safe to show to everyone: a @handle never reveals a phone number.

@@ -1,0 +1,281 @@
+{% extends 'core/base.html' %}
+{% load book_extras %}
+{% block title %}BookBridge AI — find books the smart way{% endblock %}
+{% block meta_description %}Ask in plain language: “NEET books under ₹300 near Madhapur”. BookBridge AI understands budget, category, condition and area, and suggests a fair price when you sell.{% endblock %}
+
+{% block content %}
+<div class="bb-page">
+
+    <div class="bb-page-head justify-content-between flex-wrap">
+        <div class="d-flex align-items-center gap-2">
+            <a href="{% url 'core:home' %}" class="bb-back-btn" aria-label="Back">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <div>
+                <h1>BookBridge <span style="color:#0284c7;">AI</span></h1>
+                <small class="text-muted">Search in plain language. Get a fair price. Spot risky listings.</small>
+            </div>
+        </div>
+        <span class="bb-chip green"><i class="bi bi-cpu"></i> Runs on our server</span>
+    </div>
+
+    <!-- ================= Assistant ================= -->
+    <div class="bb-panel mb-4" style="background:linear-gradient(135deg,#0ea5e9 0%,#2563eb 55%,#4338ca 100%); border:none; color:#fff;">
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <span style="width:38px;height:38px;border-radius:12px;background:rgba(255,255,255,.18);display:inline-flex;align-items:center;justify-content:center;font-size:1.1rem;">
+                <i class="bi bi-stars"></i>
+            </span>
+            <div>
+                <h2 class="mb-0" style="font-size:1.15rem;font-weight:900;color:#fff;">Ask the assistant</h2>
+                <small style="color:rgba(255,255,255,.85);">Budget, category, condition and area — all in one sentence.</small>
+            </div>
+        </div>
+
+        <form id="aiSearchForm" class="d-flex flex-column flex-sm-row gap-2 mt-3" autocomplete="off">
+            <div class="flex-grow-1 d-flex align-items-center gap-2" style="background:#fff;border-radius:14px;padding:6px 6px 6px 14px;">
+                <i class="bi bi-search" style="color:#64748b;"></i>
+                <input id="aiQuery" type="search" enterkeyhint="search"
+                       class="border-0 flex-grow-1" style="outline:none;font-size:1rem;padding:10px 0;"
+                       placeholder="e.g. NEET books under ₹300 near Madhapur"
+                       aria-label="Ask BookBridge AI">
+                <button type="submit" class="bb-btn bb-btn-primary bb-btn-sm" style="border-radius:10px;">
+                    <i class="bi bi-arrow-right"></i> Ask
+                </button>
+            </div>
+        </form>
+
+        <div class="d-flex flex-wrap gap-2 mt-3" id="aiExamples">
+            {% for example in examples %}
+                <button type="button" class="ai-example" data-query="{{ example }}">{{ example }}</button>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Assistant output -->
+    <div id="aiStatus" class="text-muted small mb-2" aria-live="polite"></div>
+    <div id="aiAnswer" class="d-none mb-4">
+        <div class="bb-panel mb-3" style="background:#eff6ff; border-color:#bfdbfe;">
+            <div class="d-flex align-items-start gap-2">
+                <i class="bi bi-chat-quote-fill" style="color:#2563eb;font-size:1.2rem;"></i>
+                <div>
+                    <p class="mb-1" style="font-weight:700;" id="aiExplanation"></p>
+                    <div class="d-flex flex-wrap gap-2" id="aiChips"></div>
+                </div>
+            </div>
+        </div>
+        <div class="bb-grid-cards" id="aiResults"></div>
+    </div>
+
+    {% if picks %}
+    <!-- ================= Picks ================= -->
+    <div class="d-flex align-items-center justify-content-between mb-2">
+        <h3 class="bb-section-title mb-0"><i class="bi bi-magic" style="color:#7c3aed;"></i> Picked for you</h3>
+        {% if taste.categories %}
+            <small class="text-muted">You like {{ taste.categories|join:", " }}</small>
+        {% endif %}
+    </div>
+    <div class="bb-grid-cards mb-4">
+        {% for item in picks %}
+            <div class="bb-book-card">
+                <div class="bb-card-img-wrap">
+                    <a href="{% url 'books:book_detail' item.book.pk %}">
+                        {% if item.book.image %}
+                            <img src="{{ item.book.image|thumb:400 }}" alt="{{ item.book.title }}">
+                        {% else %}
+                            <div class="d-flex align-items-center justify-content-center h-100 bg-light text-center p-2">
+                                <span class="text-muted fw-bold small">📖 {{ item.book.title|truncatechars:18 }}</span>
+                            </div>
+                        {% endif %}
+                    </a>
+                </div>
+                <div class="bb-price-meta">
+                    <span class="bb-price-val">{% if item.book.is_donation %}FREE{% else %}₹ {{ item.book.price|floatformat:0 }}{% endif %}</span>
+                    <span class="bb-distance-tag"><i class="bi bi-geo-alt-fill"></i> {{ item.book.location_area|default:item.book.location_city|default:"Nearby"|truncatechars:12 }}</span>
+                </div>
+                <a href="{% url 'books:book_detail' item.book.pk %}" class="text-decoration-none">
+                    <p class="bb-book-name" title="{{ item.book.title }}">{{ item.book.title }}</p>
+                </a>
+                <small class="text-muted" style="font-size:.72rem;"><i class="bi bi-stars" style="color:#7c3aed;"></i> {{ item.reason }}</small>
+            </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- ================= What the AI does ================= -->
+    <h3 class="bb-section-title"><i class="bi bi-grid-1x2-fill" style="color:#0284c7;"></i> What the AI does here</h3>
+    <div class="row g-3 mb-4">
+        <div class="col-md-6 col-xl-4">
+            <div class="bb-panel h-100 mb-0">
+                <h6 class="bb-panel-title"><i class="bi bi-cash-coin" style="color:#059669;"></i> Fair price suggestion</h6>
+                <p class="bb-panel-sub mb-2">Looks at comparable listings in the same category, normalises them for condition, and suggests a range with a confidence level.</p>
+                <a href="{% url 'books:book_add' %}" class="small fw-bold text-decoration-none">Try it while selling →</a>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-4">
+            <div class="bb-panel h-100 mb-0">
+                <h6 class="bb-panel-title"><i class="bi bi-pencil-square" style="color:#2563eb;"></i> Listing writer</h6>
+                <p class="bb-panel-sub mb-2">Drafts an honest description from the facts you typed — never invents “mint condition” claims.</p>
+                <a href="{% url 'books:book_add' %}" class="small fw-bold text-decoration-none">Draft a listing →</a>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-4">
+            <div class="bb-panel h-100 mb-0">
+                <h6 class="bb-panel-title"><i class="bi bi-tags-fill" style="color:#7c3aed;"></i> Category detection</h6>
+                <p class="bb-panel-sub mb-2">A Naive Bayes model trained on real listings guesses the right shelf from the title and description.</p>
+                <a href="{% url 'books:book_list' %}" class="small fw-bold text-decoration-none">Browse categories →</a>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-4">
+            <div class="bb-panel h-100 mb-0">
+                <h6 class="bb-panel-title"><i class="bi bi-shield-check" style="color:#dc2626;"></i> Trust score</h6>
+                <p class="bb-panel-sub mb-2">Flags phone numbers, duplicate reposts and prices far from the category median before a listing goes live.</p>
+                <a href="{% url 'books:book_list' %}" class="small fw-bold text-decoration-none">See the marketplace →</a>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-4">
+            <div class="bb-panel h-100 mb-0">
+                <h6 class="bb-panel-title"><i class="bi bi-diagram-3-fill" style="color:#0d9488;"></i> Recommendations</h6>
+                <p class="bb-panel-sub mb-2">Content similarity plus “readers who saved this also saved that”, with a reason on every card.</p>
+                <a href="{% url 'accounts:profile' %}" class="small fw-bold text-decoration-none">Your account →</a>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-4">
+            <div class="bb-panel h-100 mb-0">
+                <h6 class="bb-panel-title"><i class="bi bi-lock-fill" style="color:#475569;"></i> Private by design</h6>
+                <p class="bb-panel-sub mb-0">No third-party API, no model download, no personal data leaves BookBridge. Suggestions are logged only as counts.</p>
+            </div>
+        </div>
+    </div>
+
+    <p class="text-muted small text-center mb-4">
+        BookBridge AI is assistive — a human always makes the final call. You can edit or ignore every suggestion.
+    </p>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+    .bb-grid-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 14px;
+    }
+    .ai-example {
+        background: rgba(255,255,255,.16);
+        border: 1px solid rgba(255,255,255,.35);
+        color: #fff;
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-size: .78rem;
+        font-weight: 700;
+    }
+    .ai-example:hover { background: rgba(255,255,255,.28); }
+    .ai-chip {
+        background: #dbeafe;
+        color: #1e40af;
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: .74rem;
+        font-weight: 800;
+    }
+    .ai-result-card {
+        background: #fff;
+        border: 1px solid var(--bb-border);
+        border-radius: 16px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+    .ai-result-card .ai-thumb {
+        height: 120px;
+        background: linear-gradient(135deg,#e0f2fe,#eef2ff);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #0369a1;
+        font-weight: 800;
+        font-size: .8rem;
+        text-align: center;
+        padding: 8px;
+    }
+    .ai-result-card img { width: 100%; height: 120px; object-fit: cover; }
+    .ai-result-card .ai-body { padding: 10px 12px 12px; }
+</style>
+
+<script>
+    (function () {
+        var form = document.getElementById('aiSearchForm');
+        var input = document.getElementById('aiQuery');
+        var status = document.getElementById('aiStatus');
+        var answer = document.getElementById('aiAnswer');
+        var explanation = document.getElementById('aiExplanation');
+        var chips = document.getElementById('aiChips');
+        var results = document.getElementById('aiResults');
+
+        function esc(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function money(book) {
+            return book.is_donation ? 'FREE' : '₹ ' + Math.round(book.price);
+        }
+
+        function card(book) {
+            var media = book.image
+                ? '<img src="' + esc(book.image) + '" alt="' + esc(book.title) + '" loading="lazy">'
+                : '<div class="ai-thumb">📖 ' + esc(book.title.slice(0, 28)) + '</div>';
+            return '<a class="ai-result-card text-decoration-none" href="' + esc(book.url) + '">'
+                + media
+                + '<div class="ai-body">'
+                + '<div class="d-flex justify-content-between align-items-center">'
+                + '<strong style="color:#0f172a;">' + money(book) + '</strong>'
+                + '<small class="text-muted">' + esc(book.area) + '</small></div>'
+                + '<div style="font-size:.85rem;font-weight:700;color:#0f172a;margin-top:2px;">'
+                + esc(book.title) + '</div>'
+                + '<small class="text-muted">' + esc(book.author) + '</small>'
+                + '</div></a>';
+        }
+
+        function chip(text) {
+            return '<span class="ai-chip">' + esc(text) + '</span>';
+        }
+
+        function runSearch(query) {
+            if (!query.trim()) { return; }
+            input.value = query;
+            status.textContent = 'Thinking…';
+            answer.classList.add('d-none');
+
+            fetch('/ai/api/search/?q=' + encodeURIComponent(query), { headers: { 'Accept': 'application/json' } })
+                .then(function (response) { return response.json(); })
+                .then(function (data) {
+                    if (!data.ok) {
+                        status.textContent = data.error || 'Could not understand that.';
+                        return;
+                    }
+                    status.textContent = data.count + ' book' + (data.count === 1 ? '' : 's') + ' found';
+                    explanation.textContent = data.explanation || 'Here is what I found.';
+                    chips.innerHTML = (data.understood || []).map(chip).join(' ');
+                    results.innerHTML = data.results.length
+                        ? data.results.map(card).join('')
+                        : '<div class="bb-empty" style="grid-column:1/-1;"><div class="bb-empty-icon"><i class="bi bi-search"></i></div><h3>Nothing matched yet</h3><p>Try a wider budget or another area.</p></div>';
+                    answer.classList.remove('d-none');
+                })
+                .catch(function () {
+                    status.textContent = 'The assistant is unavailable right now. Please try again.';
+                });
+        }
+
+        form.addEventListener('submit', function (event) {
+            event.preventDefault();
+            runSearch(input.value);
+        });
+
+        document.querySelectorAll('.ai-example').forEach(function (button) {
+            button.addEventListener('click', function () { runSearch(button.dataset.query); });
+        });
+    })();
+</script>
+{% endblock %}

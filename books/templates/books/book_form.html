@@ -49,6 +49,32 @@
                         <input id="bookTitle" type="text" name="title" value="{{ form.title|default:'' }}" placeholder="e.g. Concepts of Physics — Volume 1" required>
                     </div>
 
+                    <!-- ============ BookBridge AI helper ============ -->
+                    <div class="bb-panel mb-4" id="aiPanel" style="background:linear-gradient(135deg,#f5f3ff,#eff6ff); border-color:#ddd6fe;">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <i class="bi bi-stars" style="color:#7c3aed;font-size:1.2rem;"></i>
+                            <div>
+                                <strong>BookBridge AI</strong>
+                                <div class="text-muted small">Fill the name first — the assistant uses it.</div>
+                            </div>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="button" class="bb-btn bb-btn-outline bb-btn-sm" onclick="aiSuggestPrice()">
+                                <i class="bi bi-cash-coin"></i> Suggest a fair price
+                            </button>
+                            <button type="button" class="bb-btn bb-btn-outline bb-btn-sm" onclick="aiGuessCategory()">
+                                <i class="bi bi-tags-fill"></i> Guess category
+                            </button>
+                            <button type="button" class="bb-btn bb-btn-outline bb-btn-sm" onclick="aiWriteDescription()">
+                                <i class="bi bi-pencil-square"></i> Draft description
+                            </button>
+                            <button type="button" class="bb-btn bb-btn-outline bb-btn-sm" onclick="aiCheckListing()">
+                                <i class="bi bi-shield-check"></i> Check listing
+                            </button>
+                        </div>
+                        <div id="aiOutput" class="mt-3 small" aria-live="polite"></div>
+                    </div>
+
                     <div class="row g-3">
                         <div class="col-md-6">
                             <div class="bb-field">
@@ -245,5 +271,163 @@
             reader.readAsDataURL(input.files[0]);
         }
     }
+
+    /* ============================ BookBridge AI ============================ */
+    var AI_CSRF = (document.querySelector('input[name=csrfmiddlewaretoken]') || {}).value || '';
+    var aiOut = document.getElementById('aiOutput');
+
+    function aiBusy(text) {
+        aiOut.innerHTML = '<span class="text-muted"><span class="spinner-border spinner-border-sm me-2"></span>' + text + '</span>';
+    }
+    function aiShow(html) { aiOut.innerHTML = html; }
+
+    function aiFormData() {
+        var categorySelect = document.getElementById('bookCategory');
+        return {
+            title: (document.getElementById('bookTitle') || {}).value || '',
+            author: (document.getElementById('bookAuthor') || {}).value || '',
+            description: (document.getElementById('bookDescription') || {}).value || '',
+            category: categorySelect ? categorySelect.value : '',
+            category_name: categorySelect && categorySelect.selectedIndex > 0 ? categorySelect.options[categorySelect.selectedIndex].text : '',
+            condition: (document.getElementById('bookCondition') || {}).value || 'good',
+            price: (document.getElementById('bookPrice') || {}).value || '',
+            is_donation: (document.getElementById('donationInput') || {}).value === 'true',
+            area: (document.getElementById('bookArea') || {}).value || '',
+            city: (document.getElementById('bookCity') || {}).value || '',
+            has_image: !!(document.getElementById('bookImageInput') || {}).files && document.getElementById('bookImageInput').files.length > 0
+        };
+    }
+
+    function aiFetch(url, options) {
+        options = options || {};
+        options.headers = Object.assign({'Accept': 'application/json', 'X-CSRFToken': AI_CSRF}, options.headers || {});
+        return fetch(url, options).then(function (response) { return response.json(); });
+    }
+
+    function aiSuggestPrice() {
+        var data = aiFormData();
+        aiBusy('Looking at comparable listings…');
+        var params = new URLSearchParams({
+            category: data.category || '',
+            condition: data.condition || 'good',
+            title: data.title || ''
+        });
+        aiFetch('/ai/api/price/?' + params.toString())
+            .then(function (result) {
+                if (!result.ok) { aiShow('<span class="text-danger">' + (result.error || 'Could not suggest a price.') + '</span>'); return; }
+                var rows = result.comparables.map(function (item) {
+                    return '<li>' + item.title + ' — ₹' + Math.round(item.price) + ' · ' + item.condition + ' · ' + item.area + '</li>';
+                }).join('');
+                aiShow(
+                    '<div class="d-flex flex-wrap align-items-center gap-2 mb-1">' +
+                    '<span class="badge" style="background:#ede9fe;color:#5b21b6;font-weight:800;">' + result.confidence_label + '</span>' +
+                    '<strong style="font-size:1.05rem;">₹' + Math.round(result.suggested_price) + '</strong>' +
+                    '<span class="text-muted">range ₹' + Math.round(result.low) + '–₹' + Math.round(result.high) + '</span>' +
+                    '<button type="button" class="bb-btn bb-btn-primary bb-btn-sm" onclick="aiApplyPrice(' + Math.round(result.suggested_price) + ')">Use this price</button>' +
+                    '</div>' +
+                    '<div class="text-muted">' + result.explanation + '</div>' +
+                    (rows ? '<ul class="mt-2 mb-0 ps-3 text-muted">' + rows + '</ul>' : '')
+                );
+            })
+            .catch(function () { aiShow('<span class="text-danger">The assistant is unavailable right now.</span>'); });
+    }
+
+    function aiApplyPrice(price) {
+        var input = document.getElementById('bookPrice');
+        if (!input) { return; }
+        input.value = price;
+        if (typeof setDonation === 'function') { setDonation(false); }
+        if (typeof bbToast === 'function') { bbToast('Price filled in — edit it if you like.', 'success'); }
+    }
+
+    function aiGuessCategory() {
+        var data = aiFormData();
+        if (!data.title.trim()) { aiShow('<span class="text-muted">Type the book name first.</span>'); return; }
+        aiBusy('Reading the title and description…');
+        aiFetch('/ai/api/classify/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({title: data.title, author: data.author, description: data.description})
+        }).then(function (result) {
+            if (!result.ok || !result.categories.length) {
+                aiShow('<span class="text-muted">Not sure yet — add a line about the book and try again.</span>');
+                return;
+            }
+            var buttons = result.categories.map(function (category) {
+                return '<button type="button" class="bb-btn bb-btn-outline bb-btn-sm" onclick="aiApplyCategory(' + category.id + ')">' +
+                    category.name + ' · ' + Math.round(category.confidence * 100) + '%</button>';
+            }).join(' ');
+            aiShow('<div class="mb-1"><strong>Best guesses</strong></div><div class="d-flex flex-wrap gap-2">' + buttons + '</div>');
+        }).catch(function () { aiShow('<span class="text-danger">The assistant is unavailable right now.</span>'); });
+    }
+
+    function aiApplyCategory(categoryId) {
+        var select = document.getElementById('bookCategory');
+        if (!select) { return; }
+        select.value = String(categoryId);
+        if (typeof bbToast === 'function') { bbToast('Category set — change it if the guess is wrong.', 'success'); }
+    }
+
+    function aiWriteDescription() {
+        var data = aiFormData();
+        if (!data.title.trim()) { aiShow('<span class="text-muted">Type the book name first.</span>'); return; }
+        aiBusy('Drafting an honest description…');
+        aiFetch('/ai/api/describe/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        }).then(function (result) {
+            if (!result.ok) { aiShow('<span class="text-danger">Could not draft a description.</span>'); return; }
+            var box = document.getElementById('bookDescription');
+            var existing = box ? box.value.trim() : '';
+            aiShow(
+                '<div class="mb-2">' + result.description + '</div>' +
+                '<div class="d-flex flex-wrap gap-2">' +
+                '<button type="button" class="bb-btn bb-btn-primary bb-btn-sm" onclick="aiUseDescription(' + (existing ? 'true' : 'false') + ')">' +
+                (existing ? 'Replace my text' : 'Use this description') + '</button>' +
+                (existing ? '<button type="button" class="bb-btn bb-btn-outline bb-btn-sm" onclick="aiAppendDescription()">Append it</button>' : '') +
+                '<button type="button" class="bb-btn bb-btn-outline bb-btn-sm" onclick="aiWriteDescription()">Try another</button>' +
+                '</div>'
+            );
+            window.__aiDraft = result.description;
+        }).catch(function () { aiShow('<span class="text-danger">The assistant is unavailable right now.</span>'); });
+    }
+
+    function aiUseDescription(hadText) {
+        var box = document.getElementById('bookDescription');
+        if (!box || !window.__aiDraft) { return; }
+        if (hadText && !window.confirm('Replace the description you typed?')) { return; }
+        box.value = window.__aiDraft;
+        if (typeof bbToast === 'function') { bbToast('Draft added — edit it so it sounds like you.', 'success'); }
+    }
+
+    function aiAppendDescription() {
+        var box = document.getElementById('bookDescription');
+        if (!box || !window.__aiDraft) { return; }
+        box.value = (box.value.trim() ? box.value.trim() + '\n\n' : '') + window.__aiDraft;
+    }
+
+    function aiCheckListing() {
+        var data = aiFormData();
+        aiBusy('Checking for common scam signals…');
+        aiFetch('/ai/api/risk/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        }).then(function (result) {
+            if (!result.ok) { aiShow('<span class="text-muted">' + (result.error || 'Sign in to run the check.') + '</span>'); return; }
+            var colour = result.level === 'high' ? '#dc2626' : (result.level === 'medium' ? '#d97706' : '#059669');
+            var checks = result.checks.map(function (check) {
+                return '<li>' + (check.passed ? '✅' : '⚠️') + ' ' + check.label + '</li>';
+            }).join('');
+            aiShow(
+                '<div class="mb-1"><strong style="color:' + colour + ';">' + result.level.toUpperCase() + ' risk</strong> ' +
+                '<span class="text-muted">(' + result.score + '/100)</span></div>' +
+                (result.reasons.length ? '<ul class="mb-2 ps-3">' + result.reasons.map(function (reason) { return '<li>' + reason + '</li>'; }).join('') + '</ul>' : '') +
+                '<ul class="mb-0 ps-0" style="list-style:none;">' + checks + '</ul>'
+            );
+        }).catch(function () { aiShow('<span class="text-danger">The assistant is unavailable right now.</span>'); });
+    }
+
 </script>
 {% endblock %}

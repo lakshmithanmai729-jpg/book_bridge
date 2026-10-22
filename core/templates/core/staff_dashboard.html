@@ -102,6 +102,30 @@
 
         <div class="col-lg-6">
             <div class="bb-panel h-100">
+                <h6 class="bb-panel-title"><i class="bi bi-shield-exclamation" style="color:#dc2626;"></i> AI risk check on reports</h6>
+                {% for row in risky_reports %}
+                    <div class="d-flex align-items-start gap-2 py-2 border-bottom" style="border-color:#f1f5f9 !important;">
+                        <span class="badge mt-1" style="{% if row.risk.level == 'high' %}background:#fee2e2;color:#991b1b;{% elif row.risk.level == 'medium' %}background:#fef3c7;color:#92400e;{% else %}background:#dcfce7;color:#166534;{% endif %}font-weight:800;">
+                            {{ row.risk.level|upper }} {{ row.risk.score }}
+                        </span>
+                        <div class="flex-grow-1" style="min-width:0;">
+                            <a href="{% url 'books:book_detail' row.report.book.pk %}" class="small fw-semibold text-dark text-decoration-none d-block text-truncate">
+                                {{ row.report.book.title }}
+                            </a>
+                            <small class="text-muted d-block">
+                                {% if row.risk.reasons %}{{ row.risk.reasons|join:" · "|truncatechars:90 }}{% else %}No risk signals detected{% endif %}
+                            </small>
+                        </div>
+                    </div>
+                {% empty %}
+                    <p class="text-muted small mb-0">No reports to score right now.</p>
+                {% endfor %}
+                <p class="small text-muted mb-0 mt-2">Scores are a hint, not a verdict — always read the listing before acting.</p>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="bb-panel h-100">
                 <h6 class="bb-panel-title"><i class="bi bi-book-half" style="color:#0284c7;"></i> Latest listings</h6>
                 {% for book in recent_books %}
                     <div class="d-flex align-items-center gap-2 py-2 border-bottom" style="border-color:#f1f5f9 !important;">
@@ -140,6 +164,23 @@
         </div>
 
         <div class="col-lg-6">
+            <div class="bb-panel" style="background:#f5f3ff; border-color:#ddd6fe;">
+                <h6 class="bb-panel-title"><i class="bi bi-stars" style="color:#7c3aed;"></i> AI usage · last 7 days</h6>
+                <div class="d-flex align-items-baseline gap-2 mb-2">
+                    <span style="font-size:1.7rem;font-weight:900;color:#5b21b6;">{{ ai_usage.total }}</span>
+                    <small class="text-muted">AI actions</small>
+                </div>
+                {% for row in ai_usage.by_kind %}
+                    <div class="d-flex justify-content-between small py-1">
+                        <span class="text-muted">{{ row.label }}</span>
+                        <strong>{{ row.count }}</strong>
+                    </div>
+                {% empty %}
+                    <p class="small text-muted mb-0">No AI actions yet. Sellers see the assistant on the sell form.</p>
+                {% endfor %}
+                <a href="{% url 'ai_engine:hub' %}" class="bb-btn bb-btn-outline bb-btn-sm mt-3"><i class="bi bi-stars"></i> Open the AI page</a>
+            </div>
+
             <div class="bb-panel" style="background:#f0f9ff; border-color:#e0f2fe;">
                 <h6 class="bb-panel-title"><i class="bi bi-lightning-charge-fill" style="color:#0284c7;"></i> Quick actions</h6>
                 <div class="d-flex flex-wrap gap-2">

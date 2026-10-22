@@ -20,6 +20,7 @@ Built with Django, Bootstrap 5, and a full-width responsive UI (mobile-first, sp
 - Full-width layout that keeps the mobile app feel while using the whole laptop screen
 - **Seller dashboard** — mark books sold, relist them, edit or delete listings
 - **Pagination + filters** — 20 books per page with category, condition, price and sort filters
+- **Natural-language search** — “NEET books under ₹300 near Madhapur” works in the AI assistant
 - **Reporting & moderation** — buyers report listings, moderators hide them from the admin
 - **Password reset + email verification** — secure account recovery over email
 - **Image optimisation** — uploads are auto-rotated, resized and converted to WebP, plus cached thumbnails
@@ -35,6 +36,10 @@ Built with Django, Bootstrap 5, and a full-width responsive UI (mobile-first, sp
 - **Team dashboard** — `/staff/` with live marketplace numbers and the moderation queue
 - **SEO & PWA** — sitemap, robots.txt, social preview tags, installable-app manifest
 - **Health check** — `/healthz/` JSON probe for uptime monitors and load balancers
+- **AI layer** — offline, private machine learning: fair-price suggestions, a listing
+  copywriter, Naive Bayes category detection, explainable recommendations with reasons,
+  natural-language assistant search (`/ai/`), and a risk score that flags scam listings.
+  See [AI.md](AI.md)
 
 ## Privacy model
 
@@ -148,6 +153,8 @@ requests. Run it with `--reset` to start over.
 | Notifications | `/accounts/notifications/` |
 | Seller analytics | `/accounts/analytics/` |
 | Team dashboard (staff only) | `/staff/` |
+| BookBridge AI (assistant + picks) | `/ai/` |
+| AI price / classify / describe / risk API | `/ai/api/...` (see [AI.md](AI.md)) |
 | Health check | `/healthz/` |
 | Sitemap / robots / manifest | `/sitemap.xml`, `/robots.txt`, `/manifest.webmanifest` |
 

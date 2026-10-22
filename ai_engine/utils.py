@@ -30,26 +30,3 @@ def suggest_price(category_id, condition):
 
     multiplier = CONDITION_MULTIPLIER.get(condition, 0.7)
     return round(float(avg_price) * multiplier, 2)
-
-
-def get_recommendations(book, limit=4):
-    base_qs = Book.objects.filter(is_sold=False, is_hidden=False).exclude(pk=book.pk)
-    rec_ids = []
-
-    if book.category:
-        cat_ids = list(base_qs.filter(category=book.category).values_list('id', flat=True)[:limit])
-        rec_ids.extend(cat_ids)
-
-    if len(rec_ids) < limit and book.author:
-        author_ids = list(base_qs.filter(author__icontains=book.author).exclude(id__in=rec_ids).values_list('id', flat=True)[:limit - len(rec_ids)])
-        rec_ids.extend(author_ids)
-
-    if len(rec_ids) < limit:
-        fallback_ids = list(base_qs.exclude(id__in=rec_ids).order_by('-created_at').values_list('id', flat=True)[:limit - len(rec_ids)])
-        rec_ids.extend(fallback_ids)
-
-    return Book.objects.filter(id__in=rec_ids).order_by('-created_at')
-
-
-
-

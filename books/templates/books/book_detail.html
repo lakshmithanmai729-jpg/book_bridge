@@ -293,7 +293,7 @@
 
     {% if recommendations %}
         <div class="bb-section-header px-0" style="padding-left:0; padding-right:0;">
-            <h3 class="bb-section-title">More books nearby</h3>
+            <h3 class="bb-section-title"><i class="bi bi-stars" style="color:#7c3aed;"></i> AI recommendations</h3>
             <a href="{% url 'books:book_list' %}" class="bb-section-arrow"><i class="bi bi-arrow-right fs-4"></i></a>
         </div>
         <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3 mb-2">
@@ -301,22 +301,23 @@
                 <div class="col">
                     <div class="bb-book-card w-100">
                         <div class="bb-card-img-wrap">
-                            <a href="{% url 'books:book_detail' item.pk %}">
-                                {% if item.image %}
-                                    <img src="{{ item.image|thumb:400 }}" alt="{{ item.title }}">
+                            <a href="{% url 'books:book_detail' item.book.pk %}">
+                                {% if item.book.image %}
+                                    <img src="{{ item.book.image|thumb:400 }}" alt="{{ item.book.title }}">
                                 {% else %}
                                     <div class="d-flex align-items-center justify-content-center h-100 bg-light text-center p-2">
-                                        <span class="text-muted fw-bold small">📖 {{ item.title|truncatechars:20 }}</span>
+                                        <span class="text-muted fw-bold small">📖 {{ item.book.title|truncatechars:20 }}</span>
                                     </div>
                                 {% endif %}
                             </a>
                         </div>
                         <div class="bb-price-meta">
-                            <span class="bb-price">₹ {{ item.price|floatformat:0 }}</span>
+                            <span class="bb-price">{% if item.book.is_donation %}FREE{% else %}₹ {{ item.book.price|floatformat:0 }}{% endif %}</span>
                         </div>
-                        <a href="{% url 'books:book_detail' item.pk %}">
-                            <p class="bb-book-name" title="{{ item.title }}">{{ item.title }}</p>
+                        <a href="{% url 'books:book_detail' item.book.pk %}">
+                            <p class="bb-book-name" title="{{ item.book.title }}">{{ item.book.title }}</p>
                         </a>
+                        <small class="text-muted" style="font-size:.7rem;"><i class="bi bi-stars" style="color:#7c3aed;"></i> {{ item.reason }}</small>
                     </div>
                 </div>
             {% endfor %}

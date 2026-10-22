@@ -19,6 +19,7 @@ DEFAULTS = {
     'report': (5, 60 * 60),     # 5 reports / hour
     'review': (10, 60 * 60),    # 10 reviews / hour
     'request': (5, 60 * 60),    # 5 book requests / hour
+    'ai': (120, 60 * 60),       # 120 AI helper calls / hour
 }
 
 

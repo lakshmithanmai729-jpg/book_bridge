@@ -269,6 +269,7 @@ RATE_LIMITS = {
     'report': (5, 60 * 60),     # reports per hour
     'review': (10, 60 * 60),    # seller reviews per hour
     'request': (5, 60 * 60),    # book requests per hour
+    'ai': (120, 60 * 60),       # AI helper calls per hour
 }
 
 CACHES = {
