@@ -1,5 +1,3 @@
-import re
-
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
@@ -14,8 +12,6 @@ from books.models import Book, Category
 
 from .forms import SignUpForm
 from .models import BookRequest, ChatMessage, UserProfile
-
-TELEGRAM_HANDLE_RE = re.compile(r'^[A-Za-z0-9_]{3,32}$')
 
 
 def get_profile(user):
