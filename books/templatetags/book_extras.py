@@ -3,10 +3,28 @@ import os
 
 from django import template
 from django.core.files.storage import default_storage
+from django.templatetags.static import static
 
 from books.images import make_thumbnail
 
 register = template.Library()
+
+# Shown instead of a broken-image icon when a photo file has gone missing
+# (for example after a free-tier host restarts and its disk is wiped).
+PLACEHOLDER = 'icons/book-placeholder.svg'
+
+
+def placeholder_url():
+    """URL for the placeholder image, even without a collected manifest.
+
+    CompressedManifestStaticFilesStorage raises for files missing from the
+    manifest (tests, or a fresh checkout before collectstatic), so fall back to
+    the plain static path rather than letting that error kill the image.
+    """
+    try:
+        return static(PLACEHOLDER)
+    except Exception:
+        return '/static/' + PLACEHOLDER
 
 
 @register.filter
@@ -35,13 +53,21 @@ def thumb(image_field, size=400):
     base, _ = os.path.splitext(name)
     thumb_name = f'thumbs/{base}_{dimension}.webp'
 
+    # A row can outlive its file: the database keeps the name while the disk
+    # behind it is replaced. Check before handing the browser a dead URL.
+    try:
+        if not default_storage.exists(name):
+            return placeholder_url()
+    except Exception:
+        pass
+
     try:
         if default_storage.exists(thumb_name):
             return default_storage.url(thumb_name)
 
         content = make_thumbnail(image_field, dimension)
         if content is None:
-            return image_field.url
+            return image_field.url if default_storage.exists(name) else placeholder_url()
 
         saved_name = default_storage.save(thumb_name, content)
         return default_storage.url(saved_name)
@@ -49,7 +75,7 @@ def thumb(image_field, size=400):
         try:
             return image_field.url
         except Exception:
-            return ''
+            return placeholder_url()
 
 
 @register.filter

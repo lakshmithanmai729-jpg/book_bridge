@@ -496,3 +496,40 @@ class StaffDashboardTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['stats']['listings'], 1)
         self.assertContains(response, 'Team dashboard')
+
+
+class MediaServingTests(TestCase):
+    """Book photos must load on the deployed site, not just in DEBUG."""
+
+    def setUp(self):
+        self.seller = User.objects.create_user('seller', password='Bridge!2345')
+
+    def test_uploaded_photo_is_served_when_debug_is_off(self):
+        from django.core.files.base import ContentFile
+
+        book = Book.objects.create(seller=self.seller, title='With Photo', author='A', price=100)
+        book.image.save('photo.jpg', ContentFile(b'jpeg-bytes'), save=True)
+
+        with override_settings(DEBUG=False):
+            response = self.client.get(book.image.url)
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_missing_file_falls_back_to_the_placeholder(self):
+        from django.template import Context, Template
+
+        book = Book.objects.create(seller=self.seller, title='Lost Photo', author='A', price=100)
+        book.image.name = 'book_images/does-not-exist.jpg'
+        book.save(update_fields=['image'])
+
+        rendered = Template('{% load book_extras %}{{ book.image|thumb:400 }}').render(
+            Context({'book': book})
+        )
+        # Manifest storage may add a content hash to the file name.
+        self.assertIn('book-placeholder', rendered)
+        self.assertNotIn('does-not-exist.jpg', rendered)
+
+    def test_placeholder_asset_exists(self):
+        from django.contrib.staticfiles import finders
+
+        self.assertIsNotNone(finders.find('icons/book-placeholder.svg'))
