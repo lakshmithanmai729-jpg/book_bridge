@@ -207,3 +207,29 @@ LOGGING = {
         },
     },
 }
+
+
+# ---------------------------------------------------------------------------
+# Trust & safety
+# ---------------------------------------------------------------------------
+# Cache-backed rate limits: (allowed writes, window in seconds). Swap the cache
+# backend for Redis in production and these limits follow automatically.
+RATE_LIMITS = {
+    'chat': (25, 5 * 60),       # messages per 5 minutes
+    'listing': (10, 60 * 60),   # new listings per hour
+    'report': (5, 60 * 60),     # reports per hour
+    'review': (10, 60 * 60),    # seller reviews per hour
+    'request': (5, 60 * 60),    # book requests per hour
+}
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'bookbridge-trust',
+        'TIMEOUT': 300,
+    }
+}
+
+# A review is only allowed after a real conversation, and this is the minimum
+# number of messages exchanged before the "Rate seller" button appears.
+REVIEW_MIN_MESSAGES = 1

@@ -24,6 +24,11 @@ Built with Django, Bootstrap 5, and a full-width responsive UI (mobile-first, sp
 - **Password reset + email verification** — secure account recovery over email
 - **Image optimisation** — uploads are auto-rotated, resized and converted to WebP, plus cached thumbnails
 - **Error pages & logging** — friendly 404/403/500 screens and rotating file logs
+- **Seller ratings** — buyers rate a seller after chatting; public seller profile with stars,
+  review list and *Top seller* / *Verified* badges
+- **Block a member** — hides their listings and pauses chats, with a blocked-users page
+- **Rate limiting** — chat, listings, reports, reviews and requests are throttled per user
+- **Safety Centre** — a plain-language guide to safe deals, scams and reporting
 
 ## Privacy model
 
@@ -116,6 +121,11 @@ requests. Run it with `--reset` to start over.
 | Report a listing | `/books/<id>/report/` |
 | Forgot password | `/accounts/password-reset/` |
 | Confirm email | `/accounts/email/verify/<token>/` |
+| Public seller profile | `/accounts/sellers/<user_id>/` |
+| Rate a seller | `/accounts/sellers/<user_id>/review/` |
+| Block / unblock a member | `/accounts/block/<user_id>/` (POST) |
+| Blocked users | `/accounts/blocked/` |
+| Safety Centre | `/safety/` |
 
 ## Tests
 
@@ -123,9 +133,11 @@ requests. Run it with `--reset` to start over.
 python manage.py test
 ```
 
-**52 tests** cover Telegram normalisation, contact-mode privacy (phone never leaked), in-app chat
+**72 tests** cover Telegram normalisation, contact-mode privacy (phone never leaked), in-app chat
 send/read, empty chat state, book requests, pagination & filters, mark-sold/relist, reporting and
-moderation visibility, image optimisation, email verification, password reset and chat notifications.
+moderation visibility, image optimisation, email verification, password reset, chat notifications,
+seller reviews (chat-gated, editable, clamped, moderated), blocking (feeds, chats, unblocking) and
+rate limiting.
 
 ## Project layout
 
@@ -143,6 +155,19 @@ moderation visibility, image optimisation, email verification, password reset an
 - **Reports** — review reported listings and use the actions
   *“Hide the reported listing and close the report”*, *“Dismiss”* or *“Mark as reviewed”*.
 - **Books** — bulk actions to mark sold, relist, hide or unhide listings.
+- **Seller reviews** — hide a fake or abusive review (it immediately stops counting towards the
+  seller's average) or unhide it again.
+- **User blocks** — see who blocked whom, useful when investigating harassment reports.
+
+### Trust & safety rules
+
+- A review can only be written by someone who has exchanged at least one chat message with the
+  seller, so ratings cannot be farmed.
+- Ratings are clamped to 1–5 on save, and hidden reviews are excluded from the average.
+- Blocking is mutual and silent: neither person sees the other's listings or chats, and the other
+  person is not notified.
+- Write actions are rate limited (`settings.RATE_LIMITS`) through the cache — 25 chat messages per
+  5 minutes, 10 listings an hour, 5 reports an hour, 10 reviews an hour.
 
 ## Going to production
 

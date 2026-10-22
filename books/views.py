@@ -11,7 +11,9 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
+from accounts.models import SellerReview, UserBlock
 from ai_engine.utils import get_recommendations
+from core.ratelimit import throttled
 
 from .forms import BookForm
 from .images import make_thumbnail, optimize_upload, save_optimized_image
@@ -34,6 +36,11 @@ def _query_without_page(request):
 
 def book_list(request):
     books = Book.objects.filter(is_sold=False, is_hidden=False).select_related('category', 'seller')
+
+    # Members never see listings from people they blocked (or who blocked them).
+    blocked_ids = UserBlock.blocked_ids_for(request.user)
+    if blocked_ids:
+        books = books.exclude(seller_id__in=blocked_ids)
 
     query = request.GET.get('q', '').strip()
     if query:
@@ -159,6 +166,15 @@ def book_detail(request, pk):
     if book.is_hidden and not is_owner:
         return render(request, 'books/book_hidden.html', {'book': book}, status=404)
 
+    if not is_owner and request.user.is_authenticated:
+        if book.seller_id in UserBlock.blocked_ids_for(request.user):
+            return render(
+                request,
+                'books/book_hidden.html',
+                {'book': None, 'blocked': True},
+                status=404,
+            )
+
     # Cheap, race-free view counter (no full row save).
     Book.objects.filter(pk=book.pk).update(views_count=F('views_count') + 1)
 
@@ -178,6 +194,13 @@ def book_detail(request, pk):
             f'Hi {book.seller.username}, I am interested in your book "{book.title}" on BookBridge.',
         )
 
+    seller_rating = SellerReview.summary_for(book.seller)
+    rounded_rating = int(round(seller_rating['average']))
+    is_blocked = (
+        request.user.is_authenticated and not is_owner
+        and UserBlock.is_blocked_by_me(request.user, book.seller)
+    )
+
     already_reported = False
     if request.user.is_authenticated and not is_owner:
         already_reported = Report.objects.filter(
@@ -188,6 +211,9 @@ def book_detail(request, pk):
         'book': book,
         'recommendations': recommendations,
         'seller_profile': seller_profile,
+        'seller_rating': seller_rating,
+        'seller_stars': {'full': range(rounded_rating), 'empty': range(5 - rounded_rating)},
+        'is_blocked': is_blocked,
         'is_owner': is_owner,
         'telegram_username': telegram_username,
         'telegram_url': telegram_url,
@@ -226,6 +252,11 @@ def book_add(request):
         return context
 
     if request.method == 'POST':
+        limit_message = throttled(request, 'listing')
+        if limit_message:
+            messages.error(request, limit_message)
+            return render(request, 'books/book_form.html', form_context())
+
         title = request.POST.get('title', '').strip()
         author = request.POST.get('author', '').strip() or 'Various'
         category_id = (request.POST.get('category') or '').strip()
@@ -397,6 +428,11 @@ def report_book(request, pk):
     if request.method == 'POST':
         if existing:
             messages.info(request, 'You already reported this listing. Our team is reviewing it.')
+            return redirect('books:book_detail', pk=book.pk)
+
+        limit_message = throttled(request, 'report')
+        if limit_message:
+            messages.error(request, limit_message)
             return redirect('books:book_detail', pk=book.pk)
 
         reason = request.POST.get('reason', 'other')

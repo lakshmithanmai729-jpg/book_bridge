@@ -174,16 +174,54 @@
             <div class="bb-panel mt-4">
                 <span class="bb-label" style="margin-bottom:10px;">Seller</span>
                 <div class="d-flex align-items-center gap-3">
-                    <div class="bb-avatar lg">{{ book.seller.username|slice:":1"|upper }}</div>
-                    <div style="min-width:0;">
-                        <div class="fw-bold text-dark text-truncate" style="font-size:1.05rem;">
-                            {% if seller_profile and seller_profile.name %}{{ seller_profile.name }}{% else %}{{ book.seller.username }}{% endif %}
+                    <a href="{% url 'accounts:seller_profile' book.seller.pk %}" class="text-decoration-none">
+                        <div class="bb-avatar lg">{{ book.seller.username|slice:":1"|upper }}</div>
+                    </a>
+                    <div style="min-width:0;" class="flex-grow-1">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <a href="{% url 'accounts:seller_profile' book.seller.pk %}" class="fw-bold text-dark text-truncate text-decoration-none" style="font-size:1.05rem;">
+                                {% if seller_profile and seller_profile.name %}{{ seller_profile.name }}{% else %}{{ book.seller.username }}{% endif %}
+                            </a>
+                            {% if seller_profile.is_verified %}
+                                <span class="bb-chip green" style="padding:3px 9px; font-size:0.7rem;" title="Email confirmed">
+                                    <i class="bi bi-patch-check-fill"></i> Verified
+                                </span>
+                            {% endif %}
+                            {% if seller_profile.is_top_seller %}
+                                <span class="bb-chip blue" style="padding:3px 9px; font-size:0.7rem;" title="Top rated seller">
+                                    <i class="bi bi-trophy-fill"></i> Top seller
+                                </span>
+                            {% endif %}
+                        </div>
+                        <div class="d-flex align-items-center gap-1 flex-wrap mt-1">
+                            <span class="text-warning" style="font-size:0.82rem;">
+                                {% for _ in seller_stars.full %}<i class="bi bi-star-fill"></i>{% endfor %}
+                                {% for _ in seller_stars.empty %}<i class="bi bi-star"></i>{% endfor %}
+                            </span>
+                            <small class="text-muted">
+                                {% if seller_rating.count %}
+                                    {{ seller_rating.average }} · {{ seller_rating.count }} review{{ seller_rating.count|pluralize }}
+                                {% else %}
+                                    No reviews yet
+                                {% endif %}
+                            </small>
                         </div>
                         <small class="text-muted d-block">
                             {% if seller_profile.location %}{{ seller_profile.location }}{% else %}BookBridge member{% endif %}
+                            · Joined {{ book.seller.date_joined|date:"M Y" }}
                         </small>
-                        <small class="text-muted">Joined {{ book.seller.date_joined|date:"M Y" }}</small>
                     </div>
+                </div>
+
+                <div class="d-flex flex-wrap gap-2 mt-3">
+                    <a href="{% url 'accounts:seller_profile' book.seller.pk %}" class="bb-btn bb-btn-outline bb-btn-sm">
+                        <i class="bi bi-person-badge"></i> View seller profile
+                    </a>
+                    {% if user.is_authenticated and not is_owner %}
+                        <a href="{% url 'accounts:seller_profile' book.seller.pk %}#reviews" class="bb-btn bb-btn-soft bb-btn-sm">
+                            <i class="bi bi-star"></i> Reviews
+                        </a>
+                    {% endif %}
                 </div>
 
                 <div class="d-flex flex-wrap gap-2 mt-3">

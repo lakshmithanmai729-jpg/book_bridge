@@ -1,0 +1,222 @@
+{% extends 'core/base.html' %}
+{% load book_extras %}
+{% block title %}{{ seller_profile.name|default:seller.username }} - BookBridge{% endblock %}
+
+{% block content %}
+<div class="bb-page">
+    <div class="bb-page-head">
+        <a href="{% url 'books:book_list' %}" class="bb-back-btn" aria-label="Back">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div>
+            <h1>Seller profile</h1>
+            <small class="text-muted">Ratings, trust badges and live listings</small>
+        </div>
+    </div>
+
+    {% if blocked_me %}
+        <div class="bb-panel mb-4" style="background:#fef2f2; border-color:#fecaca;">
+            <h6 class="bb-panel-title" style="color:#b91c1c;">
+                <i class="bi bi-slash-circle-fill"></i> This member blocked you
+            </h6>
+            <p class="bb-panel-sub mb-0">
+                You cannot message {{ seller_profile.name|default:seller.username }} or see their listings.
+                If you think this is a mistake, contact support.
+            </p>
+        </div>
+    {% endif %}
+
+    <div class="row g-4">
+        <!-- ============ LEFT: who they are ============ -->
+        <div class="col-lg-4">
+            <div class="bb-panel h-100">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="bb-avatar lg" style="width:72px; height:72px; font-size:1.6rem;">
+                        {{ seller_profile.name|default:seller.username|slice:":1"|upper }}
+                    </div>
+                    <div style="min-width:0;">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <h5 class="mb-0 fw-bold text-truncate">
+                                {{ seller_profile.name|default:seller.username }}
+                            </h5>
+                            {% if seller_profile.is_verified %}
+                                <span class="bb-chip green" title="Email confirmed">
+                                    <i class="bi bi-patch-check-fill"></i> Verified
+                                </span>
+                            {% endif %}
+                        </div>
+                        <small class="text-muted d-block">
+                            <i class="bi bi-geo-alt"></i>
+                            {{ seller_profile.location|default:"Location not shared" }}
+                        </small>
+                        <small class="text-muted">Member since {{ seller.date_joined|date:"M Y" }}</small>
+                    </div>
+                </div>
+
+                <!-- Rating summary -->
+                <div class="mt-4 d-flex align-items-center gap-3 flex-wrap">
+                    <div class="text-center">
+                        <div class="fw-bold" style="font-size:2rem; line-height:1; color:#0f172a;">
+                            {% if rating.count %}{{ rating.average }}{% else %}—{% endif %}
+                        </div>
+                        <div class="text-warning" style="font-size:0.95rem;">
+                            {% for _ in rating_stars.full %}<i class="bi bi-star-fill"></i>{% endfor %}
+                            {% for _ in rating_stars.empty %}<i class="bi bi-star"></i>{% endfor %}
+                        </div>
+                        <small class="text-muted">
+                            {{ rating.count }} review{{ rating.count|pluralize }}
+                        </small>
+                    </div>
+                    <div class="flex-grow-1">
+                        {% if seller_profile.is_top_seller %}
+                            <span class="bb-chip green"><i class="bi bi-trophy-fill"></i> Top seller</span>
+                        {% elif rating.count >= 3 %}
+                            <span class="bb-chip blue"><i class="bi bi-hand-thumbs-up-fill"></i> Well rated</span>
+                        {% else %}
+                            <span class="bb-chip"><i class="bi bi-stars"></i> New on BookBridge</span>
+                        {% endif %}
+                        <p class="small text-muted mb-0 mt-2">
+                            Ratings come only from buyers who chatted with this seller.
+                        </p>
+                    </div>
+                </div>
+
+                {% if not is_me %}
+                    <div class="d-flex flex-wrap gap-2 mt-4">
+                        {% if not blocked_me and not is_blocked %}
+                            <a href="{% url 'accounts:chat_detail' seller.pk %}" class="bb-btn bb-btn-primary bb-btn-sm">
+                                <i class="bi bi-chat-dots-fill"></i> Chat
+                            </a>
+                        {% endif %}
+                        {% if can_review %}
+                            <a href="{% url 'accounts:review_seller' seller.pk %}" class="bb-btn bb-btn-outline bb-btn-sm">
+                                <i class="bi bi-star{% if my_review %}-fill{% endif %}"></i>
+                                {% if my_review %}Edit your rating{% else %}Rate seller{% endif %}
+                            </a>
+                        {% endif %}
+                        {% if user.is_authenticated %}
+                            <form method="POST" action="{% url 'accounts:toggle_block' seller.pk %}" class="mb-0">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                <button type="submit" class="bb-btn bb-btn-sm {% if is_blocked %}bb-btn-outline{% endif %}"
+                                        style="{% if not is_blocked %}background:#fef2f2; color:#b91c1c;{% endif %}">
+                                    <i class="bi {% if is_blocked %}bi-unlock{% else %}bi-slash-circle{% endif %}"></i>
+                                    {% if is_blocked %}Unblock{% else %}Block{% endif %}
+                                </button>
+                            </form>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <div class="d-flex flex-wrap gap-2 mt-4">
+                        <a href="{% url 'books:my_listings' %}" class="bb-btn bb-btn-primary bb-btn-sm">
+                            <i class="bi bi-grid"></i> My listings
+                        </a>
+                        <a href="{% url 'accounts:profile_edit' %}" class="bb-btn bb-btn-outline bb-btn-sm">
+                            <i class="bi bi-pencil-square"></i> Edit profile
+                        </a>
+                    </div>
+                {% endif %}
+
+                <div class="mt-4">
+                    <a href="{% url 'core:safety' %}" class="small fw-semibold" style="color:#0284c7;">
+                        <i class="bi bi-shield-check"></i> How we keep you safe
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ RIGHT: listings + reviews ============ -->
+        <div class="col-lg-8">
+            <div class="bb-panel">
+                <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-3">
+                    <h6 class="bb-panel-title mb-0">
+                        <i class="bi bi-book-half" style="color:#0284c7;"></i>
+                        Live listings <span class="text-muted fw-normal">({{ listing_total }})</span>
+                    </h6>
+                    <a href="{% url 'books:book_list' %}" class="bb-btn bb-btn-outline bb-btn-sm">Browse all books</a>
+                </div>
+
+                <div class="row row-cols-2 row-cols-md-3 g-3">
+                    {% for book in listings %}
+                        <div class="col">
+                            <div class="bb-book-card w-100">
+                                <div class="bb-card-img-wrap">
+                                    <a href="{% url 'books:book_detail' book.pk %}">
+                                        {% if book.image %}
+                                            <img src="{{ book.image|thumb:400 }}" alt="{{ book.title }}" loading="lazy">
+                                        {% else %}
+                                            <div class="d-flex align-items-center justify-content-center h-100 bg-light text-center p-2">
+                                                <span class="text-muted fw-bold small">📖 {{ book.title|truncatechars:20 }}</span>
+                                            </div>
+                                        {% endif %}
+                                    </a>
+                                    {% if book.is_donation %}
+                                        <span class="bb-chip green" style="position:absolute; top:8px; left:8px;">
+                                            <i class="bi bi-gift-fill"></i> Free
+                                        </span>
+                                    {% endif %}
+                                </div>
+                                <div class="bb-price-meta">
+                                    <span class="bb-price">{% if book.is_donation %}FREE{% else %}₹ {{ book.price|floatformat:0 }}{% endif %}</span>
+                                </div>
+                                <a href="{% url 'books:book_detail' book.pk %}" class="text-decoration-none">
+                                    <p class="small fw-semibold text-dark text-truncate mb-0">{{ book.title }}</p>
+                                </a>
+                                <small class="text-muted text-truncate d-block">{{ book.author }}</small>
+                            </div>
+                        </div>
+                    {% empty %}
+                        <div class="col-12">
+                            <p class="text-muted small mb-0">
+                                {% if is_me %}You have no live listings right now.
+                                {% else %}This seller has no live listings right now.{% endif %}
+                            </p>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="bb-panel mt-4" id="reviews">
+                <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-3">
+                    <h6 class="bb-panel-title mb-0">
+                        <i class="bi bi-chat-square-quote-fill" style="color:#f59e0b;"></i>
+                        Buyer reviews
+                    </h6>
+                </div>
+
+                {% for review in reviews %}
+                    <div class="d-flex gap-3 py-3 {% if not forloop.last %}border-bottom{% endif %}" style="border-color:#f1f5f9 !important;">
+                        <div class="bb-avatar" style="width:44px; height:44px; font-size:1rem;">
+                            {{ review.reviewer.profile.name|default:review.reviewer.username|slice:":1"|upper }}
+                        </div>
+                        <div style="min-width:0;" class="flex-grow-1">
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <span class="fw-bold small">
+                                    {{ review.reviewer.profile.name|default:review.reviewer.username }}
+                                </span>
+                                <span class="text-warning small">
+                                    {% for _ in review.filled_stars %}<i class="bi bi-star-fill"></i>{% endfor %}
+                                    {% for _ in review.empty_stars %}<i class="bi bi-star"></i>{% endfor %}
+                                </span>
+                                <small class="text-muted">{{ review.created_at|date:"d M Y" }}</small>
+                            </div>
+                            {% if review.comment %}
+                                <p class="small text-muted mb-0 mt-1">{{ review.comment }}</p>
+                            {% endif %}
+                            {% if review.book %}
+                                <a href="{% url 'books:book_detail' review.book.pk %}" class="small text-decoration-none" style="color:#0284c7;">
+                                    about “{{ review.book.title|truncatechars:40 }}”
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% empty %}
+                    <p class="text-muted small mb-0">
+                        No reviews yet. Buyers can rate this seller after chatting about a book.
+                    </p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

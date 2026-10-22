@@ -6,11 +6,13 @@ from django.contrib.auth.models import User
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.views.decorators.http import require_POST
 from django.utils.http import url_has_allowed_host_and_scheme
 
 from django.utils import timezone
 
 from books.models import Book, Category
+from core.ratelimit import throttled
 
 from .emails import (
     mark_verified,
@@ -19,7 +21,7 @@ from .emails import (
     send_verification_email,
 )
 from .forms import SignUpForm
-from .models import BookRequest, ChatMessage, UserProfile
+from .models import BookRequest, ChatMessage, SellerReview, UserBlock, UserProfile
 
 
 def get_profile(user):
@@ -129,8 +131,12 @@ def profile(request):
 
     my_requests = BookRequest.objects.filter(user=request.user)[:5]
     my_books = Book.objects.filter(seller=request.user, is_sold=False).order_by('-created_at')[:6]
+    my_rating = SellerReview.summary_for(request.user)
+    rounded = int(round(my_rating['average']))
     return render(request, 'accounts/profile.html', {
         'profile': profile_obj,
+        'my_rating': my_rating,
+        'my_stars': {'full': range(rounded), 'empty': range(5 - rounded)},
         'user_books': my_books,
         'book_requests': my_requests,
         'contact_choices': UserProfile.CONTACT_CHOICES,
@@ -208,6 +214,14 @@ def chat_detail(request, user_id):
         messages.info(request, 'You cannot start a chat with yourself.')
         return redirect('accounts:messages')
 
+    if UserBlock.exists_between(request.user, other_user):
+        messages.error(
+            request,
+            'This conversation is unavailable because one of you blocked the other. '
+            'Unblock from your profile to start chatting again.',
+        )
+        return redirect('accounts:messages')
+
     book_id = request.POST.get('book') or request.GET.get('book')
     book = None
     if book_id:
@@ -215,6 +229,11 @@ def chat_detail(request, user_id):
 
     if request.method == 'POST':
         text = (request.POST.get('text') or '').strip()
+        limit_message = throttled(request, 'chat')
+        if limit_message:
+            messages.error(request, limit_message)
+            return redirect(f"{reverse('accounts:chat_detail', args=[other_user.id])}"
+                            + (f"?book={book.pk}" if book else ''))
         if text:
             ChatMessage.objects.create(
                 sender=request.user,
@@ -256,9 +275,18 @@ def chat_detail(request, user_id):
         .distinct()
     )
 
+    other_profile = get_profile(other_user)
+    seller_rating = SellerReview.summary_for(other_user)
+    rounded = int(round(seller_rating['average']))
+
     return render(request, 'accounts/chat_detail.html', {
         'other_user': other_user,
-        'other_profile': get_profile(other_user),
+        'other_profile': other_profile,
+        'seller_rating': seller_rating,
+        'seller_stars': {'full': range(rounded), 'empty': range(5 - rounded)},
+        'can_review': _can_review(request.user, other_user),
+        'my_review': SellerReview.objects.filter(reviewer=request.user, seller=other_user).first(),
+        'is_blocked': UserBlock.is_blocked_by_me(request.user, other_user),
         'book': book,
         'conversation': conversation,
         'related_books': related_books,
@@ -273,6 +301,11 @@ def request_book(request):
         category = (request.POST.get('category') or '').strip()
         location = (request.POST.get('location') or '').strip()
         notes = (request.POST.get('notes') or '').strip()
+
+        limit_message = throttled(request, 'request')
+        if limit_message:
+            messages.error(request, limit_message)
+            return redirect('accounts:request_book')
 
         if not book_title:
             messages.error(request, 'Please tell us which book you need.')
@@ -345,3 +378,198 @@ def resend_verification(request):
     else:
         messages.error(request, 'We could not send the email. Please try again later.')
     return redirect('accounts:profile')
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 — trust & safety: seller profiles, ratings, blocking
+# ---------------------------------------------------------------------------
+
+def _can_review(reviewer, seller):
+    """Only someone who actually chatted with the seller may rate them."""
+    if not reviewer or not getattr(reviewer, 'is_authenticated', False):
+        return False
+    if reviewer.id == seller.id:
+        return False
+    if UserBlock.exists_between(reviewer, seller):
+        return False
+    return SellerReview.has_chatted_with(reviewer, seller)
+
+
+def _conversation_book(me, other):
+    """The book the two people last talked about (used to attach a review)."""
+    last_message = (
+        ChatMessage.objects
+        .filter(Q(sender=me, receiver=other) | Q(sender=other, receiver=me))
+        .exclude(book__isnull=True)
+        .select_related('book')
+        .order_by('-created_at')
+        .first()
+    )
+    return last_message.book if last_message else None
+
+
+def seller_profile(request, user_id):
+    """Public seller page: trust badges, ratings and their live listings."""
+    seller = get_object_or_404(User.objects.select_related('profile'), pk=user_id)
+    profile_obj = get_profile(seller)
+
+    is_me = request.user.is_authenticated and request.user.id == seller.id
+
+    reviews = (
+        SellerReview.objects
+        .filter(seller=seller, is_hidden=False)
+        .select_related('reviewer', 'book', 'reviewer__profile')
+    )
+    rating = SellerReview.summary_for(seller)
+    rounded = int(round(rating['average']))
+    rating_stars = {
+        'full': range(rounded),
+        'empty': range(5 - rounded),
+    }
+
+    listings = (
+        Book.objects
+        .filter(seller=seller, is_sold=False, is_hidden=False)
+        .select_related('category')
+        .order_by('-created_at')
+    )
+    if not is_me:
+        blocked = UserBlock.blocked_ids_for(request.user)
+        if blocked:
+            listings = listings.exclude(seller_id__in=blocked)
+
+    my_review = None
+    if request.user.is_authenticated and not is_me:
+        my_review = SellerReview.objects.filter(reviewer=request.user, seller=seller).first()
+
+    blocked_me = False
+    if request.user.is_authenticated and not is_me:
+        blocked_me = UserBlock.objects.filter(blocker=seller, blocked=request.user).exists()
+
+    wishlist_ids = []
+    if request.user.is_authenticated:
+        from books.models import Wishlist
+        wishlist_ids = list(
+            Wishlist.objects.filter(user=request.user).values_list('book_id', flat=True)
+        )
+
+    return render(request, 'accounts/seller_profile.html', {
+        'seller': seller,
+        'seller_profile': profile_obj,
+        'rating': rating,
+        'rating_stars': rating_stars,
+        'reviews': reviews[:20],
+        'listings': listings[:12],
+        'listing_total': listings.count(),
+        'is_me': is_me,
+        'can_review': _can_review(request.user, seller),
+        'my_review': my_review,
+        'blocked_me': blocked_me,
+        'is_blocked': (request.user.is_authenticated and not is_me
+                       and UserBlock.is_blocked_by_me(request.user, seller)),
+        'wishlist_ids': wishlist_ids,
+    })
+
+
+@login_required
+def review_seller(request, user_id):
+    """Rate a seller after chatting with them. One review per buyer-seller pair."""
+    seller = get_object_or_404(User, pk=user_id)
+
+    if seller.id == request.user.id:
+        messages.info(request, 'You cannot review yourself.')
+        return redirect('accounts:seller_profile', user_id=seller.pk)
+
+    if not _can_review(request.user, seller):
+        messages.error(
+            request,
+            'You can rate a seller once you have chatted with them about a book.',
+        )
+        return redirect('accounts:seller_profile', user_id=seller.pk)
+
+    existing = SellerReview.objects.filter(reviewer=request.user, seller=seller).first()
+
+    if request.method == 'POST':
+        limit_message = throttled(request, 'review')
+        if limit_message:
+            messages.error(request, limit_message)
+            return redirect('accounts:review_seller', user_id=seller.pk)
+
+        try:
+            rating_value = int(request.POST.get('rating', '5'))
+        except (TypeError, ValueError):
+            rating_value = 5
+        rating_value = max(1, min(5, rating_value))
+        comment = (request.POST.get('comment') or '').strip()[:1200]
+
+        if existing:
+            existing.rating = rating_value
+            existing.comment = comment
+            existing.save(update_fields=['rating', 'comment'])
+            message_text = 'Your rating was updated. Thank you!'
+        else:
+            SellerReview.objects.create(
+                reviewer=request.user,
+                seller=seller,
+                book=_conversation_book(request.user, seller),
+                rating=rating_value,
+                comment=comment,
+            )
+            message_text = f'Thanks! You rated {get_profile(seller).name or seller.username}.'
+
+        SellerReview.invalidate_summary(seller.pk)
+        messages.success(request, message_text)
+        return redirect('accounts:seller_profile', user_id=seller.pk)
+
+    return render(request, 'accounts/review_seller.html', {
+        'seller': seller,
+        'seller_profile': get_profile(seller),
+        'existing': existing,
+        'rating_choices': range(1, 6),
+    })
+
+
+@login_required
+@require_POST
+def toggle_block(request, user_id):
+    """Block or unblock another member (POST only)."""
+    other = get_object_or_404(User, pk=user_id)
+
+    if other.id == request.user.id:
+        messages.info(request, 'You cannot block yourself.')
+        return redirect('accounts:profile')
+
+    block = UserBlock.objects.filter(blocker=request.user, blocked=other).first()
+    if block:
+        block.delete()
+        messages.success(
+            request,
+            f'You unblocked {get_profile(other).name or other.username}.',
+        )
+    else:
+        UserBlock.objects.create(blocker=request.user, blocked=other)
+        messages.success(
+            request,
+            f'{get_profile(other).name or other.username} is blocked. '
+            'Their listings and chats are now hidden from you.',
+        )
+
+    next_url = request.POST.get('next') or reverse('accounts:seller_profile', args=[other.pk])
+    if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        next_url = reverse('accounts:seller_profile', args=[other.pk])
+    return redirect(next_url)
+
+
+@login_required
+def blocked_users(request):
+    """Everything the member has blocked, with a one-tap unblock."""
+    blocks = (
+        UserBlock.objects
+        .filter(blocker=request.user)
+        .select_related('blocked', 'blocked__profile')
+        .order_by('-created_at')
+    )
+    return render(request, 'accounts/blocked_users.html', {
+        'blocks': blocks,
+        'profile': get_profile(request.user),
+    })

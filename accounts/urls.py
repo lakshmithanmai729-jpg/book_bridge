@@ -32,6 +32,12 @@ urlpatterns = [
 
     path('email/verify/<str:token>/', views.verify_email, name='verify_email'),
     path('email/resend/', views.resend_verification, name='resend_verification'),
+    # Trust & safety
+    path('sellers/<int:user_id>/', views.seller_profile, name='seller_profile'),
+    path('sellers/<int:user_id>/review/', views.review_seller, name='review_seller'),
+    path('block/<int:user_id>/', views.toggle_block, name='toggle_block'),
+    path('blocked/', views.blocked_users, name='blocked_users'),
+
     path('messages/', views.messages_view, name='messages'),
     path('chat/start/<int:book_id>/', views.start_chat, name='start_chat'),
     path('chat/<int:user_id>/', views.chat_detail, name='chat_detail'),

@@ -159,10 +159,36 @@
                     </span>
                     <span><i class="bi bi-envelope-fill"></i> {{ user.email|default:"Add your email" }}</span>
                 </div>
+                <div class="d-flex align-items-center gap-2 flex-wrap mt-2">
+                    <span class="text-warning" style="font-size:0.9rem;">
+                        {% for _ in my_stars.full %}<i class="bi bi-star-fill"></i>{% endfor %}
+                        {% for _ in my_stars.empty %}<i class="bi bi-star"></i>{% endfor %}
+                    </span>
+                    <small class="text-muted">
+                        {% if my_rating.count %}
+                            {{ my_rating.average }} from {{ my_rating.count }} review{{ my_rating.count|pluralize }}
+                        {% else %}
+                            No buyer reviews yet
+                        {% endif %}
+                    </small>
+                    {% if profile.is_verified %}
+                        <span class="bb-chip green" style="padding:3px 9px; font-size:0.7rem;">
+                            <i class="bi bi-patch-check-fill"></i> Verified
+                        </span>
+                    {% endif %}
+                    {% if profile.is_top_seller %}
+                        <span class="bb-chip blue" style="padding:3px 9px; font-size:0.7rem;">
+                            <i class="bi bi-trophy-fill"></i> Top seller
+                        </span>
+                    {% endif %}
+                </div>
                 <span class="hero-privacy"><i class="bi bi-shield-lock-fill"></i> 100% Privacy Protected</span>
             </div>
         </div>
         <div class="hero-actions">
+            <a href="{% url 'accounts:seller_profile' user.pk %}" class="btn">
+                <i class="bi bi-person-badge me-1"></i> Public profile
+            </a>
             <a href="{% url 'accounts:messages' %}" class="btn">
                 <i class="bi bi-chat-dots-fill me-1"></i> Messages
                 {% if unread_message_count %}<span class="menu-count ms-1">{{ unread_message_count }}</span>{% endif %}
@@ -426,6 +452,23 @@
                 {% else %}
                     <p class="text-muted small mb-0">Need a book that is not listed nearby? Send a request and students who own it can reach you.</p>
                 {% endif %}
+            </div>
+
+            <!-- Safety & privacy -->
+            <div class="bb-panel mt-4">
+                <h6 class="bb-panel-title"><i class="bi bi-shield-check" style="color:#047857;"></i> Safety &amp; privacy</h6>
+                <a href="{% url 'core:safety' %}" class="d-flex align-items-center justify-content-between py-2 text-decoration-none text-dark border-bottom" style="border-color:#f1f5f9 !important;">
+                    <span class="small fw-semibold"><i class="bi bi-book me-2 text-primary"></i> Safety Centre</span>
+                    <i class="bi bi-chevron-right text-muted"></i>
+                </a>
+                <a href="{% url 'accounts:blocked_users' %}" class="d-flex align-items-center justify-content-between py-2 text-decoration-none text-dark border-bottom" style="border-color:#f1f5f9 !important;">
+                    <span class="small fw-semibold"><i class="bi bi-person-slash me-2 text-danger"></i> Blocked users</span>
+                    <i class="bi bi-chevron-right text-muted"></i>
+                </a>
+                <a href="{% url 'accounts:seller_profile' user.pk %}" class="d-flex align-items-center justify-content-between py-2 text-decoration-none text-dark">
+                    <span class="small fw-semibold"><i class="bi bi-star me-2 text-warning"></i> My public profile &amp; reviews</span>
+                    <i class="bi bi-chevron-right text-muted"></i>
+                </a>
             </div>
 
             <div class="follow-section">

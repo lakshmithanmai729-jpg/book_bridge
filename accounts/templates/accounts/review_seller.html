@@ -1,0 +1,101 @@
+{% extends 'core/base.html' %}
+{% block title %}Rate {{ seller_profile.name|default:seller.username }} - BookBridge{% endblock %}
+
+{% block content %}
+<div class="bb-page">
+    <div class="bb-page-head">
+        <a href="{% url 'accounts:seller_profile' seller.pk %}" class="bb-back-btn" aria-label="Back">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div>
+            <h1>Rate this seller</h1>
+            <small class="text-muted">Your honest feedback keeps BookBridge trustworthy</small>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="bb-panel">
+                <div class="d-flex align-items-center gap-3 mb-4">
+                    <div class="bb-avatar lg" style="width:56px; height:56px; font-size:1.3rem;">
+                        {{ seller_profile.name|default:seller.username|slice:":1"|upper }}
+                    </div>
+                    <div>
+                        <div class="fw-bold">{{ seller_profile.name|default:seller.username }}</div>
+                        <small class="text-muted">{{ seller_profile.location|default:"BookBridge seller" }}</small>
+                    </div>
+                </div>
+
+                <form method="POST">
+                    {% csrf_token %}
+
+                    <label class="bb-label d-block mb-2">How was your experience?</label>
+                    <div class="bb-star-picker mb-4">
+                        {% for value in rating_choices %}
+                            <input type="radio" id="star{{ value }}" name="rating" value="{{ value }}"
+                                   {% if existing and existing.rating == value %}checked{% elif not existing and value == 5 %}checked{% endif %}>
+                            <label for="star{{ value }}" title="{{ value }} star{{ value|pluralize }}">
+                                <i class="bi bi-star-fill"></i>
+                            </label>
+                        {% endfor %}
+                    </div>
+
+                    <div class="bb-field">
+                        <label for="reviewComment">Your comment (optional)</label>
+                        <textarea id="reviewComment" name="comment" rows="4"
+                                  placeholder="Was the book as described? Was the seller friendly and on time?">{% if existing %}{{ existing.comment }}{% endif %}</textarea>
+                    </div>
+
+                    <div class="d-grid mt-3">
+                        <button type="submit" class="bb-btn bb-btn-primary" style="padding:14px;">
+                            <i class="bi bi-star-fill"></i>
+                            {% if existing %}Update my rating{% else %}Submit rating{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="bb-panel" style="background:#f0f9ff; border-color:#e0f2fe;">
+                <h6 class="bb-panel-title"><i class="bi bi-info-circle-fill" style="color:#0284c7;"></i> How ratings work</h6>
+                <ul class="small text-muted mb-0 ps-3" style="line-height:1.8;">
+                    <li>Only buyers who chatted with this seller can rate them.</li>
+                    <li>Your review appears with your name on the seller's public profile.</li>
+                    <li>You can edit your rating at any time.</li>
+                    <li>Abusive or fake reviews are removed by moderators.</li>
+                </ul>
+            </div>
+
+            <div class="bb-panel mt-4">
+                <h6 class="bb-panel-title"><i class="bi bi-shield-lock-fill" style="color:#047857;"></i> Privacy stays intact</h6>
+                <p class="bb-panel-sub mb-0">
+                    Reviews never reveal phone numbers, chat contents or your exact location.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .bb-star-picker {
+        display: inline-flex;
+        flex-direction: row-reverse;
+        gap: 6px;
+        font-size: 2.3rem;
+        line-height: 1;
+    }
+    .bb-star-picker input { display: none; }
+    .bb-star-picker label {
+        color: #cbd5e1;
+        cursor: pointer;
+        transition: color 0.15s ease, transform 0.15s ease;
+    }
+    .bb-star-picker label:hover,
+    .bb-star-picker label:hover ~ label,
+    .bb-star-picker input:checked ~ label {
+        color: #f59e0b;
+    }
+    .bb-star-picker label:active { transform: scale(0.9); }
+</style>
+{% endblock %}

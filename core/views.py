@@ -1,9 +1,14 @@
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
+from accounts.models import UserBlock
 from books.models import Book, Category, Wishlist
 
 
 def home(request):
     books = Book.objects.filter(is_sold=False, is_hidden=False)
+    blocked_ids = UserBlock.blocked_ids_for(request.user)
+    if blocked_ids:
+        books = books.exclude(seller_id__in=blocked_ids)
     nearby_books = books.order_by('-created_at')[:8]
     recent_books = books.order_by('?')[:6]
     boosted_books = books.order_by('created_at')[:6]
@@ -22,3 +27,8 @@ def home(request):
     })
 
 
+
+
+def safety(request):
+    """Public safety centre: how to trade, report and block safely."""
+    return render(request, 'core/safety.html')

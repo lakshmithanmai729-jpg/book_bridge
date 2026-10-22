@@ -18,7 +18,7 @@ from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 from django.utils.text import slugify
 
-from accounts.models import BookRequest, ChatMessage, UserProfile
+from accounts.models import BookRequest, ChatMessage, SellerReview, UserProfile
 from books.models import Book, Category
 
 PASSWORD = 'bookbridge123'
@@ -275,6 +275,7 @@ class Command(BaseCommand):
         demo = users['demo']
         arjun = users['arjun']
         priya = users['priya']
+        rahul = users['rahul']
         hv1 = books['Concepts of Physics — Volume 1']
         anatomy = books["Gray's Anatomy for Students"]
 
@@ -326,8 +327,39 @@ class Command(BaseCommand):
             status='fulfilled',
         )
 
+        # ---- Trust & safety demo data: a few honest reviews so the badges show ----
+        SellerReview.objects.filter(seller__username__in=['demo', 'arjun', 'priya']).delete()
+        demo_books = list(Book.objects.filter(seller=demo))
+        if demo_books:
+            SellerReview.objects.create(
+                reviewer=priya, seller=demo, book=demo_books[0],
+                rating=5,
+                comment='Very responsive and the book was exactly as described. Smooth pickup near the metro.',
+            )
+            SellerReview.objects.create(
+                reviewer=arjun, seller=demo, book=demo_books[-1],
+                rating=5,
+                comment='Genuine seller. Kept the book aside for me and replied within minutes.',
+            )
+            SellerReview.objects.create(
+                reviewer=rahul, seller=demo, book=demo_books[0],
+                rating=4,
+                comment='Good condition, fair price. Would buy again.',
+            )
+            SellerReview.invalidate_summary(demo.pk)
+
+        arjun_books = list(Book.objects.filter(seller=arjun))
+        if arjun_books:
+            SellerReview.objects.create(
+                reviewer=demo, seller=arjun, book=arjun_books[0],
+                rating=4,
+                comment='Slightly worn cover but all pages intact — good deal for the price.',
+            )
+            SellerReview.invalidate_summary(arjun.pk)
+
         self.stdout.write(self.style.SUCCESS(
             f'Demo data ready: {len(users)} users, {Book.objects.count()} books, '
-            f'{ChatMessage.objects.count()} chat messages, {BookRequest.objects.count()} requests.'
+            f'{ChatMessage.objects.count()} chat messages, {BookRequest.objects.count()} requests, '
+            f'{SellerReview.objects.count()} reviews.'
         ))
         self.stdout.write('Sign in with demo / bookbridge123 (or arjun, priya, rahul — same password).')

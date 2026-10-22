@@ -1,11 +1,12 @@
 from django.contrib.auth.models import User
 from django.core import mail
+from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from books.models import Book, Category
 
-from .models import BookRequest, ChatMessage
+from .models import BookRequest, ChatMessage, SellerReview, UserBlock
 
 
 class UserProfilePrivacyTests(TestCase):
@@ -287,3 +288,216 @@ class ChatNotificationTests(TestCase):
             {'text': 'Hello there', 'book': self.book.pk},
         )
         self.assertEqual(len(mail.outbox), 0)
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 - trust & safety
+# ---------------------------------------------------------------------------
+
+class SellerReviewTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.seller = User.objects.create_user('seller', password='Bridge!2345')
+        self.buyer = User.objects.create_user('buyer', password='Bridge!2345')
+        self.other = User.objects.create_user('other', password='Bridge!2345')
+        self.book = Book.objects.create(
+            seller=self.seller, title='Physics Volume 1', author='H. C. Verma',
+            price=250, condition='good',
+        )
+        self.client.force_login(self.buyer)
+
+    def _say_hello(self):
+        ChatMessage.objects.create(sender=self.buyer, receiver=self.seller, book=self.book, text='Hi')
+
+    def test_seller_profile_is_public(self):
+        response = self.client.get(reverse('accounts:seller_profile', args=[self.seller.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Seller profile')
+        self.assertContains(response, 'Physics Volume 1')
+
+    def test_review_requires_a_conversation(self):
+        response = self.client.get(reverse('accounts:review_seller', args=[self.seller.pk]))
+        self.assertRedirects(response, reverse('accounts:seller_profile', args=[self.seller.pk]))
+
+        self.client.post(reverse('accounts:review_seller', args=[self.seller.pk]), {
+            'rating': '5', 'comment': 'Great',
+        })
+        self.assertEqual(SellerReview.objects.count(), 0)
+
+    def test_review_is_saved_after_chatting(self):
+        self._say_hello()
+        response = self.client.post(reverse('accounts:review_seller', args=[self.seller.pk]), {
+            'rating': '5', 'comment': 'Very smooth deal',
+        })
+        self.assertRedirects(response, reverse('accounts:seller_profile', args=[self.seller.pk]))
+
+        review = SellerReview.objects.get(seller=self.seller, reviewer=self.buyer)
+        self.assertEqual(review.rating, 5)
+        self.assertEqual(review.book, self.book)
+
+        profile_page = self.client.get(reverse('accounts:seller_profile', args=[self.seller.pk]))
+        self.assertContains(profile_page, 'Very smooth deal')
+
+    def test_second_review_updates_instead_of_duplicating(self):
+        self._say_hello()
+        url = reverse('accounts:review_seller', args=[self.seller.pk])
+        self.client.post(url, {'rating': '3', 'comment': 'Okay'})
+        self.client.post(url, {'rating': '5', 'comment': 'Actually great'})
+
+        self.assertEqual(SellerReview.objects.filter(seller=self.seller, reviewer=self.buyer).count(), 1)
+        review = SellerReview.objects.get(seller=self.seller, reviewer=self.buyer)
+        self.assertEqual(review.rating, 5)
+        self.assertEqual(review.comment, 'Actually great')
+
+    def test_rating_outside_one_to_five_is_clamped(self):
+        self._say_hello()
+        self.client.post(reverse('accounts:review_seller', args=[self.seller.pk]), {
+            'rating': '99', 'comment': 'Spammy score',
+        })
+        review = SellerReview.objects.get(seller=self.seller, reviewer=self.buyer)
+        self.assertEqual(review.rating, 5)
+
+    def test_hidden_reviews_are_excluded_from_the_average(self):
+        self._say_hello()
+        SellerReview.objects.create(reviewer=self.buyer, seller=self.seller, book=self.book, rating=5)
+        SellerReview.objects.create(reviewer=self.other, seller=self.seller, book=self.book, rating=1)
+        SellerReview.invalidate_summary(self.seller.pk)
+
+        self.assertEqual(SellerReview.summary_for(self.seller)['average'], 3.0)
+
+        SellerReview.objects.filter(rating=1).update(is_hidden=True)
+        SellerReview.invalidate_summary(self.seller.pk)
+        self.assertEqual(SellerReview.summary_for(self.seller)['average'], 5.0)
+
+    def test_three_good_reviews_make_a_top_seller(self):
+        third = User.objects.create_user('third', password='Bridge!2345')
+        for reviewer, rating in ((self.buyer, 5), (self.other, 5), (third, 4)):
+            SellerReview.objects.create(
+                reviewer=reviewer, seller=self.seller, book=self.book, rating=rating,
+            )
+        SellerReview.invalidate_summary(self.seller.pk)
+
+        self.assertTrue(self.seller.profile.is_top_seller)
+        self.assertEqual(self.seller.profile.rating_count, 3)
+
+    def test_seller_cannot_review_themselves(self):
+        self.client.force_login(self.seller)
+        ChatMessage.objects.create(sender=self.seller, receiver=self.buyer, book=self.book, text='Hi')
+        response = self.client.post(reverse('accounts:review_seller', args=[self.seller.pk]), {
+            'rating': '5',
+        })
+        self.assertRedirects(response, reverse('accounts:seller_profile', args=[self.seller.pk]))
+        self.assertEqual(SellerReview.objects.count(), 0)
+
+
+class UserBlockTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.seller = User.objects.create_user('seller', password='Bridge!2345')
+        self.buyer = User.objects.create_user('buyer', password='Bridge!2345')
+        self.book = Book.objects.create(
+            seller=self.seller, title='Blocked Book', author='Someone', price=100, condition='good',
+        )
+
+    def test_blocking_hides_the_seller_listings(self):
+        self.client.force_login(self.buyer)
+        self.assertContains(self.client.get(reverse('books:book_list')), 'Blocked Book')
+
+        self.client.post(reverse('accounts:toggle_block', args=[self.seller.pk]))
+
+        self.assertTrue(UserBlock.objects.filter(blocker=self.buyer, blocked=self.seller).exists())
+        listing = self.client.get(reverse('books:book_list'))
+        self.assertNotContains(listing, 'Blocked Book')
+        home = self.client.get(reverse('core:home'))
+        self.assertNotContains(home, 'Blocked Book')
+        detail = self.client.get(reverse('books:book_detail', args=[self.book.pk]))
+        self.assertEqual(detail.status_code, 404)
+
+    def test_unblocking_restores_the_listings(self):
+        self.client.force_login(self.buyer)
+        url = reverse('accounts:toggle_block', args=[self.seller.pk])
+        self.client.post(url)
+        self.client.post(url)
+
+        self.assertFalse(UserBlock.objects.exists())
+        self.assertContains(self.client.get(reverse('books:book_list')), 'Blocked Book')
+
+    def test_chat_is_blocked_between_the_two_people(self):
+        self.client.force_login(self.buyer)
+        self.client.post(reverse('accounts:toggle_block', args=[self.seller.pk]))
+
+        response = self.client.post(
+            reverse('accounts:chat_detail', args=[self.seller.pk]),
+            {'text': 'Are you there?', 'book': str(self.book.pk)},
+        )
+        self.assertRedirects(response, reverse('accounts:messages'))
+        self.assertEqual(ChatMessage.objects.count(), 0)
+
+    def test_cannot_block_yourself(self):
+        self.client.force_login(self.buyer)
+        response = self.client.post(reverse('accounts:toggle_block', args=[self.buyer.pk]))
+        self.assertRedirects(response, reverse('accounts:profile'))
+        self.assertFalse(UserBlock.objects.exists())
+
+    def test_blocked_list_page_lists_them(self):
+        self.client.force_login(self.buyer)
+        self.client.post(reverse('accounts:toggle_block', args=[self.seller.pk]))
+        response = self.client.get(reverse('accounts:blocked_users'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'seller')
+
+    def test_blocking_requires_post(self):
+        self.client.force_login(self.buyer)
+        response = self.client.get(reverse('accounts:toggle_block', args=[self.seller.pk]))
+        self.assertEqual(response.status_code, 405)
+        self.assertFalse(UserBlock.objects.exists())
+
+
+@override_settings(RATE_LIMITS={
+    'chat': (2, 300),
+    'listing': (1, 300),
+    'report': (5, 300),
+    'review': (10, 300),
+    'request': (5, 300),
+})
+class RateLimitTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.seller = User.objects.create_user('seller', password='Bridge!2345')
+        self.buyer = User.objects.create_user('buyer', password='Bridge!2345')
+        self.client.force_login(self.buyer)
+
+    def test_chat_messages_are_throttled(self):
+        url = reverse('accounts:chat_detail', args=[self.seller.pk])
+        for index in range(2):
+            self.client.post(url, {'text': f'message {index}'})
+        self.assertEqual(ChatMessage.objects.count(), 2)
+
+        response = self.client.post(url, {'text': 'one too many'}, follow=True)
+        self.assertEqual(ChatMessage.objects.count(), 2)
+        self.assertContains(response, 'going a bit fast')
+
+    def test_listing_creation_is_throttled(self):
+        first = self.client.post(reverse('books:book_add'), {
+            'title': 'First Listing', 'author': 'A', 'price': '10', 'condition': 'good',
+        })
+        self.assertEqual(first.status_code, 302)
+
+        second = self.client.post(reverse('books:book_add'), {
+            'title': 'Second Listing', 'author': 'B', 'price': '20', 'condition': 'good',
+        })
+        self.assertEqual(second.status_code, 200)
+        self.assertFalse(Book.objects.filter(title='Second Listing').exists())
+
+
+class SafetyCentreTests(TestCase):
+    def test_safety_page_is_public(self):
+        response = self.client.get(reverse('core:safety'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Safety Centre')
+        self.assertContains(response, 'Report a listing')
+
+    def test_anonymous_visitors_can_open_a_seller_profile(self):
+        seller = User.objects.create_user('seller', password='Bridge!2345')
+        response = self.client.get(reverse('accounts:seller_profile', args=[seller.pk]))
+        self.assertEqual(response.status_code, 200)

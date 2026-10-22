@@ -1,0 +1,58 @@
+{% extends 'core/base.html' %}
+{% block title %}Blocked users - BookBridge{% endblock %}
+
+{% block content %}
+<div class="bb-page">
+    <div class="bb-page-head">
+        <a href="{% url 'accounts:profile' %}" class="bb-back-btn" aria-label="Back">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div>
+            <h1>Blocked users</h1>
+            <small class="text-muted">Their listings and chats are hidden from you</small>
+        </div>
+    </div>
+
+    <div class="bb-panel" style="max-width:860px;">
+        {% for block in blocks %}
+            <div class="d-flex align-items-center gap-3 py-3 {% if not forloop.last %}border-bottom{% endif %}" style="border-color:#f1f5f9 !important;">
+                <div class="bb-avatar" style="width:48px; height:48px; font-size:1.1rem;">
+                    {{ block.blocked.profile.name|default:block.blocked.username|slice:":1"|upper }}
+                </div>
+                <div class="flex-grow-1" style="min-width:0;">
+                    <div class="fw-bold small text-truncate">
+                        {{ block.blocked.profile.name|default:block.blocked.username }}
+                    </div>
+                    <small class="text-muted">Blocked on {{ block.created_at|date:"d M Y" }}</small>
+                </div>
+                <a href="{% url 'accounts:seller_profile' block.blocked.pk %}" class="bb-btn bb-btn-outline bb-btn-sm">Profile</a>
+                <form method="POST" action="{% url 'accounts:toggle_block' block.blocked.pk %}" class="mb-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{% url 'accounts:blocked_users' %}">
+                    <button type="submit" class="bb-btn bb-btn-soft bb-btn-sm">
+                        <i class="bi bi-unlock"></i> Unblock
+                    </button>
+                </form>
+            </div>
+        {% empty %}
+            <div class="text-center py-5">
+                <div style="font-size:2.6rem;">🛡️</div>
+                <h6 class="fw-bold mt-3 mb-1">You have not blocked anyone</h6>
+                <p class="text-muted small mb-0">
+                    Block a seller from their profile or from a chat if you do not want to see them again.
+                </p>
+            </div>
+        {% endfor %}
+    </div>
+
+    <div class="bb-panel mt-4" style="max-width:860px; background:#f0f9ff; border-color:#e0f2fe;">
+        <h6 class="bb-panel-title"><i class="bi bi-shield-check" style="color:#0284c7;"></i> What blocking does</h6>
+        <ul class="small text-muted mb-0 ps-3" style="line-height:1.8;">
+            <li>You stop seeing their listings on the home page and in search.</li>
+            <li>They cannot start new chats with you, and existing chats are paused.</li>
+            <li>The other person is not told that you blocked them.</li>
+            <li>You can unblock them here at any time.</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
