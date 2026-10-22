@@ -126,14 +126,6 @@
 </style>
 
 <div class="bb-page">
-    {% if messages %}
-        {% for message in messages %}
-        <div class="alert {% if message.tags == 'error' %}alert-danger{% elif message.tags == 'warning' %}alert-warning{% elif message.tags == 'info' %}alert-info{% else %}alert-success{% endif %} border-0 rounded-4 fw-semibold d-flex align-items-center gap-2" role="alert">
-            <i class="bi bi-check-circle-fill"></i> {{ message }}
-        </div>
-        {% endfor %}
-    {% endif %}
-
     {% if user.email and not profile.email_verified %}
         <div class="alert border-0 rounded-4 d-flex align-items-center justify-content-between flex-wrap gap-2" style="background:#fffbeb; color:#92400e;">
             <span class="fw-semibold small">

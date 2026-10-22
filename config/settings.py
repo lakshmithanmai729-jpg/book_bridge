@@ -46,6 +46,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # Never let a browser or proxy cache a rendered page (sellers must always
+    # see the listing they just saved).
+    'core.middleware.NoStoreHTMLMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'

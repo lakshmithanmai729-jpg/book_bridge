@@ -215,10 +215,20 @@ def book_add(request):
     categories = Category.objects.all()
     user_profile = getattr(request.user, 'profile', None)
 
+    def form_context(**extra):
+        """Re-render the listing form without losing what the seller typed."""
+        context = {
+            'categories': categories,
+            'user_profile': user_profile,
+            'form': request.POST or {},
+        }
+        context.update(extra)
+        return context
+
     if request.method == 'POST':
         title = request.POST.get('title', '').strip()
         author = request.POST.get('author', '').strip() or 'Various'
-        category_id = request.POST.get('category')
+        category_id = (request.POST.get('category') or '').strip()
         price_val = request.POST.get('price', '0').strip()
         is_donation = request.POST.get('is_donation') == 'true'
         listing_type = request.POST.get('listing_type', 'single')
@@ -227,9 +237,7 @@ def book_add(request):
 
         if not title:
             messages.error(request, 'Please enter the book name.')
-            return render(request, 'books/book_form.html', {
-                'categories': categories, 'user_profile': user_profile,
-            }, status=400)
+            return render(request, 'books/book_form.html', form_context())
 
         default_phone = user_profile.phone_number if user_profile else ''
         default_loc = user_profile.location if user_profile else 'Dhone, Andhra Pradesh'
@@ -241,10 +249,19 @@ def book_add(request):
 
         try:
             price = float(price_val) if not is_donation else 0.0
-        except ValueError:
+        except (TypeError, ValueError):
             price = 0.0
 
-        category = Category.objects.filter(id=category_id).first() if category_id else None
+        # A stale or tampered category value must never crash the form.
+        category = None
+        if category_id.isdigit():
+            category = Category.objects.filter(pk=int(category_id)).first()
+
+        valid_conditions = {choice[0] for choice in Book.CONDITION_CHOICES}
+        if condition not in valid_conditions:
+            condition = 'good'
+        if listing_type not in ('single', 'set'):
+            listing_type = 'single'
 
         # Compress the cover before it ever reaches storage.
         optimized_cover = None
@@ -252,9 +269,7 @@ def book_add(request):
             optimized_cover = optimize_upload(request.FILES.get('image'))
         except ValidationError as exc:
             messages.error(request, exc.messages[0])
-            return render(request, 'books/book_form.html', {
-                'categories': categories, 'user_profile': user_profile,
-            }, status=400)
+            return render(request, 'books/book_form.html', form_context())
 
         book = Book.objects.create(
             seller=request.user,
@@ -283,13 +298,10 @@ def book_add(request):
             book.image = book.images.first().image
             book.save(update_fields=['image'])
 
-        messages.success(request, 'Your listing is live!')
+        messages.success(request, f'“{book.title}” is live! Buyers nearby can now see it.')
         return redirect('books:book_detail', pk=book.pk)
 
-    return render(request, 'books/book_form.html', {
-        'categories': categories,
-        'user_profile': user_profile,
-    })
+    return render(request, 'books/book_form.html', form_context())
 
 
 @login_required

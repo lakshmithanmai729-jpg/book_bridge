@@ -246,8 +246,34 @@ class BookUploadTests(TestCase):
 
     def test_listing_requires_a_title(self):
         response = self.client.post(reverse('books:book_add'), {'title': '   ', 'price': '10'})
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 200)          # form shown again, not an error page
+        self.assertContains(response, 'Please enter the book name.')
         self.assertEqual(Book.objects.count(), 0)
+
+    def test_invalid_category_value_never_crashes_the_form(self):
+        response = self.client.post(reverse('books:book_add'), {
+            'title': 'No Category Book',
+            'author': 'QA',
+            'category': 'academic',      # stale/tampered value, not an id
+            'price': '99',
+            'condition': 'good',
+        })
+        book = Book.objects.get(title='No Category Book')
+        self.assertRedirects(response, reverse('books:book_detail', args=[book.pk]))
+        self.assertIsNone(book.category)
+
+    def test_validation_error_keeps_what_the_seller_typed(self):
+        response = self.client.post(reverse('books:book_add'), {
+            'title': '',
+            'author': 'H. C. Verma',
+            'price': '250',
+            'description': 'My typed description',
+            'category': '5',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'H. C. Verma')
+        self.assertContains(response, 'My typed description')
+        self.assertContains(response, 'value="250"')
 
 
 class WishlistTests(TestCase):

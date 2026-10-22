@@ -27,7 +27,7 @@
                         <button type="button" id="btnSet" class="btn rounded-pill flex-grow-1 fw-semibold py-2 text-muted" onclick="setListingType('set')">
                             Full Set
                         </button>
-                        <input type="hidden" name="listing_type" id="listingTypeInput" value="single">
+                        <input type="hidden" name="listing_type" id="listingTypeInput" value="{{ form.listing_type|default:'single' }}">
                     </div>
 
                     <!-- Photos -->
@@ -46,14 +46,14 @@
 
                     <div class="bb-field">
                         <label for="bookTitle">Book Name</label>
-                        <input id="bookTitle" type="text" name="title" placeholder="e.g. Concepts of Physics — Volume 1" required>
+                        <input id="bookTitle" type="text" name="title" value="{{ form.title|default:'' }}" placeholder="e.g. Concepts of Physics — Volume 1" required>
                     </div>
 
                     <div class="row g-3">
                         <div class="col-md-6">
                             <div class="bb-field">
                                 <label for="bookAuthor">Author</label>
-                                <input id="bookAuthor" type="text" name="author" placeholder="e.g. H. C. Verma">
+                                <input id="bookAuthor" type="text" name="author" value="{{ form.author|default:'' }}" placeholder="e.g. H. C. Verma">
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -62,7 +62,7 @@
                                 <select id="bookCategory" name="category">
                                     <option value="">Select Category</option>
                                     {% for cat in categories %}
-                                        <option value="{{ cat.id }}">{{ cat.name }}</option>
+                                        <option value="{{ cat.id }}" {% if cat.id|stringformat:"s" == form.category %}selected{% endif %}>{{ cat.name }}</option>
                                     {% endfor %}
                                 </select>
                             </div>
@@ -71,18 +71,18 @@
                             <div class="bb-field">
                                 <label for="bookCondition">Condition</label>
                                 <select id="bookCondition" name="condition">
-                                    <option value="new">New</option>
-                                    <option value="like_new">Like New</option>
-                                    <option value="good" selected>Good</option>
-                                    <option value="fair">Fair</option>
-                                    <option value="poor">Poor</option>
+                                    <option value="new" {% if form.condition == "new" %}selected{% endif %}>New</option>
+                                    <option value="like_new" {% if form.condition == "like_new" %}selected{% endif %}>Like New</option>
+                                    <option value="good" {% if form.condition == "good" or not form.condition %}selected{% endif %}>Good</option>
+                                    <option value="fair" {% if form.condition == "fair" %}selected{% endif %}>Fair</option>
+                                    <option value="poor" {% if form.condition == "poor" %}selected{% endif %}>Poor</option>
                                 </select>
                             </div>
                         </div>
                         <div class="col-md-6" id="bookPriceWrapper">
                             <div class="bb-field">
                                 <label for="bookPrice">Offered Price (₹)</label>
-                                <input id="bookPrice" type="number" step="0.01" min="0" name="price" placeholder="e.g. 250">
+                                <input id="bookPrice" type="number" step="0.01" min="0" name="price" value="{{ form.price|default:'' }}" placeholder="e.g. 250">
                             </div>
                         </div>
                     </div>
@@ -99,31 +99,31 @@
                                 Donate
                             </button>
                         </div>
-                        <input type="hidden" name="is_donation" id="donationInput" value="false">
+                        <input type="hidden" name="is_donation" id="donationInput" value="{% if form.is_donation == 'true' %}true{% else %}false{% endif %}">
                     </div>
 
                     <div class="bb-field">
                         <label for="bookDescription">Description</label>
-                        <textarea id="bookDescription" name="description" rows="3" placeholder="Condition details, edition, highlights or notes..."></textarea>
+                        <textarea id="bookDescription" name="description" rows="3" placeholder="Condition details, edition, highlights or notes...">{{ form.description|default:'' }}</textarea>
                     </div>
 
                     <div class="row g-3">
                         <div class="col-md-4">
                             <div class="bb-field">
                                 <label for="bookArea">Area / Locality</label>
-                                <input id="bookArea" type="text" name="location_area" value="{{ user_profile.location|default:'Kothapeta, Dhone' }}" placeholder="e.g. Madhapur, JNTU">
+                                <input id="bookArea" type="text" name="location_area" value="{{ form.location_area|default:user_profile.location|default:'Kothapeta, Dhone' }}" placeholder="e.g. Madhapur, JNTU">
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="bb-field">
                                 <label for="bookCity">City / Town</label>
-                                <input id="bookCity" type="text" name="location_city" placeholder="e.g. Hyderabad">
+                                <input id="bookCity" type="text" name="location_city" value="{{ form.location_city|default:'' }}" placeholder="e.g. Hyderabad">
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="bb-field">
                                 <label for="bookPincode">Pincode</label>
-                                <input id="bookPincode" type="text" name="pincode" placeholder="e.g. 500085">
+                                <input id="bookPincode" type="text" name="pincode" value="{{ form.pincode|default:'' }}" placeholder="e.g. 500085">
                             </div>
                         </div>
                     </div>
@@ -223,6 +223,14 @@
             priceWrap.style.display = '';
         }
     }
+
+    // Restore the Sell/Donate and Single/Full-set choices after a validation error.
+    (function () {
+        var listingType = document.getElementById('listingTypeInput').value;
+        if (listingType === 'set') { setListingType('set'); }
+        var donation = document.getElementById('donationInput').value;
+        if (donation === 'true') { setDonation(true); }
+    })();
 
     function previewBookImage(input) {
         if (input.files && input.files[0]) {

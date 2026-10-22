@@ -19,14 +19,6 @@
         </div>
     </div>
 
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert {% if message.tags == 'error' %}alert-danger{% elif message.tags == 'warning' %}alert-warning{% else %}alert-success{% endif %} border-0 rounded-4 fw-semibold d-flex align-items-center gap-2">
-                <i class="bi bi-info-circle-fill"></i> {{ message }}
-            </div>
-        {% endfor %}
-    {% endif %}
-
     <!-- Tabs -->
     <div class="bb-chip-row ps-0 pe-0">
         <a href="?tab=active" class="btn {% if tab == 'active' %}btn-dark{% else %}btn-outline-secondary{% endif %}">
