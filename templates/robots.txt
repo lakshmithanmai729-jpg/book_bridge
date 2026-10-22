@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /accounts/
+Disallow: /books/my/
+Disallow: /staff/
+
+Sitemap: {{ request.scheme }}://{{ request.get_host }}/sitemap.xml

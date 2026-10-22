@@ -131,6 +131,10 @@ class ChatMessage(models.Model):
 
     class Meta:
         ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['receiver', 'is_read']),
+            models.Index(fields=['sender', 'receiver']),
+        ]
 
     def __str__(self):
         return f"{self.sender.username} → {self.receiver.username}: {self.text[:40]}"

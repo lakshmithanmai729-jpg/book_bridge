@@ -321,3 +321,97 @@ class ThumbnailTests(TestCase):
 
         self.assertEqual(thumb(None), '')
         self.assertEqual(thumb(''), '')
+
+
+class SearchRankingTests(TestCase):
+    def setUp(self):
+        self.seller = User.objects.create_user('seller', password='Bridge!2345')
+        self.title_match = Book.objects.create(
+            seller=self.seller, title='Physics Galaxy', author='Other', price=100, condition='good',
+        )
+        self.author_match = Book.objects.create(
+            seller=self.seller, title='Mechanics', author='Physics Academy', price=200, condition='good',
+        )
+
+    def test_title_matches_rank_before_author_matches(self):
+        from django.conf import settings
+        settings.ALLOWED_HOSTS = list(settings.ALLOWED_HOSTS) + ['testserver']
+        response = self.client.get(reverse('books:book_list'), {'q': 'physics'})
+        self.assertEqual(response.status_code, 200)
+        results = list(response.context['books'])
+        self.assertEqual(results[0].pk, self.title_match.pk)
+
+    def test_explicit_sort_still_wins(self):
+        from django.conf import settings
+        settings.ALLOWED_HOSTS = list(settings.ALLOWED_HOSTS) + ['testserver']
+        response = self.client.get(reverse('books:book_list'), {'q': 'physics', 'sort': 'price_high'})
+        results = list(response.context['books'])
+        self.assertEqual(results[0].pk, self.author_match.pk)
+
+
+class SeoAndMetaTests(TestCase):
+    def setUp(self):
+        self.seller = User.objects.create_user('seller', password='Bridge!2345')
+        self.book = Book.objects.create(
+            seller=self.seller, title='Visible Book', author='A', price=150, condition='good',
+        )
+        Book.objects.create(
+            seller=self.seller, title='Sold Book', author='B', price=90, condition='good', is_sold=True,
+        )
+
+    def test_sitemap_lists_live_books_only(self):
+        response = self.client.get('/sitemap.xml')
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode()
+        self.assertIn(f'/books/{self.book.pk}/', body)
+        self.assertNotIn('/books/2/', body)
+
+    def test_robots_txt_points_at_the_sitemap(self):
+        response = self.client.get('/robots.txt')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Sitemap:', response.content.decode())
+
+    def test_web_manifest_is_served(self):
+        response = self.client.get('/manifest.webmanifest')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('BookBridge', response.content.decode())
+
+    def test_book_detail_has_social_meta(self):
+        response = self.client.get(reverse('books:book_detail', args=[self.book.pk]))
+        body = response.content.decode()
+        self.assertIn('og:title', body)
+        self.assertIn('Visible Book', body)
+        self.assertIn('name="description"', body)
+
+    def test_health_check_reports_ok(self):
+        response = self.client.get('/healthz/')
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['status'], 'ok')
+        self.assertEqual(payload['checks']['database'], 'ok')
+
+
+class StaffDashboardTests(TestCase):
+    def setUp(self):
+        self.member = User.objects.create_user('member', password='Bridge!2345')
+        self.staff = User.objects.create_user('staffer', password='Bridge!2345', is_staff=True)
+
+    def test_anonymous_visitors_are_redirected_to_admin_login(self):
+        response = self.client.get('/staff/')
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/admin/login/', response['Location'])
+
+    def test_regular_members_cannot_open_it(self):
+        self.client.force_login(self.member)
+        response = self.client.get('/staff/')
+        self.assertEqual(response.status_code, 302)
+
+    def test_staff_see_the_numbers(self):
+        Book.objects.create(
+            seller=self.member, title='Dashboard Book', author='A', price=50, condition='good',
+        )
+        self.client.force_login(self.staff)
+        response = self.client.get('/staff/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['stats']['listings'], 1)
+        self.assertContains(response, 'Team dashboard')

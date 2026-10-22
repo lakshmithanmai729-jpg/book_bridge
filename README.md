@@ -29,6 +29,12 @@ Built with Django, Bootstrap 5, and a full-width responsive UI (mobile-first, sp
 - **Block a member** — hides their listings and pauses chats, with a blocked-users page
 - **Rate limiting** — chat, listings, reports, reviews and requests are throttled per user
 - **Safety Centre** — a plain-language guide to safe deals, scams and reporting
+- **Notifications** — a bell menu with price-drop alerts, “back on sale” pings, book-request
+  matches and new-review alerts
+- **Seller analytics** — views, favourites, chats and per-listing performance
+- **Team dashboard** — `/staff/` with live marketplace numbers and the moderation queue
+- **SEO & PWA** — sitemap, robots.txt, social preview tags, installable-app manifest
+- **Health check** — `/healthz/` JSON probe for uptime monitors and load balancers
 
 ## Privacy model
 
@@ -126,6 +132,11 @@ requests. Run it with `--reset` to start over.
 | Block / unblock a member | `/accounts/block/<user_id>/` (POST) |
 | Blocked users | `/accounts/blocked/` |
 | Safety Centre | `/safety/` |
+| Notifications | `/accounts/notifications/` |
+| Seller analytics | `/accounts/analytics/` |
+| Team dashboard (staff only) | `/staff/` |
+| Health check | `/healthz/` |
+| Sitemap / robots / manifest | `/sitemap.xml`, `/robots.txt`, `/manifest.webmanifest` |
 
 ## Tests
 
@@ -133,18 +144,19 @@ requests. Run it with `--reset` to start over.
 python manage.py test
 ```
 
-**72 tests** cover Telegram normalisation, contact-mode privacy (phone never leaked), in-app chat
+**95 tests** cover Telegram normalisation, contact-mode privacy (phone never leaked), in-app chat
 send/read, empty chat state, book requests, pagination & filters, mark-sold/relist, reporting and
 moderation visibility, image optimisation, email verification, password reset, chat notifications,
 seller reviews (chat-gated, editable, clamped, moderated), blocking (feeds, chats, unblocking) and
-rate limiting.
+rate limiting, notifications (price drops, relists, request matching, reviews), analytics totals,
+search ranking, sitemap/robots/manifest, social meta tags and the health check.
 
 ## Project layout
 
 | App | Role |
 | --- | --- |
-| `core` | Base layout, home page, unread-message context processor, demo seeder |
-| `accounts` | Auth, profile & privacy settings, in-app chat, book requests |
+| `core` | Base layout, home & safety pages, health check, staff dashboard, sitemaps, rate limiter, middleware, demo seeder |
+| `accounts` | Auth, profile & privacy, in-app chat, book requests, reviews, blocks, notifications |
 | `books` | Listings, search, wishlist, images |
 | `ai_engine` | Price suggestion and recommendations |
 
@@ -171,10 +183,27 @@ rate limiting.
 
 ## Going to production
 
+### Docker (fastest)
+
+```bash
+cp .env.example .env      # fill in SECRET_KEY, ALLOWED_HOSTS, email
+docker compose up --build # app on http://localhost:8000
+```
+
+`docker-compose.yml` runs migrations, collects static files and starts gunicorn with a
+`/healthz/` health check. A PostgreSQL service is included — set `DB_ENGINE=postgres` plus
+`DB_NAME/DB_USER/DB_PASSWORD/DB_HOST=db` in `.env` to use it (uncomment `psycopg[binary]` in
+`requirements.txt`).
+
+### Manual
+
 1. `.env`: set `DEBUG=False`, a strong `SECRET_KEY`, `ALLOWED_HOSTS`, `SITE_URL`, and real SMTP
    credentials (`EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend`).
 2. `python manage.py collectstatic --noinput` (WhiteNoise serves the files — no nginx needed).
 3. Run `gunicorn config.wsgi:application --bind 0.0.0.0:8000` (or `waitress-serve` on Windows).
+4. Point your uptime monitor at `/healthz/`; it reports the database status and listing count.
+5. Switch `CACHES` to Redis (and `RATE_LIMITS` follows automatically) when you run more than one
+   worker — the default LocMem cache is per process.
 4. Keep `media/` on a persistent volume or switch to object storage before scaling.
 
 ## License

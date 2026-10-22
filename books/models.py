@@ -54,6 +54,11 @@ class Book(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['is_sold', 'is_hidden', '-created_at']),
+            models.Index(fields=['location_city']),
+            models.Index(fields=['seller', '-created_at']),
+        ]
 
     @property
     def is_available(self):

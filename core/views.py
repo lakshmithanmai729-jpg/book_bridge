@@ -1,7 +1,14 @@
-from django.contrib.auth.decorators import login_required
+from datetime import timedelta
+
+from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.auth.models import User
+from django.db import connection
+from django.http import JsonResponse
 from django.shortcuts import render
-from accounts.models import UserBlock
-from books.models import Book, Category, Wishlist
+from django.utils import timezone
+
+from accounts.models import BookRequest, ChatMessage, Notification, SellerReview, UserBlock
+from books.models import Book, Category, Report, Wishlist
 
 
 def home(request):
@@ -32,3 +39,62 @@ def home(request):
 def safety(request):
     """Public safety centre: how to trade, report and block safely."""
     return render(request, 'core/safety.html')
+
+
+def healthz(request):
+    """Liveness/readiness probe for load balancers and uptime monitors."""
+    checks = {'database': 'ok'}
+    healthy = True
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT 1')
+            cursor.fetchone()
+    except Exception as exc:  # pragma: no cover - only when the DB is down
+        checks['database'] = f'error: {exc.__class__.__name__}'
+        healthy = False
+
+    checks['books'] = Book.objects.count()
+    return JsonResponse(
+        {'status': 'ok' if healthy else 'error', 'checks': checks},
+        status=200 if healthy else 503,
+    )
+
+
+@staff_member_required
+def staff_dashboard(request):
+    """A one-page overview of the marketplace for the team."""
+    now = timezone.now()
+    week_ago = now - timedelta(days=7)
+
+    books = Book.objects.all()
+    stats = {
+        'users': User.objects.count(),
+        'new_users': User.objects.filter(date_joined__gte=week_ago).count(),
+        'listings': books.count(),
+        'active_listings': books.filter(is_sold=False, is_hidden=False).count(),
+        'sold_listings': books.filter(is_sold=True).count(),
+        'hidden_listings': books.filter(is_hidden=True).count(),
+        'new_listings': books.filter(created_at__gte=week_ago).count(),
+        'open_reports': Report.objects.filter(status=Report.STATUS_OPEN).count(),
+        'reviews': SellerReview.objects.filter(is_hidden=False).count(),
+        'messages': ChatMessage.objects.count(),
+        'requests': BookRequest.objects.filter(status='open').count(),
+        'notifications': Notification.objects.filter(is_read=False).count(),
+        'blocks': UserBlock.objects.count(),
+        'wishlist_saves': Wishlist.objects.count(),
+    }
+
+    recent_reports = (
+        Report.objects.filter(status=Report.STATUS_OPEN)
+        .select_related('book', 'reporter')
+        .order_by('-created_at')[:8]
+    )
+    recent_books = books.select_related('seller').order_by('-created_at')[:8]
+    recent_users = User.objects.order_by('-date_joined')[:8]
+
+    return render(request, 'core/staff_dashboard.html', {
+        'stats': stats,
+        'recent_reports': recent_reports,
+        'recent_books': recent_books,
+        'recent_users': recent_users,
+    })

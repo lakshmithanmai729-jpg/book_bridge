@@ -4,6 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}BookBridge - Buy & Sell Books Nearby{% endblock %}</title>
+
+    <!-- SEO / social sharing -->
+    <meta name="description" content="{% block meta_description %}Buy and sell second-hand books with students near you. Phone numbers stay private — chat in-app or on Telegram.{% endblock %}">
+    <meta name="theme-color" content="#0284c7">
+    <meta property="og:site_name" content="BookBridge">
+    <meta property="og:type" content="{% block og_type %}website{% endblock %}">
+    <meta property="og:title" content="{% block og_title %}BookBridge — buy, sell and share books nearby{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}Second-hand books from students near you. Private by design.{% endblock %}">
+    <meta property="og:url" content="{{ request.build_absolute_uri }}">
+    <meta property="og:image" content="{% block og_image %}{{ request.scheme }}://{{ request.get_host }}/static/icons/icon-512.png{% endblock %}">
+    <meta name="twitter:card" content="summary_large_image">
+
+    <!-- PWA / installable app -->
+    <link rel="manifest" href="{% url 'core:manifest' %}">
+    <link rel="icon" type="image/png" href="/static/icons/favicon.png">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="BookBridge">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

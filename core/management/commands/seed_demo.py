@@ -231,6 +231,10 @@ class Command(BaseCommand):
             profile.contact_preference = spec['preference']
             profile.account_privacy = 'private'
             profile.save()
+            if spec['username'] == 'demo':
+                # The demo account can also open the team dashboard (/staff/).
+                user.is_staff = True
+                user.save(update_fields=['is_staff'])
             users[spec['username']] = user
 
         media_root = Path(settings.MEDIA_ROOT) / 'book_images'

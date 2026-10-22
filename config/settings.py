@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    'django.contrib.sitemaps',
     'django.contrib.staticfiles',
     'core',
     'accounts',
@@ -75,18 +76,26 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-# MySQL is used whenever DB_NAME is configured (see .env.example).
+# MySQL (default) or PostgreSQL is used whenever DB_NAME is configured.
+# Set DB_ENGINE=postgres for PostgreSQL.
 # Without database credentials the project falls back to a local SQLite file so
 # `python manage.py migrate` / `runserver` work out of the box for development.
 if os.environ.get('DB_NAME'):
+    db_engine = (os.environ.get('DB_ENGINE') or 'mysql').lower()
+    backend = (
+        'django.db.backends.postgresql'
+        if db_engine in ('postgres', 'postgresql')
+        else 'django.db.backends.mysql'
+    )
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.mysql',
+            'ENGINE': backend,
             'NAME': os.environ.get('DB_NAME'),
             'USER': os.environ.get('DB_USER'),
             'PASSWORD': os.environ.get('DB_PASSWORD'),
             'HOST': os.environ.get('DB_HOST'),
             'PORT': os.environ.get('DB_PORT'),
+            'CONN_MAX_AGE': 60,
         }
     }
 else:

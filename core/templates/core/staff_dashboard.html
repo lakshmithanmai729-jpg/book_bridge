@@ -1,0 +1,155 @@
+{% extends 'core/base.html' %}
+{% block title %}Team dashboard - BookBridge{% endblock %}
+
+{% block content %}
+<div class="bb-page">
+    <div class="bb-page-head justify-content-between flex-wrap">
+        <div>
+            <h1>Team dashboard</h1>
+            <small class="text-muted">Everything happening on BookBridge right now</small>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="/admin/books/report/" class="bb-btn bb-btn-outline bb-btn-sm">
+                <i class="bi bi-flag"></i> Moderation queue
+            </a>
+            <a href="/admin/" class="bb-btn bb-btn-primary bb-btn-sm">
+                <i class="bi bi-sliders"></i> Django admin
+            </a>
+        </div>
+    </div>
+
+    <div class="row row-cols-2 row-cols-lg-4 g-3 mb-4">
+        <div class="col">
+            <div class="bb-panel mb-0 h-100 py-3">
+                <div class="small text-muted fw-semibold">Members</div>
+                <div class="fw-bold" style="font-size:1.9rem; line-height:1.1;">{{ stats.users }}</div>
+                <small class="text-success">+{{ stats.new_users }} this week</small>
+            </div>
+        </div>
+        <div class="col">
+            <div class="bb-panel mb-0 h-100 py-3">
+                <div class="small text-muted fw-semibold">Live listings</div>
+                <div class="fw-bold" style="font-size:1.9rem; line-height:1.1; color:#0284c7;">{{ stats.active_listings }}</div>
+                <small class="text-muted">{{ stats.new_listings }} new · {{ stats.listings }} total</small>
+            </div>
+        </div>
+        <div class="col">
+            <div class="bb-panel mb-0 h-100 py-3">
+                <div class="small text-muted fw-semibold">Books sold</div>
+                <div class="fw-bold" style="font-size:1.9rem; line-height:1.1; color:#047857;">{{ stats.sold_listings }}</div>
+                <small class="text-muted">{{ stats.hidden_listings }} hidden by moderation</small>
+            </div>
+        </div>
+        <div class="col">
+            <div class="bb-panel mb-0 h-100 py-3" style="{% if stats.open_reports %}background:#fef2f2; border-color:#fecaca;{% endif %}">
+                <div class="small text-muted fw-semibold">Open reports</div>
+                <div class="fw-bold" style="font-size:1.9rem; line-height:1.1; color:#b91c1c;">{{ stats.open_reports }}</div>
+                <small class="text-muted">Needs review</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="row row-cols-2 row-cols-md-3 row-cols-lg-6 g-3 mb-4">
+        <div class="col"><div class="bb-panel mb-0 py-3 text-center">
+            <div class="fw-bold" style="font-size:1.3rem;">{{ stats.messages }}</div>
+            <small class="text-muted">Chat messages</small>
+        </div></div>
+        <div class="col"><div class="bb-panel mb-0 py-3 text-center">
+            <div class="fw-bold" style="font-size:1.3rem;">{{ stats.reviews }}</div>
+            <small class="text-muted">Seller reviews</small>
+        </div></div>
+        <div class="col"><div class="bb-panel mb-0 py-3 text-center">
+            <div class="fw-bold" style="font-size:1.3rem;">{{ stats.requests }}</div>
+            <small class="text-muted">Open requests</small>
+        </div></div>
+        <div class="col"><div class="bb-panel mb-0 py-3 text-center">
+            <div class="fw-bold" style="font-size:1.3rem;">{{ stats.wishlist_saves }}</div>
+            <small class="text-muted">Favourites saved</small>
+        </div></div>
+        <div class="col"><div class="bb-panel mb-0 py-3 text-center">
+            <div class="fw-bold" style="font-size:1.3rem;">{{ stats.blocks }}</div>
+            <small class="text-muted">Blocks</small>
+        </div></div>
+        <div class="col"><div class="bb-panel mb-0 py-3 text-center">
+            <div class="fw-bold" style="font-size:1.3rem;">{{ stats.notifications }}</div>
+            <small class="text-muted">Unread alerts</small>
+        </div></div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="bb-panel h-100">
+                <h6 class="bb-panel-title"><i class="bi bi-flag-fill" style="color:#ef4444;"></i> Oldest open reports</h6>
+                {% for report in recent_reports %}
+                    <div class="d-flex align-items-center gap-2 py-2 border-bottom" style="border-color:#f1f5f9 !important;">
+                        <div class="flex-grow-1" style="min-width:0;">
+                            <a href="{% url 'books:book_detail' report.book.pk %}" class="small fw-semibold text-dark text-decoration-none d-block text-truncate">
+                                {{ report.book.title }}
+                            </a>
+                            <small class="text-muted">{{ report.get_reason_display }} · {{ report.created_at|date:"d M" }}</small>
+                        </div>
+                        <a href="/admin/books/report/{{ report.pk }}/change/" class="bb-btn bb-btn-soft bb-btn-sm">Review</a>
+                    </div>
+                {% empty %}
+                    <p class="text-muted small mb-0">No open reports — the marketplace is clean. 🎉</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="bb-panel h-100">
+                <h6 class="bb-panel-title"><i class="bi bi-book-half" style="color:#0284c7;"></i> Latest listings</h6>
+                {% for book in recent_books %}
+                    <div class="d-flex align-items-center gap-2 py-2 border-bottom" style="border-color:#f1f5f9 !important;">
+                        <div class="flex-grow-1" style="min-width:0;">
+                            <a href="{% url 'books:book_detail' book.pk %}" class="small fw-semibold text-dark text-decoration-none d-block text-truncate">
+                                {{ book.title }}
+                            </a>
+                            <small class="text-muted">₹{{ book.price|floatformat:0 }} · {{ book.seller.username }} · {{ book.created_at|date:"d M" }}</small>
+                        </div>
+                        <span class="bb-chip {% if book.is_sold %}red{% elif book.is_hidden %}amber{% else %}green{% endif %}">{{ book.status_label }}</span>
+                    </div>
+                {% empty %}
+                    <p class="text-muted small mb-0">No listings yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="bb-panel">
+                <h6 class="bb-panel-title"><i class="bi bi-person-plus-fill" style="color:#7c3aed;"></i> New members</h6>
+                {% for member in recent_users %}
+                    <div class="d-flex align-items-center gap-2 py-2 border-bottom" style="border-color:#f1f5f9 !important;">
+                        <div class="bb-avatar" style="width:34px; height:34px; font-size:0.85rem;">
+                            {{ member.profile.name|default:member.username|slice:":1"|upper }}
+                        </div>
+                        <div class="flex-grow-1" style="min-width:0;">
+                            <div class="small fw-semibold text-truncate">{{ member.profile.name|default:member.username }}</div>
+                            <small class="text-muted">Joined {{ member.date_joined|date:"d M Y" }}</small>
+                        </div>
+                        <a href="{% url 'accounts:seller_profile' member.pk %}" class="bb-btn bb-btn-outline bb-btn-sm">Profile</a>
+                    </div>
+                {% empty %}
+                    <p class="text-muted small mb-0">No members yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="bb-panel" style="background:#f0f9ff; border-color:#e0f2fe;">
+                <h6 class="bb-panel-title"><i class="bi bi-lightning-charge-fill" style="color:#0284c7;"></i> Quick actions</h6>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="/admin/books/report/" class="bb-btn bb-btn-outline bb-btn-sm"><i class="bi bi-flag"></i> Reports</a>
+                    <a href="/admin/accounts/sellerreview/" class="bb-btn bb-btn-outline bb-btn-sm"><i class="bi bi-star"></i> Reviews</a>
+                    <a href="/admin/books/book/" class="bb-btn bb-btn-outline bb-btn-sm"><i class="bi bi-book"></i> Listings</a>
+                    <a href="/admin/auth/user/" class="bb-btn bb-btn-outline bb-btn-sm"><i class="bi bi-people"></i> Members</a>
+                    <a href="{% url 'core:healthz' %}" class="bb-btn bb-btn-outline bb-btn-sm"><i class="bi bi-heart-pulse"></i> Health check</a>
+                </div>
+                <p class="small text-muted mb-0 mt-3">
+                    Tip: reports older than a day should be actioned first — they block other buyers from a bad listing.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

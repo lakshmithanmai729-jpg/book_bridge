@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
-from django.db.models import Count, F, Q, Sum
+from django.db.models import Case, Count, F, IntegerField, Q, Sum, Value, When
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -94,6 +94,18 @@ def book_list(request):
     if request.GET.get('free') == '1':
         books = books.filter(is_donation=True)
 
+    # Rank search hits: title first, then author, then category, then location.
+    if query:
+        books = books.annotate(
+            search_rank=Case(
+                When(title__icontains=query, then=Value(0)),
+                When(author__icontains=query, then=Value(1)),
+                When(category__name__icontains=query, then=Value(2)),
+                default=Value(3),
+                output_field=IntegerField(),
+            )
+        )
+
     sort = request.GET.get('sort', '')
     if sort == 'price_low':
         books = books.order_by('price')
@@ -101,6 +113,8 @@ def book_list(request):
         books = books.order_by('-price')
     elif sort == 'oldest':
         books = books.order_by('created_at')
+    elif query:
+        books = books.order_by('search_rank', '-created_at')
     else:
         books = books.order_by('-created_at')
 
