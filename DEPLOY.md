@@ -69,14 +69,28 @@ Render `master` branch నుంచి deploy చేస్తుంది. క�
 https://bookbridge-XXXX.onrender.com      ← ఇది మీ శాశ్వత link
 ```
 
-Login: `demo` / `bookbridge123`
+**మొదట admin account సృష్టించండి:** Render Dashboard → **Environment** → ఇవి add చేయండి:
+
+```
+DJANGO_SUPERUSER_USERNAME = మీ పేరు (ఉదా. thanmai)
+DJANGO_SUPERUSER_EMAIL    = మీ ఇమెయిల్
+DJANGO_SUPERUSER_PASSWORD = పొడవైన పాస్‌వర్డ్ (జాగ్రత్తగా దాచుకోండి)
+```
+
+తర్వాత **Manual Deploy → Deploy latest commit** నొక్కండి. అప్పుడు
+`https://bookbridge-XXXX.onrender.com/admin/` లో మీరు login అవ్వవచ్చు.
+
+> ⚠️ Public site లో `demo / bookbridge123` accounts **సృష్టించబడవు** —
+> `seed_demo` production లో (DEBUG=False) కేవలం categories మాత్రమే create చేస్తుంది,
+> ఎందుకంటే ఆ పాస్‌వర్డ్ అందరికీ తెలుసు.
 
 ### Render ఏమి చేస్తుంది (render.yaml లో ఉంది)
 
 - `pip install -r requirements.txt`
 - `collectstatic` (WhiteNoise static files serve చేస్తుంది — nginx అవసరం లేదు)
 - `migrate` (database tables create)
-- `seed_demo --if-empty` (database ఖాళీగా ఉంటేనే demo data)
+- `seed_demo --if-empty` (production లో categories మాత్రమే — demo accounts కాదు)
+- `ensure_admin` (`DJANGO_SUPERUSER_*` ఉంటే మీ admin account create/update)
 - `gunicorn` తో app start
 - `/healthz/` health check
 - `SECRET_KEY` ను Render తనే generate చేస్తుంది
@@ -90,6 +104,7 @@ Login: `demo` / `bookbridge123`
 | Book cover uploads | free disk ephemeral — redeploy కి పోతాయి (demo కి fine) |
 | Database | free PostgreSQL — data **permanent** గా ఉంటుంది |
 | Email | Render logs లో print అవుతుంది. Gmail SMTP కావాలంటే `EMAIL_*` env vars add చేయండి |
+| Demo accounts | Production లో create అవ్వవు (భద్రత). మీ సొంత admin మాత్రమే |
 
 ### Media files permanent గా కావాలంటే (optional)
 Render Dashboard → Environment → ఇవి add చేయండి:

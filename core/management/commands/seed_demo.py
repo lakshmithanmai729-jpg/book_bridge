@@ -8,6 +8,11 @@ Demo logins (password: bookbridge123):
     arjun  – seller, Telegram contact
     priya  – seller, WhatsApp contact
     rahul  – seller, in-app chat only
+
+Production safety: when ``DEBUG`` is off this command only creates the
+categories. Demo accounts all share a public password, so seeding them on a
+live site would let anyone sign in. Pass ``--force-demo`` if you really want
+the demo data on a non-debug instance.
 """
 import random
 import textwrap
@@ -202,10 +207,31 @@ class Command(BaseCommand):
             action='store_true',
             help='Give the demo account staff access + moderation permissions (local preview only).',
         )
+        parser.add_argument(
+            '--force-demo',
+            action='store_true',
+            help='Seed the demo accounts even when DEBUG is off (never do this on a public site).',
+        )
 
     def handle(self, *args, **options):
         if options['if_empty'] and Book.objects.exists():
             self.stdout.write('Database already has books — skipping demo seeding.')
+            return
+
+        # A live site must never get accounts whose password is printed in the
+        # README. Categories are harmless and needed by the sell form, so those
+        # are still created.
+        if not settings.DEBUG and not options['force_demo']:
+            created = 0
+            for name in CATEGORIES:
+                _, was_created = Category.objects.get_or_create(name=name)
+                created += int(was_created)
+            self.stdout.write(self.style.WARNING(
+                'DEBUG is off — demo accounts were NOT created (public password). '
+                f'Ensured {created} categories. Create your own admin with '
+                '`python manage.py createsuperuser`, or run this command with '
+                '--force-demo for a private staging site.'
+            ))
             return
 
         random.seed(7)
