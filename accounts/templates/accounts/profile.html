@@ -1,4 +1,5 @@
 {% extends 'core/base.html' %}
+{% load book_extras %}
 {% block title %}Your Account - BookBridge{% endblock %}
 
 {% block content %}
@@ -125,12 +126,21 @@
 </style>
 
 <div class="bb-page">
-    {% if messages %}
-        {% for message in messages %}
-        <div class="alert alert-success border-0 rounded-4 fw-semibold d-flex align-items-center gap-2" role="alert" style="background:#ecfdf5; color:#065f46;">
-            <i class="bi bi-check-circle-fill"></i> {{ message }}
+    {% if user.email and not profile.email_verified %}
+        <div class="alert border-0 rounded-4 d-flex align-items-center justify-content-between flex-wrap gap-2" style="background:#fffbeb; color:#92400e;">
+            <span class="fw-semibold small">
+                <i class="bi bi-envelope-exclamation me-1"></i>
+                Your email <strong>{{ user.email }}</strong> is not confirmed yet. Confirm it to receive chat notifications.
+            </span>
+            <form method="POST" action="{% url 'accounts:resend_verification' %}" class="mb-0">
+                {% csrf_token %}
+                <button type="submit" class="bb-btn bb-btn-sm" style="background:#f59e0b; color:#fff;">Resend link</button>
+            </form>
         </div>
-        {% endfor %}
+    {% elif profile.email_verified %}
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="bb-chip green"><i class="bi bi-patch-check-fill"></i> Email confirmed</span>
+        </div>
     {% endif %}
 
     <!-- Profile hero -->
@@ -149,10 +159,40 @@
                     </span>
                     <span><i class="bi bi-envelope-fill"></i> {{ user.email|default:"Add your email" }}</span>
                 </div>
+                <div class="d-flex align-items-center gap-2 flex-wrap mt-2">
+                    <span class="text-warning" style="font-size:0.9rem;">
+                        {% for _ in my_stars.full %}<i class="bi bi-star-fill"></i>{% endfor %}
+                        {% for _ in my_stars.empty %}<i class="bi bi-star"></i>{% endfor %}
+                    </span>
+                    <small class="text-muted">
+                        {% if my_rating.count %}
+                            {{ my_rating.average }} from {{ my_rating.count }} review{{ my_rating.count|pluralize }}
+                        {% else %}
+                            No buyer reviews yet
+                        {% endif %}
+                    </small>
+                    {% if profile.is_verified %}
+                        <span class="bb-chip green" style="padding:3px 9px; font-size:0.7rem;">
+                            <i class="bi bi-patch-check-fill"></i> Verified
+                        </span>
+                    {% endif %}
+                    {% if profile.is_top_seller %}
+                        <span class="bb-chip blue" style="padding:3px 9px; font-size:0.7rem;">
+                            <i class="bi bi-trophy-fill"></i> Top seller
+                        </span>
+                    {% endif %}
+                </div>
                 <span class="hero-privacy"><i class="bi bi-shield-lock-fill"></i> 100% Privacy Protected</span>
             </div>
         </div>
         <div class="hero-actions">
+            <a href="{% url 'accounts:notifications' %}" class="btn">
+                <i class="bi bi-bell-fill me-1"></i> Notifications
+                {% if unread_notification_count %}<span class="menu-count ms-1">{{ unread_notification_count }}</span>{% endif %}
+            </a>
+            <a href="{% url 'accounts:seller_profile' user.pk %}" class="btn">
+                <i class="bi bi-person-badge me-1"></i> Public profile
+            </a>
             <a href="{% url 'accounts:messages' %}" class="btn">
                 <i class="bi bi-chat-dots-fill me-1"></i> Messages
                 {% if unread_message_count %}<span class="menu-count ms-1">{{ unread_message_count }}</span>{% endif %}
@@ -197,7 +237,7 @@
                         <div class="col-md-6">
                             <div class="bb-field">
                                 <label for="profile-location-input">Location</label>
-                                <input id="profile-location-input" type="text" name="location" value="{{ profile.location }}" placeholder="e.g. Kothapeta, Dhone">
+                                <input id="profile-location-input" type="text" name="location" value="{{ profile.location }}" placeholder="e.g. Madhapur, Hyderabad">
                             </div>
                         </div>
                     </div>
@@ -247,15 +287,21 @@
                     <div class="bb-field">
                         <span class="bb-label">Account Privacy</span>
                         <div class="d-flex flex-wrap gap-2">
-                            <label class="contact-option mb-0" style="min-width:150px;">
+                            <label class="contact-option mb-0" style="min-width:190px;">
                                 <input type="radio" name="account_privacy" value="public" {% if profile.account_privacy == 'public' %}checked{% endif %}>
                                 <span class="co-title"><i class="bi bi-globe2 me-1"></i> Public</span>
+                                <span class="co-sub">Buyers see your full name, your area and when you joined.</span>
                             </label>
-                            <label class="contact-option mb-0" style="min-width:150px;">
+                            <label class="contact-option mb-0" style="min-width:190px;">
                                 <input type="radio" name="account_privacy" value="private" {% if profile.account_privacy == 'private' or not profile.account_privacy %}checked{% endif %}>
                                 <span class="co-title"><i class="bi bi-lock-fill me-1"></i> Private</span>
+                                <span class="co-sub">Buyers see only your first name. Your area and join date stay hidden.</span>
                             </label>
                         </div>
+                        <p class="bb-hint">
+                            Either way your phone number is never shown unless you choose
+                            <strong>WhatsApp / Call</strong> below.
+                        </p>
                     </div>
 
                     <div class="d-flex flex-wrap gap-2 pt-2">
@@ -282,7 +328,7 @@
                                 <a href="{% url 'books:book_detail' book.pk %}" class="d-block text-decoration-none">
                                     <div class="bb-card-img-wrap" style="height:180px;">
                                         {% if book.image %}
-                                            <img src="{{ book.image.url }}" alt="{{ book.title }}">
+                                            <img src="{{ book.image|thumb:400 }}" alt="{{ book.title }}">
                                         {% else %}
                                             <div class="d-flex align-items-center justify-content-center h-100 bg-light text-center p-2">
                                                 <span class="text-muted fw-bold small">📖 {{ book.title|truncatechars:18 }}</span>
@@ -319,6 +365,17 @@
                     {% endif %}
                 </a>
 
+                <a href="{% url 'books:my_listings' %}" class="menu-item">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="menu-icon" style="background:#e0f2fe; color:#0284c7;"><i class="bi bi-journal-bookmark-fill"></i></div>
+                        <div>
+                            <span class="menu-label">My Listings</span>
+                            <span class="menu-sub">Mark books sold, relist or edit</span>
+                        </div>
+                    </div>
+                    <i class="bi bi-chevron-right text-muted"></i>
+                </a>
+
                 <a href="{% url 'accounts:request_book' %}" class="menu-item">
                     <div class="d-flex align-items-center gap-3">
                         <div class="menu-icon" style="background:#ede9fe; color:#8b5cf6;"><i class="bi bi-book-half"></i></div>
@@ -352,6 +409,52 @@
                     <i class="bi bi-chevron-right text-muted"></i>
                 </a>
 
+                <a href="{% url 'ai_engine:hub' %}" class="menu-item">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="menu-icon" style="background:#f5f3ff; color:#7c3aed;"><i class="bi bi-stars"></i></div>
+                        <div>
+                            <span class="menu-label">BookBridge AI</span>
+                            <span class="menu-sub">Ask in plain language, get smart picks</span>
+                        </div>
+                    </div>
+                    <i class="bi bi-chevron-right text-muted"></i>
+                </a>
+
+                {% if user.is_staff %}
+                <a href="{% url 'core:staff_dashboard' %}" class="menu-item">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="menu-icon" style="background:#eef2ff; color:#4338ca;"><i class="bi bi-speedometer2"></i></div>
+                        <div>
+                            <span class="menu-label">Team dashboard</span>
+                            <span class="menu-sub">Marketplace numbers, reports, AI usage</span>
+                        </div>
+                    </div>
+                    <i class="bi bi-chevron-right text-muted"></i>
+                </a>
+
+                <a href="{% url 'core:backend_tour' %}" class="menu-item">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="menu-icon" style="background:#ecfeff; color:#0e7490;"><i class="bi bi-diagram-3-fill"></i></div>
+                        <div>
+                            <span class="menu-label">Backend tour</span>
+                            <span class="menu-sub">Database tables, counts and live API links</span>
+                        </div>
+                    </div>
+                    <i class="bi bi-chevron-right text-muted"></i>
+                </a>
+
+                <a href="/admin/" class="menu-item">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="menu-icon" style="background:#f1f5f9; color:#0f172a;"><i class="bi bi-database-fill-gear"></i></div>
+                        <div>
+                            <span class="menu-label">Backend (Django admin)</span>
+                            <span class="menu-sub">Books, users, chats, notifications, AI log</span>
+                        </div>
+                    </div>
+                    <i class="bi bi-chevron-right text-muted"></i>
+                </a>
+                {% endif %}
+
                 <a href="{% url 'accounts:profile_edit' %}" class="menu-item">
                     <div class="d-flex align-items-center gap-3">
                         <div class="menu-icon" style="background:#f1f5f9; color:#475569;"><i class="bi bi-sliders"></i></div>
@@ -363,7 +466,7 @@
                     <i class="bi bi-chevron-right text-muted"></i>
                 </a>
 
-                <a href="javascript:void(0)" onclick="alert('Share BookBridge with your friends and earn rewards on your next book!')" class="menu-item">
+                <a href="javascript:void(0)" onclick="shareBookBridge(this)" class="menu-item">
                     <div class="d-flex align-items-center gap-3">
                         <div class="menu-icon" style="background:#fefce8; color:#eab308;"><i class="bi bi-megaphone-fill"></i></div>
                         <div>
@@ -374,7 +477,7 @@
                     <i class="bi bi-chevron-right text-muted"></i>
                 </a>
 
-                <a href="javascript:void(0)" onclick="alert('BookBridge Support: email support@bookbridge.local and our team will help you out.')" class="menu-item">
+                <a href="mailto:support@bookbridge.app?subject=BookBridge%20support%20request" class="menu-item">
                     <div class="d-flex align-items-center gap-3">
                         <div class="menu-icon" style="background:#f0f9ff; color:#0284c7;"><i class="bi bi-headset"></i></div>
                         <div>
@@ -405,6 +508,27 @@
                 {% else %}
                     <p class="text-muted small mb-0">Need a book that is not listed nearby? Send a request and students who own it can reach you.</p>
                 {% endif %}
+            </div>
+
+            <!-- Safety & privacy -->
+            <div class="bb-panel mt-4">
+                <h6 class="bb-panel-title"><i class="bi bi-shield-check" style="color:#047857;"></i> Safety &amp; privacy</h6>
+                <a href="{% url 'core:safety' %}" class="d-flex align-items-center justify-content-between py-2 text-decoration-none text-dark border-bottom" style="border-color:#f1f5f9 !important;">
+                    <span class="small fw-semibold"><i class="bi bi-book me-2 text-primary"></i> Safety Centre</span>
+                    <i class="bi bi-chevron-right text-muted"></i>
+                </a>
+                <a href="{% url 'accounts:seller_analytics' %}" class="d-flex align-items-center justify-content-between py-2 text-decoration-none text-dark border-bottom" style="border-color:#f1f5f9 !important;">
+                    <span class="small fw-semibold"><i class="bi bi-bar-chart-fill me-2 text-primary"></i> Seller analytics</span>
+                    <i class="bi bi-chevron-right text-muted"></i>
+                </a>
+                <a href="{% url 'accounts:blocked_users' %}" class="d-flex align-items-center justify-content-between py-2 text-decoration-none text-dark border-bottom" style="border-color:#f1f5f9 !important;">
+                    <span class="small fw-semibold"><i class="bi bi-person-slash me-2 text-danger"></i> Blocked users</span>
+                    <i class="bi bi-chevron-right text-muted"></i>
+                </a>
+                <a href="{% url 'accounts:seller_profile' user.pk %}" class="d-flex align-items-center justify-content-between py-2 text-decoration-none text-dark">
+                    <span class="small fw-semibold"><i class="bi bi-star me-2 text-warning"></i> My public profile &amp; reviews</span>
+                    <i class="bi bi-chevron-right text-muted"></i>
+                </a>
             </div>
 
             <div class="follow-section">
@@ -444,27 +568,76 @@
     syncAccountPrivacy();
 
     function detectGPSProfile(btn) {
+        // Ask the browser for the real position, then turn the coordinates into a
+        // readable area. Falls back to a manual prompt when anything fails.
         const input = document.getElementById('profile-location-input');
+        if (!input) { return; }
         const original = btn.innerHTML;
-        btn.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>Detecting...';
-        const fallback = function () {
-            const manual = prompt('Enter your location (City/Area/Pincode):', input.value || 'Kothapeta, Dhone');
-            if (manual) { input.value = manual; }
-            btn.innerHTML = original;
+        const reset = function () { btn.innerHTML = original; };
+
+        const manual = function (message) {
+            if (message) { bbToast(message); }
+            const typed = prompt('Enter your location (City / Area / Pincode):', input.value || '');
+            if (typed) {
+                input.value = typed.trim();
+                bbToast('Location added — remember to save.');
+            }
+            reset();
         };
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                function () {
-                    input.value = 'Kothapeta, Dhone, Andhra Pradesh';
-                    btn.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Location Detected!';
-                    setTimeout(function () { btn.innerHTML = original; }, 1800);
-                },
-                fallback,
-                { timeout: 8000 }
-            );
-        } else {
-            fallback();
+
+        if (!navigator.geolocation) {
+            manual('This browser cannot detect your location.');
+            return;
         }
+
+        btn.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>Detecting...';
+        btn.disabled = true;
+
+        navigator.geolocation.getCurrentPosition(
+            function (position) {
+                const lat = position.coords.latitude.toFixed(5);
+                const lon = position.coords.longitude.toFixed(5);
+
+                // Reverse geocode with OpenStreetMap. If that is blocked we still
+                // fill in the coordinates so the button never lies about working.
+                const url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2'
+                          + '&zoom=16&addressdetails=1&lat=' + lat + '&lon=' + lon;
+
+                fetch(url, { headers: { 'Accept': 'application/json' } })
+                    .then(function (response) { return response.ok ? response.json() : null; })
+                    .then(function (data) {
+                        const address = (data && data.address) || {};
+                        const area = address.suburb || address.neighbourhood || address.village
+                                  || address.town || address.city_district || '';
+                        const city = address.city || address.town || address.village
+                                  || address.county || address.state_district || '';
+                        const parts = [area, city].filter(function (part) { return part; });
+                        const label = parts.length ? parts.join(', ') : (data && data.display_name) || '';
+                        input.value = label ? label.split(',').slice(0, 2).join(',').trim()
+                                            : ('Lat ' + lat + ', Lon ' + lon);
+                        btn.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Location found';
+                        bbToast('Location detected — remember to save.');
+                        setTimeout(reset, 1800);
+                        btn.disabled = false;
+                    })
+                    .catch(function () {
+                        input.value = 'Lat ' + lat + ', Lon ' + lon;
+                        bbToast('Location detected, but the area name could not be looked up.');
+                        reset();
+                        btn.disabled = false;
+                    });
+            },
+            function (error) {
+                const reason = (error && error.code === 1)
+                    ? 'Location permission was denied.'
+                    : 'We could not detect your location.';
+                manual(reason);
+                btn.disabled = false;
+            },
+            { timeout: 10000, maximumAge: 60000 }
+        );
     }
+
+
 </script>
 {% endblock %}

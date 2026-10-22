@@ -1,0 +1,31 @@
+{% extends 'core/base.html' %}
+{% block title %}Listing unavailable - BookBridge{% endblock %}
+
+{% block content %}
+<div class="bb-page">
+    <div class="bb-panel" style="max-width:720px; margin:0 auto; text-align:center; padding:52px 28px;">
+        <div style="font-size:3.6rem;">{% if blocked %}🙈{% else %}🚫{% endif %}</div>
+        {% if blocked %}
+            <h1 class="fw-bold mt-3" style="font-size:1.5rem;">This listing is hidden</h1>
+            <p class="text-muted">
+                You blocked this seller, so their listings are not shown to you.
+                You can unblock them anytime from your blocked list.
+            </p>
+            <div class="d-flex flex-wrap justify-content-center gap-2 mt-3">
+                <a href="{% url 'accounts:blocked_users' %}" class="bb-btn bb-btn-primary">Manage blocked users</a>
+                <a href="{% url 'books:book_list' %}" class="bb-btn bb-btn-outline">Browse books</a>
+            </div>
+        {% else %}
+            <h1 class="fw-bold mt-3" style="font-size:1.5rem;">This listing is unavailable</h1>
+            <p class="text-muted">
+                It was hidden by our moderation team after a report. If you are the seller,
+                contact support to appeal.
+            </p>
+            <div class="d-flex flex-wrap justify-content-center gap-2 mt-3">
+                <a href="{% url 'books:book_list' %}" class="bb-btn bb-btn-primary">Browse similar books</a>
+                <a href="{% url 'core:home' %}" class="bb-btn bb-btn-outline">Go home</a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -28,12 +28,12 @@
                     {% for conv in conversations %}
                         <a href="{% url 'accounts:chat_detail' conv.other.id %}{% if conv.book %}?book={{ conv.book.id }}{% endif %}" class="conversation-item">
                             <div class="bb-avatar">
-                                {% if conv.other_profile.name %}{{ conv.other_profile.name|slice:":1"|upper }}{% else %}{{ conv.other.username|slice:":1"|upper }}{% endif %}
+                                {{ conv.other_profile.public_name|slice:":1"|upper }}
                             </div>
                             <div class="conv-main">
                                 <div class="d-flex align-items-center gap-2">
                                     <span class="conv-name text-truncate">
-                                        {% if conv.other_profile.name %}{{ conv.other_profile.name }}{% else %}{{ conv.other.username }}{% endif %}
+                                        {{ conv.other_profile.public_name }}
                                     </span>
                                     {% if conv.other_profile.telegram_handle %}
                                         <i class="bi bi-telegram" style="color:#0ea5e9;" title="Telegram"></i>

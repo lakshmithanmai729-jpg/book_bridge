@@ -1,0 +1,203 @@
+{% extends 'core/base.html' %}
+{% load book_extras %}
+{% block title %}My Listings - BookBridge{% endblock %}
+
+{% block content %}
+<div class="bb-page">
+    <div class="bb-page-head justify-content-between flex-wrap">
+        <div>
+            <h1>My Listings</h1>
+            <small class="text-muted">Manage what you are selling, sold and hidden</small>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{% url 'accounts:seller_analytics' %}" class="bb-btn bb-btn-outline bb-btn-sm">
+                <i class="bi bi-bar-chart-fill"></i> Analytics
+            </a>
+            <a href="{% url 'books:wishlist' %}" class="bb-btn bb-btn-outline bb-btn-sm">
+                <i class="bi bi-heart-fill text-danger"></i> Favourites
+            </a>
+            <a href="{% url 'books:book_add' %}" class="bb-btn bb-btn-primary bb-btn-sm">
+                <i class="bi bi-plus-lg"></i> Sell a book
+            </a>
+        </div>
+    </div>
+
+    <!-- Performance strip -->
+    <div class="row row-cols-3 g-3 mb-4" style="max-width:760px;">
+        <div class="col">
+            <div class="bb-panel mb-0 py-3">
+                <div class="small text-muted fw-semibold">Views</div>
+                <div class="fw-bold" style="font-size:1.5rem; line-height:1.1;">{{ feedback.views }}</div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="bb-panel mb-0 py-3">
+                <div class="small text-muted fw-semibold">Saved</div>
+                <div class="fw-bold" style="font-size:1.5rem; line-height:1.1; color:#b91c1c;">{{ feedback.saves }}</div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="bb-panel mb-0 py-3">
+                <div class="small text-muted fw-semibold">Chats</div>
+                <div class="fw-bold" style="font-size:1.5rem; line-height:1.1; color:#0284c7;">{{ feedback.messages }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="bb-chip-row ps-0 pe-0">
+        <a href="?tab=active" class="btn {% if tab == 'active' %}btn-dark{% else %}btn-outline-secondary{% endif %}">
+            Active <span class="badge bg-light text-dark ms-1">{{ counts.active }}</span>
+        </a>
+        <a href="?tab=sold" class="btn {% if tab == 'sold' %}btn-dark{% else %}btn-outline-secondary{% endif %}">
+            Sold <span class="badge bg-light text-dark ms-1">{{ counts.sold }}</span>
+        </a>
+        <a href="?tab=hidden" class="btn {% if tab == 'hidden' %}btn-dark{% else %}btn-outline-secondary{% endif %}">
+            Hidden <span class="badge bg-light text-dark ms-1">{{ counts.hidden }}</span>
+        </a>
+    </div>
+
+    {% if books %}
+        <div class="bb-panel p-0 overflow-hidden">
+            {% for book in books %}
+                <div class="listing-row">
+                    <a href="{% url 'books:book_detail' book.pk %}" class="listing-thumb">
+                        {% if book.image %}
+                            <img src="{{ book.image|thumb:400 }}" alt="{{ book.title }}">
+                        {% else %}
+                            <span>📖</span>
+                        {% endif %}
+                    </a>
+
+                    <div class="listing-main">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <a href="{% url 'books:book_detail' book.pk %}" class="fw-bold text-dark text-truncate">{{ book.title }}</a>
+                            <span class="bb-chip {% if book.is_sold %}red{% elif book.is_hidden %}amber{% else %}green{% endif %}">
+                                {{ book.status_label }}
+                            </span>
+                        </div>
+                        <small class="text-muted d-block text-truncate">
+                            {{ book.author }}{% if book.category %} · {{ book.category.name }}{% endif %}
+                            {% if book.location_area %} · {{ book.location_area }}{% endif %}
+                        </small>
+                        <div class="d-flex align-items-center gap-3 mt-1">
+                            <span class="fw-bold text-dark">{% if book.is_donation %}FREE{% else %}₹{{ book.price|floatformat:0 }}{% endif %}</span>
+                            <small class="text-muted"><i class="bi bi-eye"></i> {{ book.views_count }} views</small>
+                            <small class="text-muted">
+                                {% if book.is_sold and book.sold_at %}
+                                    Sold {{ book.sold_at|date:"d M Y" }}
+                                {% else %}
+                                    Listed {{ book.created_at|date:"d M Y" }}
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="listing-actions">
+                        {% if book.is_sold %}
+                            <form method="POST" action="{% url 'books:toggle_sold' book.pk %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                <button type="submit" class="bb-btn bb-btn-soft bb-btn-sm">
+                                    <i class="bi bi-arrow-counterclockwise"></i> Relist
+                                </button>
+                            </form>
+                        {% else %}
+                            <form method="POST" action="{% url 'books:toggle_sold' book.pk %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                <button type="submit" class="bb-btn bb-btn-primary bb-btn-sm">
+                                    <i class="bi bi-check2-circle"></i> Mark sold
+                                </button>
+                            </form>
+                        {% endif %}
+                        <a href="{% url 'books:book_edit' book.pk %}" class="bb-btn bb-btn-outline bb-btn-sm" title="Edit">
+                            <i class="bi bi-pencil-square"></i>
+                        </a>
+                        <a href="{% url 'books:book_delete' book.pk %}" class="bb-btn bb-btn-sm" style="background:#fef2f2; color:#b91c1c;" title="Delete">
+                            <i class="bi bi-trash3"></i>
+                        </a>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="bb-empty">
+            <div class="bb-empty-icon"><i class="bi bi-journal-plus"></i></div>
+            {% if tab == 'sold' %}
+                <h3>No sold books yet</h3>
+                <p>When a book is picked up, tap “Mark sold” so buyers stop asking about it.</p>
+            {% elif tab == 'hidden' %}
+                <h3>No hidden listings</h3>
+                <p>Listings hidden by moderators after a report will appear here.</p>
+            {% else %}
+                <h3>You have no active listings</h3>
+                <p>Sell or donate a book and it will show up here.</p>
+                <a href="{% url 'books:book_add' %}" class="bb-btn bb-btn-primary">
+                    <i class="bi bi-plus-lg"></i> Sell a book
+                </a>
+            {% endif %}
+        </div>
+    {% endif %}
+
+    {% if page_obj.has_other_pages %}
+        <nav class="mt-4 d-flex justify-content-center">
+            <ul class="pagination bb-pagination">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?tab={{ tab }}{% if query_without_page %}&{{ query_without_page }}{% endif %}&page={{ page_obj.previous_page_number }}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                {% endif %}
+                <li class="page-item disabled">
+                    <span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+                </li>
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?tab={{ tab }}{% if query_without_page %}&{{ query_without_page }}{% endif %}&page={{ page_obj.next_page_number }}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+    {% endif %}
+</div>
+
+<style>
+    .listing-row {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 16px 18px;
+        border-bottom: 1px solid #f1f5f9;
+        flex-wrap: wrap;
+    }
+    .listing-row:last-child { border-bottom: none; }
+    .listing-thumb {
+        width: 64px;
+        height: 84px;
+        border-radius: 12px;
+        overflow: hidden;
+        background: #f1f5f9;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        flex-shrink: 0;
+        text-decoration: none;
+    }
+    .listing-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .listing-main { flex: 1 1 240px; min-width: 0; }
+    .listing-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .bb-pagination .page-link {
+        border: 1px solid #e2e8f0;
+        color: #0f172a;
+        font-weight: 700;
+        border-radius: 10px;
+        margin: 0 3px;
+        padding: 8px 14px;
+    }
+</style>
+{% endblock %}

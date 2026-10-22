@@ -1,0 +1,113 @@
+{% extends 'core/base.html' %}
+{% load book_extras %}
+{% block title %}Seller analytics - BookBridge{% endblock %}
+
+{% block content %}
+<div class="bb-page">
+    <div class="bb-page-head justify-content-between flex-wrap">
+        <div class="d-flex align-items-center gap-2">
+            <a href="{% url 'books:my_listings' %}" class="bb-back-btn" aria-label="Back">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <div>
+                <h1>Seller analytics</h1>
+                <small class="text-muted">How your listings are performing</small>
+            </div>
+        </div>
+        <a href="{% url 'books:book_add' %}" class="bb-btn bb-btn-primary bb-btn-sm">
+            <i class="bi bi-plus-lg"></i> New listing
+        </a>
+    </div>
+
+    <div class="row row-cols-2 row-cols-lg-4 g-3 mb-4">
+        <div class="col">
+            <div class="bb-panel h-100 mb-0">
+                <div class="small text-muted fw-semibold">Total views</div>
+                <div class="fw-bold" style="font-size:2rem; line-height:1.1;">{{ total_views }}</div>
+                <small class="text-muted">Across all your listings</small>
+            </div>
+        </div>
+        <div class="col">
+            <div class="bb-panel h-100 mb-0">
+                <div class="small text-muted fw-semibold">Favourites</div>
+                <div class="fw-bold" style="font-size:2rem; line-height:1.1; color:#b91c1c;">{{ total_saves }}</div>
+                <small class="text-muted">Times your books were saved</small>
+            </div>
+        </div>
+        <div class="col">
+            <div class="bb-panel h-100 mb-0">
+                <div class="small text-muted fw-semibold">Chats</div>
+                <div class="fw-bold" style="font-size:2rem; line-height:1.1; color:#0284c7;">{{ chat_count }}</div>
+                <small class="text-muted">Buyer conversations</small>
+            </div>
+        </div>
+        <div class="col">
+            <div class="bb-panel h-100 mb-0">
+                <div class="small text-muted fw-semibold">Listings</div>
+                <div class="fw-bold" style="font-size:2rem; line-height:1.1; color:#047857;">
+                    {{ active_count }}<span class="text-muted" style="font-size:1rem;"> active</span>
+                </div>
+                <small class="text-muted">{{ sold_count }} sold · {{ wishlisted_by_others }} saved by buyers</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="bb-panel">
+                <h6 class="bb-panel-title"><i class="bi bi-bar-chart-fill" style="color:#0284c7;"></i> Listing performance</h6>
+                {% for book in books %}
+                    <div class="d-flex align-items-center gap-3 py-3 {% if not forloop.last %}border-bottom{% endif %}" style="border-color:#f1f5f9 !important;">
+                        {% if book.image %}
+                            <img src="{{ book.image|thumb:400 }}" alt="{{ book.title }}"
+                                 style="width:44px; height:58px; object-fit:cover; border-radius:10px;">
+                        {% else %}
+                            <div class="d-flex align-items-center justify-content-center"
+                                 style="width:44px; height:58px; border-radius:10px; background:#f1f5f9;">📖</div>
+                        {% endif %}
+                        <div class="flex-grow-1" style="min-width:0;">
+                            <a href="{% url 'books:book_detail' book.pk %}" class="fw-bold small text-dark text-decoration-none d-block text-truncate">
+                                {{ book.title }}
+                            </a>
+                            <small class="text-muted">
+                                ₹{{ book.price|floatformat:0 }} ·
+                                {% if book.is_sold %}Sold{% elif book.is_hidden %}Hidden{% else %}Active{% endif %}
+                            </small>
+                        </div>
+                        <div class="text-end">
+                            <div class="small fw-bold"><i class="bi bi-eye"></i> {{ book.views_count }}</div>
+                            <div class="small text-muted"><i class="bi bi-heart-fill text-danger"></i> {{ book.saves }}</div>
+                        </div>
+                    </div>
+                {% empty %}
+                    <p class="text-muted small mb-0">No listings yet. Post your first book to start seeing numbers.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="bb-panel">
+                <h6 class="bb-panel-title"><i class="bi bi-trophy-fill" style="color:#f59e0b;"></i> Your best listings</h6>
+                {% for book in top_books %}
+                    <div class="d-flex align-items-center justify-content-between gap-2 py-2 {% if not forloop.last %}border-bottom{% endif %}" style="border-color:#f1f5f9 !important;">
+                        <span class="small fw-semibold text-truncate">{{ book.title }}</span>
+                        <span class="bb-chip blue" style="flex-shrink:0;">{{ book.views_count }} views</span>
+                    </div>
+                {% empty %}
+                    <p class="text-muted small mb-0">Nothing to rank yet.</p>
+                {% endfor %}
+            </div>
+
+            <div class="bb-panel mt-4" style="background:#f0f9ff; border-color:#e0f2fe;">
+                <h6 class="bb-panel-title"><i class="bi bi-lightbulb-fill" style="color:#0284c7;"></i> Sell faster</h6>
+                <ul class="small text-muted mb-0 ps-3" style="line-height:1.8;">
+                    <li>Listings with 3+ clear photos get roughly twice the views.</li>
+                    <li>A 40–60% price of MRP sells fastest for used textbooks.</li>
+                    <li>Reply to chats within an hour — buyers usually move on quickly.</li>
+                    <li>Relisting a sold book notifies everyone who saved it.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

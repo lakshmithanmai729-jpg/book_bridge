@@ -13,15 +13,6 @@
         </div>
     </div>
 
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-success{% endif %} border-0 rounded-4 fw-semibold d-flex align-items-center gap-2" role="alert">
-                <i class="bi {% if message.tags == 'error' %}bi-exclamation-circle-fill{% else %}bi-check-circle-fill{% endif %}"></i>
-                {{ message }}
-            </div>
-        {% endfor %}
-    {% endif %}
-
     <div class="row g-4">
         <div class="col-lg-7">
             <div class="bb-panel">
@@ -63,7 +54,7 @@
                             <div class="bb-field">
                                 <label for="request-location">Your Location</label>
                                 <input id="request-location" type="text" name="location"
-                                       placeholder="e.g. Kothapeta, Dhone"
+                                       placeholder="e.g. Madhapur, Hyderabad"
                                        value="{{ request.POST.location|default:profile.location }}">
                             </div>
                         </div>

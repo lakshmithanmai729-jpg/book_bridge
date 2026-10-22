@@ -1,0 +1,45 @@
+# BookBridge — one-command local/production stack.
+#   docker compose up --build
+# The app is served on http://localhost:8000 with SQLite by default.
+# Fill in the DB_* variables (and set DB_NAME) to switch to PostgreSQL below.
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DEBUG: "False"
+      ALLOWED_HOSTS: "localhost,127.0.0.1"
+    volumes:
+      - media:/app/media
+      - static:/app/staticfiles
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py collectstatic --noinput &&
+             gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 60"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz/').status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # Optional PostgreSQL. Set DB_NAME/DB_USER/DB_PASSWORD/DB_HOST=db in .env to use it.
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-bookbridge}
+      POSTGRES_USER: ${DB_USER:-bookbridge}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-bookbridge}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-bookbridge}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  media:
+  static:
+  pgdata:

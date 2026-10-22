@@ -41,6 +41,9 @@ python manage.py migrate --noinput
 echo "[5/5] Loading demo data (only if the database is empty)..."
 python manage.py seed_demo --if-empty || true
 
+echo "Preparing static files..."
+python manage.py collectstatic --noinput >/dev/null 2>&1 || true
+
 echo
 echo "============================================================"
 echo "   Open http://127.0.0.1:8000"

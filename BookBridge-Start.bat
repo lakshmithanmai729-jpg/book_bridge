@@ -56,6 +56,9 @@ if errorlevel 1 (
 echo [5/5] Loading demo data ^(only if the database is empty^)...
 python manage.py seed_demo --if-empty
 
+echo Preparing static files...
+python manage.py collectstatic --noinput >nul 2>nul
+
 echo.
 echo ============================================================
 echo    Opening http://127.0.0.1:8000

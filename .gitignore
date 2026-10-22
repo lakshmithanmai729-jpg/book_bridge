@@ -1,5 +1,6 @@
 # Virtual environment
 venv/
+.venv/
 
 # Python cache files
 __pycache__/
@@ -19,3 +20,13 @@ media/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Collected static files
+staticfiles/
+
+# Logs
+logs/
+
+# Generated static preview (python manage.py export_preview)
+preview_static/
+*.zip

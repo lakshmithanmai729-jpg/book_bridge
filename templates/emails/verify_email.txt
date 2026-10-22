@@ -1,0 +1,13 @@
+Hi {{ name }},
+
+Welcome to BookBridge! Please confirm your email address so we can keep your
+account secure and send you chat notifications.
+
+Confirm your email:
+{{ url }}
+
+This link expires in {{ expires_days }} days. If you did not create a
+BookBridge account you can safely ignore this email.
+
+BookBridge — buy, sell and share books nearby.
+Your phone number is never shown publicly.

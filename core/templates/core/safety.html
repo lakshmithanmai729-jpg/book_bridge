@@ -1,0 +1,132 @@
+{% extends 'core/base.html' %}
+{% block title %}Safety Centre - BookBridge{% endblock %}
+
+{% block content %}
+<div class="bb-page">
+    <div class="bb-page-head">
+        <a href="{% url 'core:home' %}" class="bb-back-btn" aria-label="Back">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div>
+            <h1>Safety Centre</h1>
+            <small class="text-muted">Simple rules that keep every book deal safe</small>
+        </div>
+    </div>
+
+    <div class="bb-panel mb-4" style="background:linear-gradient(135deg,#0284c7,#38bdf8); border:none; color:#fff;">
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+            <div style="font-size:2.4rem;">🛡️</div>
+            <div>
+                <h5 class="fw-bold mb-1">Your phone number stays private by default</h5>
+                <p class="mb-0" style="opacity:.92; font-size:0.95rem;">
+                    Buyers reach you through in-app chat or your Telegram handle. A number is only
+                    ever shown if you personally switch the contact preference to WhatsApp / Call.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="bb-panel h-100">
+                <h6 class="bb-panel-title"><i class="bi bi-1-circle-fill" style="color:#0284c7;"></i> Before you pay</h6>
+                <ul class="small text-muted mb-0 ps-3" style="line-height:1.9;">
+                    <li><strong>See the book first.</strong> Meet in a public place — a college gate, a library, a busy café.</li>
+                    <li><strong>Check the condition</strong> against the photos and the description before handing over money.</li>
+                    <li><strong>Pay in person</strong> once you have the book in your hands. Never pay a stranger in advance.</li>
+                    <li><strong>Take a friend</strong> for late-evening pickups.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="bb-panel h-100">
+                <h6 class="bb-panel-title"><i class="bi bi-2-circle-fill" style="color:#0284c7;"></i> Red flags to walk away from</h6>
+                <ul class="small text-muted mb-0 ps-3" style="line-height:1.9;">
+                    <li>Asking for a UPI transfer, gift card or “token advance” before you see the book.</li>
+                    <li>Refusing to meet in person or to share a real photo of the book.</li>
+                    <li>Pushing you to move the chat off BookBridge immediately.</li>
+                    <li>A price that is suspiciously low for a popular title.</li>
+                    <li>Any request for OTPs, bank details or screen sharing.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="bb-panel h-100">
+                <h6 class="bb-panel-title"><i class="bi bi-flag-fill" style="color:#ef4444;"></i> Report a listing</h6>
+                <p class="bb-panel-sub">
+                    Every listing has a <strong>Report</strong> button. Reports go straight to our
+                    moderation queue with the reason and your note, and the listing can be hidden
+                    within minutes. The seller is never told who reported them.
+                </p>
+                <a href="{% url 'books:book_list' %}" class="bb-btn bb-btn-outline bb-btn-sm">
+                    <i class="bi bi-search"></i> Go to listings
+                </a>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="bb-panel h-100">
+                <h6 class="bb-panel-title"><i class="bi bi-slash-circle-fill" style="color:#b91c1c;"></i> Block someone</h6>
+                <p class="bb-panel-sub">
+                    Blocked people disappear from your feed, and they cannot message you again.
+                    They are not notified. You can unblock anytime.
+                </p>
+                {% if user.is_authenticated %}
+                    <a href="{% url 'accounts:blocked_users' %}" class="bb-btn bb-btn-outline bb-btn-sm">
+                        <i class="bi bi-person-slash"></i> Manage blocked users
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="bb-panel h-100">
+                <h6 class="bb-panel-title"><i class="bi bi-star-fill" style="color:#f59e0b;"></i> Ratings you can trust</h6>
+                <p class="bb-panel-sub mb-0">
+                    Only buyers who actually chatted with a seller can rate them, so every review
+                    comes from a real conversation. Sellers with 3+ reviews and a 4.5★ average earn
+                    the <strong>Top seller</strong> badge; email-confirmed accounts show a
+                    <strong>Verified</strong> badge.
+                </p>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="bb-panel h-100">
+                <h6 class="bb-panel-title"><i class="bi bi-globe2" style="color:#0284c7;"></i> Public vs Private account</h6>
+                <div class="d-flex gap-3 align-items-start mb-2">
+                    <span class="bb-chip green" style="flex-shrink:0;"><i class="bi bi-globe2"></i> Public</span>
+                    <span class="small text-muted">Buyers see your full name, your area and when you joined.</span>
+                </div>
+                <div class="d-flex gap-3 align-items-start">
+                    <span class="bb-chip" style="flex-shrink:0;"><i class="bi bi-lock-fill"></i> Private</span>
+                    <span class="small text-muted">
+                        Buyers see only your first name — your area and join date stay hidden.
+                        Your ratings, reviews and listings are still visible, so you can sell normally.
+                    </span>
+                </div>
+                <p class="small text-muted mt-3 mb-0">
+                    In both modes your phone number is only shared if you pick
+                    <strong>WhatsApp / Call</strong> as your contact preference.
+                </p>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="bb-panel h-100">
+                <h6 class="bb-panel-title"><i class="bi bi-shield-lock-fill" style="color:#047857;"></i> What BookBridge never asks for</h6>
+                <ul class="small text-muted mb-0 ps-3" style="line-height:1.9;">
+                    <li>Your password — nobody from our team will ever ask.</li>
+                    <li>OTPs or bank / card details.</li>
+                    <li>Remote access to your phone or laptop.</li>
+                </ul>
+                <p class="small text-muted mt-3 mb-0">
+                    Spot something suspicious? Report the listing and we will review it.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

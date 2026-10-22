@@ -12,6 +12,20 @@ def unread_messages(request):
     return {'unread_message_count': unread}
 
 
+def unread_notifications(request):
+    """Expose the number of unread notifications for the top-bar bell."""
+    user = getattr(request, 'user', None)
+    if not user or not user.is_authenticated:
+        return {'unread_notification_count': 0}
+
+    try:
+        from accounts.models import Notification
+        count = Notification.objects.filter(recipient=user, is_read=False).count()
+    except Exception:
+        count = 0
+    return {'unread_notification_count': count}
+
+
 def active_chats(request):
     """Expose how many distinct conversations the signed-in user has."""
     user = getattr(request, 'user', None)

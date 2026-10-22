@@ -8,6 +8,11 @@ Demo logins (password: bookbridge123):
     arjun  – seller, Telegram contact
     priya  – seller, WhatsApp contact
     rahul  – seller, in-app chat only
+
+Production safety: when ``DEBUG`` is off this command only creates the
+categories. Demo accounts all share a public password, so seeding them on a
+live site would let anyone sign in. Pass ``--force-demo`` if you really want
+the demo data on a non-debug instance.
 """
 import random
 import textwrap
@@ -18,8 +23,8 @@ from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 from django.utils.text import slugify
 
-from accounts.models import BookRequest, ChatMessage, UserProfile
-from books.models import Book, Category
+from accounts.models import BookRequest, ChatMessage, Notification, SellerReview, UserProfile
+from books.models import Book, Category, Report, Wishlist
 
 PASSWORD = 'bookbridge123'
 
@@ -33,7 +38,7 @@ USERS = [
         'username': 'demo',
         'name': 'Lakshmi Thanmai',
         'email': 'demo@bookbridge.local',
-        'location': 'Kothapeta, Dhone, Andhra Pradesh',
+        'location': 'Madhapur, Hyderabad',
         'phone': '9876500011',
         'telegram': 'bookbridge_demo',
         'preference': 'telegram',
@@ -121,6 +126,14 @@ BOOKS = [
      'Madhapur', 'Hyderabad', '500081',
      'Giving away this question bank for free — I have finished my boards. Come pick it up.',
      True, ('#16a34a', '#052e16')),
+    ('Let Us C', 'Yashavant Kanetkar', 'Engineering', 140, 399, 'demo', 'good',
+     'Madhapur', 'Hyderabad', '500081',
+     'Classic C programming guide used for my first semester. No torn pages, a few pencil notes.',
+     False, ('#0369a1', '#0c1a3a')),
+    ('Ikigai', 'Héctor García', 'Self-Help', 160, 499, 'demo', 'like_new',
+     'Madhapur', 'Hyderabad', '500081',
+     'Read once, kept in perfect condition. A gentle book about finding purpose every day.',
+     False, ('#b45309', '#451a03')),
     ('NEET Previous Year Papers', 'Allen Career Institute', 'NEET', 0, 400, 'priya', 'good',
      'JNTU Campus', 'Hyderabad', '500085',
      'Free to a serious aspirant. Includes 2015–2023 papers with answer keys.',
@@ -189,10 +202,39 @@ class Command(BaseCommand):
             action='store_true',
             help='Only seed when the marketplace has no books yet (used by the start scripts).',
         )
+        parser.add_argument(
+            '--with-admin',
+            action='store_true',
+            help=(
+                'Give the demo account full admin access so every backend screen '
+                'can be shown in a demo (local preview only).'
+            ),
+        )
+        parser.add_argument(
+            '--force-demo',
+            action='store_true',
+            help='Seed the demo accounts even when DEBUG is off (never do this on a public site).',
+        )
 
     def handle(self, *args, **options):
         if options['if_empty'] and Book.objects.exists():
             self.stdout.write('Database already has books — skipping demo seeding.')
+            return
+
+        # A live site must never get accounts whose password is printed in the
+        # README. Categories are harmless and needed by the sell form, so those
+        # are still created.
+        if not settings.DEBUG and not options['force_demo']:
+            created = 0
+            for name in CATEGORIES:
+                _, was_created = Category.objects.get_or_create(name=name)
+                created += int(was_created)
+            self.stdout.write(self.style.WARNING(
+                'DEBUG is off — demo accounts were NOT created (public password). '
+                f'Ensured {created} categories. Create your own admin with '
+                '`python manage.py createsuperuser`, or run this command with '
+                '--force-demo for a private staging site.'
+            ))
             return
 
         random.seed(7)
@@ -221,8 +263,30 @@ class Command(BaseCommand):
             profile.location = spec['location']
             profile.telegram_username = spec['telegram']
             profile.contact_preference = spec['preference']
-            profile.account_privacy = 'private'
+            # demo stays private (first name + hidden area), priya is public,
+            # so the two modes can be compared side by side in the preview.
+            profile.account_privacy = 'public' if spec['username'] == 'priya' else 'private'
             profile.save()
+            if spec['username'] == 'demo' and options['with_admin']:
+                # Local preview / demo only. A live site never seeds demo
+                # accounts at all (see the DEBUG guard above), so this stays a
+                # presentation account that can open every backend screen.
+                from django.contrib.auth.models import Permission
+
+                user.is_staff = True
+                user.is_superuser = True
+                user.save(update_fields=['is_staff', 'is_superuser'])
+                user.user_permissions.set(
+                    Permission.objects.filter(
+                        content_type__app_label__in=['books', 'accounts', 'auth'],
+                        content_type__model__in=[
+                            'book', 'report', 'category', 'bookimage',
+                            'sellerreview', 'userblock', 'chatmessage',
+                            'bookrequest', 'userprofile', 'notification',
+                            'user', 'group',
+                        ],
+                    )
+                )
             users[spec['username']] = user
 
         media_root = Path(settings.MEDIA_ROOT) / 'book_images'
@@ -267,6 +331,7 @@ class Command(BaseCommand):
         demo = users['demo']
         arjun = users['arjun']
         priya = users['priya']
+        rahul = users['rahul']
         hv1 = books['Concepts of Physics — Volume 1']
         anatomy = books["Gray's Anatomy for Students"]
 
@@ -306,20 +371,117 @@ class Command(BaseCommand):
             user=demo,
             book_title='Organic Chemistry — Morrison & Boyd',
             category='NEET',
-            location='Kothapeta, Dhone',
-            notes='Need the 7th edition. Budget around ₹300. Can pick up in Dhone or Kurnool.',
+            location='Madhapur, Hyderabad',
+            notes='Need the 7th edition. Budget around ₹300. Can pick up anywhere in Hyderabad.',
         )
         BookRequest.objects.create(
             user=demo,
             book_title='Operating Systems — Galvin',
             category='Engineering',
-            location='Kothapeta, Dhone',
+            location='Madhapur, Hyderabad',
             notes='Any recent edition is fine, even with highlights.',
             status='fulfilled',
         )
 
+        # ---- Trust & safety demo data: a few honest reviews so the badges show ----
+        SellerReview.objects.filter(seller__username__in=['demo', 'arjun', 'priya']).delete()
+        demo_books = list(Book.objects.filter(seller=demo))
+        if demo_books:
+            SellerReview.objects.create(
+                reviewer=priya, seller=demo, book=demo_books[0],
+                rating=5,
+                comment='Very responsive and the book was exactly as described. Smooth pickup near the metro.',
+            )
+            SellerReview.objects.create(
+                reviewer=arjun, seller=demo, book=demo_books[-1],
+                rating=5,
+                comment='Genuine seller. Kept the book aside for me and replied within minutes.',
+            )
+            SellerReview.objects.create(
+                reviewer=rahul, seller=demo, book=demo_books[0],
+                rating=4,
+                comment='Good condition, fair price. Would buy again.',
+            )
+            SellerReview.invalidate_summary(demo.pk)
+
+        arjun_books = list(Book.objects.filter(seller=arjun))
+        if arjun_books:
+            SellerReview.objects.create(
+                reviewer=demo, seller=arjun, book=arjun_books[0],
+                rating=4,
+                comment='Slightly worn cover but all pages intact — good deal for the price.',
+            )
+            SellerReview.invalidate_summary(arjun.pk)
+
+        # ---- Phase 3 demo notifications for the demo account ----
+        Notification.objects.filter(recipient=demo).delete()
+        if demo_books:
+            Notification.objects.create(
+                recipient=demo,
+                actor=priya,
+                book=demo_books[0],
+                kind=Notification.KIND_PRICE_DROP,
+                title=f'Price drop: {demo_books[0].title}',
+                body='A book on your wishlist just got cheaper.',
+                url=f'/books/{demo_books[0].pk}/',
+            )
+            Notification.objects.create(
+                recipient=demo,
+                actor=arjun,
+                kind=Notification.KIND_REVIEW,
+                title='New 5-star review ★★★★★',
+                body='Genuine seller. Kept the book aside for me and replied within minutes.',
+                url='/accounts/profile/',
+            )
+
+        # ---- Wishlists, a report and an AI usage log so every backend table
+        #      has something to show during a demo. All of it is local-only
+        #      demo data (a live site never seeds any of this). ----
+        Wishlist.objects.filter(user__username__in=['demo', 'priya', 'rahul']).delete()
+        sample_books = list(Book.objects.filter(is_sold=False, is_hidden=False)[:8])
+        for index, book in enumerate(sample_books):
+            if book.seller_id == demo.pk:
+                continue
+            buyer = [priya, rahul, demo][index % 3]
+            if buyer.pk != book.seller_id:
+                Wishlist.objects.get_or_create(user=buyer, book=book)
+
+        Report.objects.filter(reporter__username__in=['arjun', 'priya', 'rahul']).delete()
+        report_target = next((b for b in sample_books if b.seller_id != arjun.pk), None)
+        if report_target:
+            Report.objects.get_or_create(
+                book=report_target,
+                reporter=arjun,
+                defaults={
+                    'reason': 'wrong_price',
+                    'details': 'Price looks higher than the printed MRP — please check.',
+                },
+            )
+
+        from ai_engine.models import AIEvent
+
+        AIEvent.objects.all().delete()
+        ai_samples = [
+            (AIEvent.KIND_PRICE, {'category': 'comparables', 'sample': 6}),
+            (AIEvent.KIND_PRICE, {'category': 'comparables', 'sample': 4}),
+            (AIEvent.KIND_PRICE, {'category': 'mrp', 'sample': 0}),
+            (AIEvent.KIND_DESCRIBE, {}),
+            (AIEvent.KIND_DESCRIBE, {}),
+            (AIEvent.KIND_CLASSIFY, {'results': 3}),
+            (AIEvent.KIND_CLASSIFY, {'results': 3}),
+            (AIEvent.KIND_SEARCH, {'query': 'neet under 300', 'count': 2}),
+            (AIEvent.KIND_SEARCH, {'query': 'free novels', 'count': 1}),
+            (AIEvent.KIND_RISK, {'level': 'low', 'score': 8}),
+            (AIEvent.KIND_RISK, {'level': 'medium', 'score': 34}),
+            (AIEvent.KIND_RISK, {'level': 'high', 'score': 70}),
+        ]
+        for kind, payload in ai_samples:
+            AIEvent.objects.create(kind=kind, user=demo, payload=payload)
+
         self.stdout.write(self.style.SUCCESS(
             f'Demo data ready: {len(users)} users, {Book.objects.count()} books, '
-            f'{ChatMessage.objects.count()} chat messages, {BookRequest.objects.count()} requests.'
+            f'{ChatMessage.objects.count()} chat messages, {BookRequest.objects.count()} requests, '
+            f'{SellerReview.objects.count()} reviews, {Wishlist.objects.count()} wishlists, '
+            f'{Report.objects.count()} reports, {AIEvent.objects.count()} AI events.'
         ))
         self.stdout.write('Sign in with demo / bookbridge123 (or arjun, priya, rahul — same password).')

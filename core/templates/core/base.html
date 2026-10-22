@@ -4,6 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}BookBridge - Buy & Sell Books Nearby{% endblock %}</title>
+
+    <!-- SEO / social sharing -->
+    <meta name="description" content="{% block meta_description %}Buy and sell second-hand books with students near you. Phone numbers stay private — chat in-app or on Telegram.{% endblock %}">
+    <meta name="theme-color" content="#0284c7">
+    <meta property="og:site_name" content="BookBridge">
+    <meta property="og:type" content="{% block og_type %}website{% endblock %}">
+    <meta property="og:title" content="{% block og_title %}BookBridge — buy, sell and share books nearby{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}Second-hand books from students near you. Private by design.{% endblock %}">
+    <meta property="og:url" content="{{ request.build_absolute_uri }}">
+    <meta property="og:image" content="{% block og_image %}{{ request.scheme }}://{{ request.get_host }}/static/icons/icon-512.png{% endblock %}">
+    <meta name="twitter:card" content="summary_large_image">
+
+    <!-- PWA / installable app -->
+    <link rel="manifest" href="{% url 'core:manifest' %}">
+    <link rel="icon" type="image/png" href="/static/icons/favicon.png">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="BookBridge">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -361,8 +380,15 @@
         }
         .bb-book-card:hover .bb-card-img-wrap img { transform: scale(1.03); }
 
+        .card-heart-form {
+            margin: 0;
+            padding: 0;
+            line-height: 0;
+        }
         .card-heart-btn {
             position: absolute;
+            padding: 0;
+            cursor: pointer;
             top: 8px;
             right: 8px;
             width: 34px;
@@ -942,6 +968,55 @@
             margin-top: 4px;
         }
 
+        /* ===== FLASH MESSAGES (toast stack) ===== */
+        .bb-toast-stack {
+            position: fixed;
+            top: 14px;
+            right: 16px;
+            z-index: 2100;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: min(430px, calc(100vw - 32px));
+            pointer-events: none;
+        }
+        .bb-toast {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            background: #0c4a6e;
+            color: #ffffff;
+            padding: 13px 14px;
+            border-radius: 14px;
+            box-shadow: 0 14px 34px rgba(15, 23, 42, 0.24);
+            font-size: 0.9rem;
+            font-weight: 600;
+            line-height: 1.45;
+            pointer-events: auto;
+            animation: bbToastIn 0.25s ease;
+        }
+        .bb-toast i { font-size: 1.05rem; margin-top: 1px; }
+        .bb-toast span { flex: 1; }
+        .bb-toast-success { background: #065f46; }
+        .bb-toast-error { background: #991b1b; }
+        .bb-toast-warning { background: #92400e; }
+        .bb-toast-info { background: #0c4a6e; }
+        .bb-toast-close {
+            background: none;
+            border: 0;
+            color: inherit;
+            opacity: 0.75;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+            padding: 0 2px;
+        }
+        .bb-toast-close:hover { opacity: 1; }
+        @keyframes bbToastIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         /* ===== BOTTOM NAV ===== */
         .bb-bottom-nav {
             position: fixed;
@@ -1121,6 +1196,10 @@
 
         <div class="bb-top-actions">
             {% if user.is_authenticated %}
+                <a href="{% url 'accounts:notifications' %}" class="bb-icon-btn" title="Notifications" aria-label="Notifications">
+                    <i class="bi bi-bell-fill"></i>
+                    {% if unread_notification_count %}<span class="bb-unread-dot">{{ unread_notification_count }}</span>{% endif %}
+                </a>
                 <a href="{% url 'accounts:messages' %}" class="bb-icon-btn" title="Messages" aria-label="Messages">
                     <i class="bi bi-chat-dots-fill"></i>
                     {% if unread_message_count %}<span class="bb-unread-dot">{{ unread_message_count }}</span>{% endif %}
@@ -1135,6 +1214,18 @@
         </div>
     </header>
 
+    {% if messages %}
+    <div class="bb-toast-stack" id="bbToastStack">
+        {% for message in messages %}
+        <div class="bb-toast bb-toast-{{ message.tags|default:'info' }}" role="status">
+            <i class="bi {% if message.tags == 'success' %}bi-check-circle-fill{% elif message.tags == 'error' %}bi-x-octagon-fill{% elif message.tags == 'warning' %}bi-exclamation-triangle-fill{% else %}bi-info-circle-fill{% endif %}"></i>
+            <span>{{ message }}</span>
+            <button type="button" class="bb-toast-close" aria-label="Dismiss" onclick="this.parentElement.remove()">&times;</button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     {% block content %}{% endblock %}
 
     <!-- Bottom Navigation Bar (kept on every screen size) -->
@@ -1143,7 +1234,7 @@
             <i class="bi bi-house-door-fill"></i>
             <span>Home</span>
         </a>
-        <a href="{% url 'books:wishlist' %}" class="bb-nav-item {% if '/wishlist/' in request.path %}active{% endif %}">
+        <a href="{% url 'books:my_listings' %}" class="bb-nav-item {% if '/books/my/' in request.path or '/wishlist/' in request.path %}active{% endif %}">
             <i class="bi bi-book-half"></i>
             <span>My Books</span>
         </a>
@@ -1184,7 +1275,7 @@
                 <form method="GET" action="{% url 'books:book_list' %}">
                     <div class="mb-3">
                         <label class="form-label small fw-semibold">Location / Area</label>
-                        <input type="text" name="location" class="form-control rounded-3" placeholder="e.g. Kothapeta, Dhone" value="Kothapeta, Dhone">
+                        <input type="text" name="location" class="form-control rounded-3" placeholder="e.g. Madhapur, Hyderabad" value="{{ user.profile.location|default:'' }}">
                     </div>
                     <button type="submit" class="btn btn-primary w-100 rounded-pill py-2 fw-bold" style="background:#0284c7; border:none;">
                         Set Location
@@ -1197,6 +1288,66 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+    // Flash messages fade away on their own, but stay long enough to read.
+    (function () {
+        var stack = document.getElementById('bbToastStack');
+        if (!stack) { return; }
+        setTimeout(function () {
+            stack.querySelectorAll('.bb-toast').forEach(function (toast) {
+                toast.style.transition = 'opacity .4s';
+                toast.style.opacity = '0';
+                setTimeout(function () { toast.remove(); }, 420);
+            });
+        }, 6000);
+    })();
+
+    // ---- shared helpers used by more than one page ----
+
+    // Small toast, reusable from any inline handler.
+    function bbToast(message, variant) {
+        var stack = document.getElementById('bbToastStack');
+        if (!stack) {
+            stack = document.createElement('div');
+            stack.id = 'bbToastStack';
+            stack.className = 'bb-toast-stack';
+            document.body.appendChild(stack);
+        }
+        var node = document.createElement('div');
+        node.className = 'bb-toast bb-toast-' + (variant || 'info');
+        node.setAttribute('role', 'status');
+        node.innerHTML = '<i class="bi bi-info-circle-fill"></i><span></span>'
+            + '<button type="button" class="bb-toast-close" aria-label="Dismiss">&times;</button>';
+        node.querySelector('span').textContent = message;
+        node.querySelector('.bb-toast-close').addEventListener('click', function () { node.remove(); });
+        stack.appendChild(node);
+        setTimeout(function () {
+            node.style.transition = 'opacity .4s';
+            node.style.opacity = '0';
+            setTimeout(function () { node.remove(); }, 420);
+        }, 5000);
+    }
+
+    // Native share sheet, with a clipboard fallback on desktop browsers.
+    function shareBookBridge() {
+        var payload = {
+            title: 'BookBridge — buy, sell and share books nearby',
+            text: 'Second-hand books from students near you. Phone numbers stay private.',
+            url: window.location.origin
+        };
+        if (navigator.share) {
+            navigator.share(payload).catch(function () {});
+            return;
+        }
+        var done = function () { bbToast('Link copied — share it with friends!', 'success'); };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(payload.url).then(done).catch(function () {
+                bbToast('Copy this link: ' + payload.url);
+            });
+        } else {
+            bbToast('Share this link: ' + payload.url);
+        }
+    }
+
     function openLocationModal() {
         const modalEl = document.getElementById('locationModal');
         if (modalEl && window.bootstrap) {

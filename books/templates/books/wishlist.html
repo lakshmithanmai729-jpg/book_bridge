@@ -1,4 +1,5 @@
 {% extends 'core/base.html' %}
+{% load book_extras %}
 {% block title %}My Favourites - BookBridge{% endblock %}
 
 {% block content %}
@@ -20,22 +21,25 @@
                     <div class="bb-card-img-wrap">
                         <a href="{% url 'books:book_detail' item.book.pk %}">
                             {% if item.book.image %}
-                                <img src="{{ item.book.image.url }}" alt="{{ item.book.title }}">
+                                <img src="{{ item.book.image|thumb:400 }}" alt="{{ item.book.title }}">
                             {% else %}
                                 <div class="d-flex align-items-center justify-content-center h-100 bg-light text-center p-2">
                                     <span class="text-muted fw-bold small">📖 {{ item.book.title|truncatechars:20 }}</span>
                                 </div>
                             {% endif %}
                         </a>
-                        <a href="{% url 'books:wishlist_toggle' item.book.pk %}" class="card-heart-btn active" title="Remove from wishlist">
-                            <i class="bi bi-heart-fill text-danger"></i>
-                        </a>
+                        <form method="post" action="{% url 'books:wishlist_toggle' item.book.pk %}" class="card-heart-form">
+                            {% csrf_token %}
+                            <button type="submit" class="card-heart-btn active" title="Remove from wishlist" aria-label="Remove from wishlist">
+                                <i class="bi bi-heart-fill text-danger"></i>
+                            </button>
+                        </form>
                     </div>
 
                     <div class="bb-price-meta">
                         <span class="bb-price">₹ {{ item.book.price|floatformat:0 }}</span>
                         <span class="bb-distance-pill">
-                            <i class="bi bi-geo-alt-fill"></i> &lt; 100 m
+                            <i class="bi bi-geo-alt-fill"></i> {{ item.book.location_area|default:item.book.location_city|default:"Nearby"|truncatechars:14 }}
                         </span>
                     </div>
 

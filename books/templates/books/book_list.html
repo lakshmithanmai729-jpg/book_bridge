@@ -1,4 +1,5 @@
 {% extends 'core/base.html' %}
+{% load book_extras %}
 {% block title %}Explore Books - BookBridge{% endblock %}
 
 {% block content %}
@@ -6,19 +7,57 @@
     <div class="bb-page-head justify-content-between flex-wrap">
         <div>
             <h1>Explore Books Nearby</h1>
-            <small class="text-muted">{{ books.count }} book{{ books.count|pluralize }} available around your location</small>
+            <small class="text-muted">
+                {{ result_count }} book{{ result_count|pluralize }} available
+                {% if page_obj.paginator.num_pages > 1 %}
+                    · page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                {% endif %}
+            </small>
         </div>
         <button type="button" class="btn btn-outline-dark btn-sm rounded-pill px-3 fw-semibold" onclick="openLocationModal()">
             <i class="bi bi-geo-alt-fill text-danger"></i> Update Location
         </button>
     </div>
 
-    <!-- Search -->
-    <form action="{% url 'books:book_list' %}" method="GET" class="bb-search-box mb-3" style="max-width:640px;">
-        <i class="bi bi-search text-muted fs-5"></i>
-        <input type="text" name="q" placeholder="Search by title, author, city or pincode" value="{{ request.GET.q }}">
-        <button type="submit" class="bb-btn bb-btn-primary bb-btn-sm">Search</button>
+    <!-- Search + filters -->
+    <form action="{% url 'books:book_list' %}" method="GET" class="filter-bar">
+        <div class="bb-search-box">
+            <i class="bi bi-search text-muted fs-5"></i>
+            <input type="text" name="q" placeholder="Search by title, author, city or pincode" value="{{ request.GET.q }}">
+        </div>
+
+        <select name="category" class="filter-select">
+            <option value="">All categories</option>
+            {% for cat in categories %}
+                <option value="{{ cat.id }}" {% if request.GET.category == cat.id|stringformat:'s' %}selected{% endif %}>{{ cat.name }}</option>
+            {% endfor %}
+        </select>
+
+        <select name="condition" class="filter-select">
+            <option value="">Any condition</option>
+            {% for value, label in conditions %}
+                <option value="{{ value }}" {% if request.GET.condition == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+
+        <select name="sort" class="filter-select">
+            <option value="">Newest first</option>
+            <option value="price_low" {% if request.GET.sort == 'price_low' %}selected{% endif %}>Price: low to high</option>
+            <option value="price_high" {% if request.GET.sort == 'price_high' %}selected{% endif %}>Price: high to low</option>
+            <option value="oldest" {% if request.GET.sort == 'oldest' %}selected{% endif %}>Oldest first</option>
+        </select>
+
+        <button type="submit" class="bb-btn bb-btn-primary"><i class="bi bi-funnel"></i> Filter</button>
     </form>
+
+    {% if active_filters %}
+        <div class="active-filter-bar">
+            {% for f in active_filters %}
+                <span class="bb-chip blue">{{ f.label }}: {{ f.value }}</span>
+            {% endfor %}
+            <a href="{% url 'books:book_list' %}" class="bb-chip red"><i class="bi bi-x-lg"></i> Clear all</a>
+        </div>
+    {% endif %}
 
     <!-- Category chips -->
     <div class="bb-chip-row ps-0 pe-0">
@@ -30,19 +69,18 @@
                 {{ cat.name }}
             </a>
         {% endfor %}
-        <a href="{% url 'books:book_list' %}?sort=price_low" class="btn btn-outline-secondary"><i class="bi bi-tags"></i> Price: low to high</a>
-        <a href="{% url 'books:book_list' %}?sort=newest" class="btn btn-outline-secondary"><i class="bi bi-clock"></i> Newest</a>
+        <a href="{% url 'books:book_list' %}?free=1" class="btn btn-outline-secondary"><i class="bi bi-gift"></i> Free books</a>
     </div>
 
     <!-- Responsive full-width grid -->
-    <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 row-cols-xxl-6 g-3 g-lg-4 mb-5">
+    <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 row-cols-xxl-6 g-3 g-lg-4 mb-4">
         {% for book in books %}
             <div class="col">
                 <div class="bb-book-card w-100">
                     <div class="bb-card-img-wrap">
                         <a href="{% url 'books:book_detail' book.pk %}">
                             {% if book.image %}
-                                <img src="{{ book.image.url }}" alt="{{ book.title }}">
+                                <img src="{{ book.image|thumb:400 }}" alt="{{ book.title }}" loading="lazy">
                             {% else %}
                                 <div class="d-flex align-items-center justify-content-center h-100 bg-light text-center p-2">
                                     <span class="text-muted fw-bold small">📖 {{ book.title|truncatechars:20 }}</span>
@@ -50,21 +88,28 @@
                             {% endif %}
                         </a>
 
+                        {% if book.is_donation %}
+                            <span class="bb-chip green" style="position:absolute; top:8px; left:8px;"><i class="bi bi-gift-fill"></i> Free</span>
+                        {% endif %}
+
                         {% if user.is_authenticated %}
-                            <a href="{% url 'books:wishlist_toggle' book.pk %}" class="card-heart-btn" title="Save">
-                                <i class="bi {% if book.id in wishlist_ids %}bi-heart-fill text-danger{% else %}bi-heart text-primary{% endif %}"></i>
-                            </a>
+                            <form method="post" action="{% url 'books:wishlist_toggle' book.pk %}" class="card-heart-form">
+                                {% csrf_token %}
+                                <button type="submit" class="card-heart-btn" title="Save" aria-label="Save">
+                                    <i class="bi {% if book.id in wishlist_ids %}bi-heart-fill text-danger{% else %}bi-heart text-primary{% endif %}"></i>
+                                </button>
+                            </form>
                         {% else %}
-                            <a href="{% url 'accounts:login' %}" class="card-heart-btn" title="Save">
+                            <a href="{% url 'accounts:login' %}?next={{ request.get_full_path|urlencode }}" class="card-heart-btn" title="Save">
                                 <i class="bi bi-heart text-primary"></i>
                             </a>
                         {% endif %}
                     </div>
 
                     <div class="bb-price-meta">
-                        <span class="bb-price">₹ {{ book.price|floatformat:0 }}</span>
+                        <span class="bb-price">{% if book.is_donation %}FREE{% else %}₹ {{ book.price|floatformat:0 }}{% endif %}</span>
                         <span class="bb-distance-pill">
-                            <i class="bi bi-geo-alt-fill"></i> &lt; 100 m
+                            <i class="bi bi-geo-alt-fill"></i> {{ book.location_area|default:"Nearby"|truncatechars:14 }}
                         </span>
                     </div>
 
@@ -88,5 +133,75 @@
             </div>
         {% endfor %}
     </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+        <nav class="mb-5" aria-label="Pagination">
+            <ul class="pagination bb-pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{{ query_without_page }}{% if query_without_page %}&{% endif %}page={{ page_obj.previous_page_number }}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                {% endif %}
+
+                {% for num in page_obj.paginator.page_range %}
+                    {% if num == page_obj.number %}
+                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{{ query_without_page }}{% if query_without_page %}&{% endif %}page={{ num }}">{{ num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{{ query_without_page }}{% if query_without_page %}&{% endif %}page={{ page_obj.next_page_number }}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+    {% endif %}
 </div>
+
+<style>
+    .filter-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 14px;
+    }
+    .filter-bar .bb-search-box { flex: 1 1 260px; min-width: 220px; }
+    .filter-select {
+        border: 1px solid #cbd5e1;
+        border-radius: 14px;
+        padding: 11px 14px;
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: #0f172a;
+        background: #fff;
+        outline: none;
+        max-width: 210px;
+    }
+    .filter-select:focus { border-color: #0284c7; box-shadow: 0 0 0 3px rgba(2,132,199,.13); }
+    .active-filter-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .bb-pagination .page-link {
+        border: 1px solid #e2e8f0;
+        color: #0f172a;
+        font-weight: 700;
+        border-radius: 10px;
+        margin: 0 3px;
+        padding: 8px 14px;
+    }
+    .bb-pagination .page-item.active .page-link {
+        background: #0284c7;
+        border-color: #0284c7;
+        color: #fff;
+    }
+</style>
 {% endblock %}

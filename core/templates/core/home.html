@@ -1,13 +1,53 @@
 {% extends 'core/base.html' %}
-{% block title %}BookBridge - Buy & Sell Books Nearby{% endblock %}
+{% load book_extras %}
+{% block title %}BookBridge - Buy & Sell Books Nearby
+<script>
+    // Voice search — only shown when the browser actually supports it.
+    (function () {
+        var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        var button = document.getElementById('bbVoiceBtn');
+        var input = document.getElementById('bbSearchInput');
+        if (!SpeechRecognition || !button || !input) { return; }
+
+        button.classList.remove('d-none');
+        var recognition = new SpeechRecognition();
+        recognition.lang = 'en-IN';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        button.addEventListener('click', function () {
+            try {
+                button.classList.add('text-primary');
+                recognition.start();
+            } catch (error) {
+                recognition.stop();
+            }
+        });
+        recognition.addEventListener('result', function (event) {
+            input.value = event.results[0][0].transcript;
+            input.form.submit();
+        });
+        recognition.addEventListener('end', function () {
+            button.classList.remove('text-primary');
+        });
+        recognition.addEventListener('error', function () {
+            button.classList.remove('text-primary');
+        });
+    })();
+</script>
+{% endblock %}
 
 {% block content %}
 <!-- Top Floating Search Row (Exact match to Screenshot) -->
 <div class="bb-search-chat-row">
     <form action="{% url 'books:book_list' %}" method="GET" class="bb-search-box">
         <i class="bi bi-search text-muted fs-5"></i>
-        <input type="text" name="q" placeholder="Class 12 books" value="{{ request.GET.q }}">
-        <i class="bi bi-mic text-muted fs-5"></i>
+        <input type="text" name="q" id="bbSearchInput" placeholder="Search books, authors, class 12…"
+               value="{{ request.GET.q }}" autocomplete="off">
+        <button type="button" id="bbVoiceBtn" class="btn btn-sm p-0 border-0 bg-transparent d-none"
+                title="Search by voice" aria-label="Search by voice">
+            <i class="bi bi-mic-fill text-muted fs-5"></i>
+        </button>
     </form>
     <a href="{% url 'accounts:messages' %}" class="bb-chat-btn" title="Messages">
         <i class="bi bi-chat-dots-fill"></i>
@@ -16,20 +56,32 @@
 </div>
 
 <div class="bb-quick-actions">
-    <a href="{% url 'books:book_list' %}?location=Kothapeta" class="bb-action-pill primary">
-        <i class="bi bi-geo-alt-fill"></i> Near me
-    </a>
-    <a href="{% url 'books:book_list' %}?sort=price_low" class="bb-action-pill success">
+    {% if my_area %}
+        <a href="{% url 'books:book_list' %}?location={{ my_area|urlencode }}" class="bb-action-pill primary">
+            <i class="bi bi-geo-alt-fill"></i> Near me
+        </a>
+    {% else %}
+        <button type="button" class="bb-action-pill primary" onclick="openLocationModal()">
+            <i class="bi bi-geo-alt-fill"></i> Set your area
+        </button>
+    {% endif %}
+    <a href="{% url 'books:book_list' %}?max_price=300" class="bb-action-pill success">
         <i class="bi bi-tags-fill"></i> Under ₹300
     </a>
-    <a href="{% url 'books:book_list' %}?q=Fiction" class="bb-action-pill">
-        <i class="bi bi-book-half"></i> Fiction
+    <a href="{% url 'books:book_list' %}?free=1" class="bb-action-pill">
+        <i class="bi bi-gift-fill"></i> Free books
+    </a>
+    <a href="{% url 'books:book_list' %}?category={{ novels_category_id|default:'' }}" class="bb-action-pill">
+        <i class="bi bi-book-half"></i> Novels
     </a>
     <a href="{% url 'books:book_add' %}" class="bb-action-pill">
         <i class="bi bi-plus-circle-fill"></i> Sell yours
     </a>
     <a href="{% url 'accounts:request_book' %}" class="bb-action-pill">
         <i class="bi bi-search-heart"></i> Request a book
+    </a>
+    <a href="{% url 'ai_engine:hub' %}" class="bb-action-pill" style="background:#f5f3ff; color:#5b21b6; border-color:#ddd6fe;">
+        <i class="bi bi-stars"></i> Ask AI
     </a>
 </div>
 
@@ -53,7 +105,7 @@
             <div class="bb-card-img-wrap">
                 <a href="{% url 'books:book_detail' book.pk %}">
                     {% if book.image %}
-                        <img src="{{ book.image.url }}" alt="{{ book.title }}">
+                        <img src="{{ book.image|thumb:400 }}" alt="{{ book.title }}">
                     {% else %}
                         <div class="d-flex align-items-center justify-content-center h-100 bg-light text-center p-2">
                             <span class="text-muted fw-bold small">📖 {{ book.title|truncatechars:18 }}</span>
@@ -63,9 +115,12 @@
                 
                 <!-- Wishlist Heart Button -->
                 {% if user.is_authenticated %}
-                    <a href="{% url 'books:wishlist_toggle' book.pk %}" class="card-heart-btn">
-                        <i class="bi {% if book.id in wishlist_ids %}bi-heart-fill text-danger{% else %}bi-heart text-primary{% endif %}"></i>
-                    </a>
+                    <form method="post" action="{% url 'books:wishlist_toggle' book.pk %}" class="card-heart-form">
+                        {% csrf_token %}
+                        <button type="submit" class="card-heart-btn" title="Save" aria-label="Save">
+                            <i class="bi {% if book.id in wishlist_ids %}bi-heart-fill text-danger{% else %}bi-heart text-primary{% endif %}"></i>
+                        </button>
+                    </form>
                 {% else %}
                     <a href="{% url 'accounts:login' %}" class="card-heart-btn">
                         <i class="bi bi-heart text-primary"></i>
@@ -77,7 +132,7 @@
             <div class="bb-price-meta">
                 <span class="bb-price-val">₹ {{ book.price|floatformat:0 }}</span>
                 <span class="bb-distance-tag">
-                    <i class="bi bi-geo-alt-fill"></i> &lt; 100 m
+                    <i class="bi bi-geo-alt-fill"></i> {{ book.location_area|default:book.location_city|default:"Nearby"|truncatechars:14 }}
                 </span>
             </div>
 
@@ -171,6 +226,41 @@
     </a>
 </div>
 
+<!-- AI picks for you (personalised, with the reason on every card) -->
+{% if ai_picks %}
+<div class="bb-section-header">
+    <h3 class="bb-section-title"><i class="bi bi-stars" style="color:#7c3aed;"></i> AI picks for you</h3>
+    <a href="{% url 'ai_engine:hub' %}" class="bb-section-arrow" aria-label="Open BookBridge AI">
+        <i class="bi bi-arrow-right fs-4"></i>
+    </a>
+</div>
+<div class="bb-h-scroll">
+    {% for item in ai_picks %}
+        <div class="bb-book-card">
+            <div class="bb-card-img-wrap">
+                <a href="{% url 'books:book_detail' item.book.pk %}">
+                    {% if item.book.image %}
+                        <img src="{{ item.book.image|thumb:400 }}" alt="{{ item.book.title }}">
+                    {% else %}
+                        <div class="d-flex align-items-center justify-content-center h-100 bg-light text-center p-2">
+                            <span class="text-muted fw-bold small">📖 {{ item.book.title|truncatechars:18 }}</span>
+                        </div>
+                    {% endif %}
+                </a>
+            </div>
+            <div class="bb-price-meta">
+                <span class="bb-price-val">{% if item.book.is_donation %}FREE{% else %}₹ {{ item.book.price|floatformat:0 }}{% endif %}</span>
+                <span class="bb-distance-tag"><i class="bi bi-geo-alt-fill"></i> {{ item.book.location_area|default:item.book.location_city|default:"Nearby"|truncatechars:12 }}</span>
+            </div>
+            <a href="{% url 'books:book_detail' item.book.pk %}" class="text-decoration-none">
+                <p class="bb-book-name" title="{{ item.book.title }}">{{ item.book.title }}</p>
+            </a>
+            <small class="text-muted" style="font-size:.7rem;"><i class="bi bi-stars" style="color:#7c3aed;"></i> {{ item.reason }}</small>
+        </div>
+    {% endfor %}
+</div>
+{% endif %}
+
 <!-- Section 5: Recently Viewed -->
 <div class="bb-section-header">
     <h3 class="bb-section-title">Recently Viewed</h3>
@@ -185,7 +275,7 @@
             <div class="bb-card-img-wrap">
                 <a href="{% url 'books:book_detail' book.pk %}">
                     {% if book.image %}
-                        <img src="{{ book.image.url }}" alt="{{ book.title }}">
+                        <img src="{{ book.image|thumb:400 }}" alt="{{ book.title }}">
                     {% else %}
                         <div class="d-flex align-items-center justify-content-center h-100 bg-light text-center p-2">
                             <span class="text-muted fw-bold small">📖 {{ book.title|truncatechars:18 }}</span>
@@ -193,9 +283,12 @@
                     {% endif %}
                 </a>
                 {% if user.is_authenticated %}
-                    <a href="{% url 'books:wishlist_toggle' book.pk %}" class="card-heart-btn">
-                        <i class="bi {% if book.id in wishlist_ids %}bi-heart-fill text-danger{% else %}bi-heart text-primary{% endif %}"></i>
-                    </a>
+                    <form method="post" action="{% url 'books:wishlist_toggle' book.pk %}" class="card-heart-form">
+                        {% csrf_token %}
+                        <button type="submit" class="card-heart-btn" title="Save" aria-label="Save">
+                            <i class="bi {% if book.id in wishlist_ids %}bi-heart-fill text-danger{% else %}bi-heart text-primary{% endif %}"></i>
+                        </button>
+                    </form>
                 {% else %}
                     <a href="{% url 'accounts:login' %}" class="card-heart-btn">
                         <i class="bi bi-heart text-primary"></i>
@@ -206,7 +299,7 @@
             <div class="bb-price-meta">
                 <span class="bb-price-val">₹ {{ book.price|floatformat:0 }}</span>
                 <span class="bb-distance-tag">
-                    <i class="bi bi-geo-alt-fill"></i> &lt; 100 m
+                    <i class="bi bi-geo-alt-fill"></i> {{ book.location_area|default:book.location_city|default:"Nearby"|truncatechars:14 }}
                 </span>
             </div>
 
@@ -231,7 +324,7 @@
             <div class="bb-card-img-wrap">
                 <a href="{% url 'books:book_detail' book.pk %}">
                     {% if book.image %}
-                        <img src="{{ book.image.url }}" alt="{{ book.title }}">
+                        <img src="{{ book.image|thumb:400 }}" alt="{{ book.title }}">
                     {% else %}
                         <div class="d-flex align-items-center justify-content-center h-100 bg-light text-center p-2">
                             <span class="text-muted fw-bold small">📖 {{ book.title|truncatechars:18 }}</span>
@@ -239,9 +332,12 @@
                     {% endif %}
                 </a>
                 {% if user.is_authenticated %}
-                    <a href="{% url 'books:wishlist_toggle' book.pk %}" class="card-heart-btn">
-                        <i class="bi {% if book.id in wishlist_ids %}bi-heart-fill text-danger{% else %}bi-heart text-primary{% endif %}"></i>
-                    </a>
+                    <form method="post" action="{% url 'books:wishlist_toggle' book.pk %}" class="card-heart-form">
+                        {% csrf_token %}
+                        <button type="submit" class="card-heart-btn" title="Save" aria-label="Save">
+                            <i class="bi {% if book.id in wishlist_ids %}bi-heart-fill text-danger{% else %}bi-heart text-primary{% endif %}"></i>
+                        </button>
+                    </form>
                 {% else %}
                     <a href="{% url 'accounts:login' %}" class="card-heart-btn">
                         <i class="bi bi-heart text-primary"></i>
@@ -252,7 +348,7 @@
             <div class="bb-price-meta">
                 <span class="bb-price-val">₹ {{ book.price|floatformat:0 }}</span>
                 <span class="bb-distance-tag">
-                    <i class="bi bi-geo-alt-fill"></i> &lt; 100 m
+                    <i class="bi bi-geo-alt-fill"></i> {{ book.location_area|default:book.location_city|default:"Nearby"|truncatechars:14 }}
                 </span>
             </div>
 
@@ -279,18 +375,4 @@
     </div>
 </div>
 
-<script>
-    function shareBookBridge() {
-        if (navigator.share) {
-            navigator.share({
-                title: 'BookBridge - Buy & Sell Books Nearby',
-                text: 'Join the mission to make books affordable! Check out second-hand books around you on BookBridge.',
-                url: window.location.href,
-            });
-        } else {
-            navigator.clipboard.writeText(window.location.href);
-            alert('BookBridge link copied to clipboard! Share it with friends and family.');
-        }
-    }
-</script>
 {% endblock %}

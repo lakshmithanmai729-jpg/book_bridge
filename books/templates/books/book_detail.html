@@ -1,5 +1,11 @@
 {% extends 'core/base.html' %}
-{% block title %}{{ book.title }} - BookBridge{% endblock %}
+{% load book_extras %}
+{% block title %}{{ book.title }} by {{ book.author }} - BookBridge{% endblock %}
+{% block meta_description %}{{ book.title }} by {{ book.author }}{% if book.is_donation %} — FREE on BookBridge{% else %} — ₹{{ book.price|floatformat:0 }} on BookBridge{% endif %}. {{ book.description|default:"Buy it from a student nearby."|truncatechars:110 }}{% endblock %}
+{% block og_type %}product{% endblock %}
+{% block og_title %}{{ book.title }} — {% if book.is_donation %}FREE{% else %}₹{{ book.price|floatformat:0 }}{% endif %} · BookBridge{% endblock %}
+{% block og_description %}{{ book.title }} by {{ book.author }} in {{ book.location_city|default:book.location_area|default:"your city" }}. {{ book.description|truncatechars:120 }}{% endblock %}
+{% block og_image %}{% if book.image %}{{ request.scheme }}://{{ request.get_host }}{{ book.image.url }}{% else %}{{ block.super }}{% endif %}{% endblock %}
 
 {% block content %}
 <div class="bb-page" style="padding-bottom:16px;">
@@ -16,16 +22,21 @@
         </div>
 
         <div class="d-flex align-items-center gap-2">
-            <button type="button" class="bb-icon-btn" onclick="alert('Thank you. The BookBridge safety team will review this listing.')" title="Report listing" aria-label="Report listing">
-                <i class="bi bi-exclamation-circle"></i>
-            </button>
+            {% if not is_owner %}
+                <a href="{% url 'books:report_book' book.pk %}" class="bb-icon-btn" title="Report listing" aria-label="Report listing">
+                    <i class="bi bi-exclamation-circle{% if already_reported %}-fill text-danger{% endif %}"></i>
+                </a>
+            {% endif %}
             <button type="button" class="bb-icon-btn" onclick="shareListing()" title="Share" aria-label="Share">
                 <i class="bi bi-share"></i>
             </button>
             {% if user.is_authenticated %}
-                <a href="{% url 'books:wishlist_toggle' book.pk %}" class="bb-icon-btn" title="Save to favourites" aria-label="Save to favourites">
-                    <i class="bi bi-heart-fill text-danger"></i>
-                </a>
+                <form method="post" action="{% url 'books:wishlist_toggle' book.pk %}" class="d-inline-flex">
+                    {% csrf_token %}
+                    <button type="submit" class="bb-icon-btn" title="Save to favourites" aria-label="Save to favourites">
+                        <i class="bi bi-heart-fill text-danger"></i>
+                    </button>
+                </form>
             {% else %}
                 <a href="{% url 'accounts:login' %}?next={{ request.path|urlencode }}" class="bb-icon-btn" title="Save to favourites" aria-label="Save to favourites">
                     <i class="bi bi-heart"></i>
@@ -40,9 +51,9 @@
             <div class="bb-panel p-2 p-md-3">
                 <div class="position-relative rounded-4 overflow-hidden" style="background:linear-gradient(135deg,#f0f9ff,#e0f2fe);">
                     {% if book.image %}
-                        <img src="{{ book.image.url }}" alt="{{ book.title }}" style="width:100%; max-height:560px; object-fit:contain; display:block;">
+                        <img src="{{ book.image|thumb:1200 }}" alt="{{ book.title }}" style="width:100%; max-height:560px; object-fit:contain; display:block;">
                     {% elif book.gallery_images %}
-                        <img src="{{ book.gallery_images.0.image.url }}" alt="{{ book.title }}" style="width:100%; max-height:560px; object-fit:contain; display:block;">
+                        <img src="{{ book.gallery_images.0.image|thumb:1200 }}" alt="{{ book.title }}" style="width:100%; max-height:560px; object-fit:contain; display:block;">
                     {% else %}
                         <div class="d-flex flex-column align-items-center justify-content-center" style="height:320px;">
                             <span style="font-size:3.2rem;">📖</span>
@@ -57,7 +68,7 @@
                 {% if book.gallery_images %}
                     <div class="d-flex flex-wrap gap-2 mt-3">
                         {% for image in book.gallery_images %}
-                            <img src="{{ image.image.url }}" alt="{{ book.title }} photo {{ forloop.counter }}" class="rounded-3 border" style="width:78px; height:78px; object-fit:cover;">
+                            <img src="{{ image.image|thumb:800 }}" alt="{{ book.title }} photo {{ forloop.counter }}" class="rounded-3 border" style="width:78px; height:78px; object-fit:cover;">
                         {% endfor %}
                     </div>
                 {% endif %}
@@ -66,6 +77,18 @@
             <div class="bb-panel mt-4">
                 <h2 class="fw-bold mb-1" style="font-size:1.6rem; letter-spacing:-0.4px;">{{ book.title }}</h2>
                 <p class="text-muted mb-3">by <strong class="text-dark">{{ book.author }}</strong></p>
+
+                {% if book.is_sold %}
+                    <div class="alert border-0 rounded-4 fw-semibold d-flex align-items-center gap-2" style="background:#fef2f2; color:#b91c1c;">
+                        <i class="bi bi-bag-check-fill"></i>
+                        This book has been sold{% if book.sold_at %} on {{ book.sold_at|date:"d M Y" }}{% endif %}. It is no longer available.
+                    </div>
+                {% elif book.is_hidden %}
+                    <div class="alert border-0 rounded-4 fw-semibold d-flex align-items-center gap-2" style="background:#fffbeb; color:#b45309;">
+                        <i class="bi bi-eye-slash-fill"></i>
+                        This listing is hidden by moderators and only visible to you.
+                    </div>
+                {% endif %}
 
                 <div class="d-flex flex-wrap gap-2 mb-3">
                     <span class="bb-chip blue"><i class="bi bi-grid-fill"></i> {{ book.category.name|default:"General" }}</span>
@@ -88,7 +111,7 @@
                             <i class="bi bi-geo-alt-fill text-danger fs-5"></i>
                             <div>
                                 <div class="fw-bold text-dark">
-                                    {% if book.location_area %}{{ book.location_area }}{% else %}{{ book.location_city|default:"Kothapeta, Dhone" }}{% endif %}
+                                    {% if book.location_area %}{{ book.location_area }}{% elif book.location_city %}{{ book.location_city }}{% else %}Nearby{% endif %}
                                 </div>
                                 <small class="text-muted">
                                     {% if book.location_city %}{{ book.location_city }}{% endif %}
@@ -96,14 +119,14 @@
                                 </small>
                             </div>
                         </div>
-                        <span class="bb-distance-pill mt-3"><i class="bi bi-geo-alt-fill"></i> &lt; 100 m away</span>
+                        <span class="bb-distance-pill mt-3"><i class="bi bi-geo-alt-fill"></i> {{ book.location_area|default:book.location_city|default:"Nearby"|truncatechars:20 }}</span>
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="bb-panel h-100">
                         <span class="bb-label" style="margin-bottom:6px;">Listing</span>
                         <div class="fw-bold text-dark">Listed {{ book.created_at|date:"d M Y" }}</div>
-                        <small class="text-muted">Listing #{{ book.pk }} · Local pickup</small>
+                        <small class="text-muted">{{ book.views_count }} view{{ book.views_count|pluralize }} · Listing #{{ book.pk }}</small>
                         <div class="mt-3">
                             <span class="bb-chip green"><i class="bi bi-shield-check"></i> Verified seller chat</span>
                         </div>
@@ -159,16 +182,58 @@
             <div class="bb-panel mt-4">
                 <span class="bb-label" style="margin-bottom:10px;">Seller</span>
                 <div class="d-flex align-items-center gap-3">
-                    <div class="bb-avatar lg">{{ book.seller.username|slice:":1"|upper }}</div>
-                    <div style="min-width:0;">
-                        <div class="fw-bold text-dark text-truncate" style="font-size:1.05rem;">
-                            {% if seller_profile and seller_profile.name %}{{ seller_profile.name }}{% else %}{{ book.seller.username }}{% endif %}
+                    <a href="{% url 'accounts:seller_profile' book.seller.pk %}" class="text-decoration-none">
+                        <div class="bb-avatar lg">{{ book.seller.username|slice:":1"|upper }}</div>
+                    </a>
+                    <div style="min-width:0;" class="flex-grow-1">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <a href="{% url 'accounts:seller_profile' book.seller.pk %}" class="fw-bold text-dark text-truncate text-decoration-none" style="font-size:1.05rem;">
+                                {% if seller_profile %}{{ seller_profile.public_name }}{% else %}{{ book.seller.username }}{% endif %}
+                            </a>
+                            {% if seller_profile.is_verified %}
+                                <span class="bb-chip green" style="padding:3px 9px; font-size:0.7rem;" title="Email confirmed">
+                                    <i class="bi bi-patch-check-fill"></i> Verified
+                                </span>
+                            {% endif %}
+                            {% if seller_profile.is_top_seller %}
+                                <span class="bb-chip blue" style="padding:3px 9px; font-size:0.7rem;" title="Top rated seller">
+                                    <i class="bi bi-trophy-fill"></i> Top seller
+                                </span>
+                            {% endif %}
+                        </div>
+                        <div class="d-flex align-items-center gap-1 flex-wrap mt-1">
+                            <span class="text-warning" style="font-size:0.82rem;">
+                                {% for _ in seller_stars.full %}<i class="bi bi-star-fill"></i>{% endfor %}
+                                {% for _ in seller_stars.empty %}<i class="bi bi-star"></i>{% endfor %}
+                            </span>
+                            <small class="text-muted">
+                                {% if seller_rating.count %}
+                                    {{ seller_rating.average }} · {{ seller_rating.count }} review{{ seller_rating.count|pluralize }}
+                                {% else %}
+                                    No reviews yet
+                                {% endif %}
+                            </small>
                         </div>
                         <small class="text-muted d-block">
-                            {% if seller_profile.location %}{{ seller_profile.location }}{% else %}BookBridge member{% endif %}
+                            {% if seller_profile and not seller_profile.shows_location_publicly %}
+                                <i class="bi bi-lock-fill"></i> Private account
+                            {% else %}
+                                {% if seller_profile.location %}{{ seller_profile.location }}{% else %}BookBridge member{% endif %}
+                                · Joined {{ book.seller.date_joined|date:"M Y" }}
+                            {% endif %}
                         </small>
-                        <small class="text-muted">Joined {{ book.seller.date_joined|date:"M Y" }}</small>
                     </div>
+                </div>
+
+                <div class="d-flex flex-wrap gap-2 mt-3">
+                    <a href="{% url 'accounts:seller_profile' book.seller.pk %}" class="bb-btn bb-btn-outline bb-btn-sm">
+                        <i class="bi bi-person-badge"></i> View seller profile
+                    </a>
+                    {% if user.is_authenticated and not is_owner %}
+                        <a href="{% url 'accounts:seller_profile' book.seller.pk %}#reviews" class="bb-btn bb-btn-soft bb-btn-sm">
+                            <i class="bi bi-star"></i> Reviews
+                        </a>
+                    {% endif %}
                 </div>
 
                 <div class="d-flex flex-wrap gap-2 mt-3">
@@ -201,6 +266,13 @@
                 {% if is_owner %}
                     <div class="d-flex flex-wrap gap-2 mt-3">
                         <a href="{% url 'books:book_edit' book.pk %}" class="bb-btn bb-btn-outline bb-btn-sm"><i class="bi bi-pencil-square"></i> Edit listing</a>
+                        <form method="POST" action="{% url 'books:toggle_sold' book.pk %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="next" value="{{ request.path }}">
+                            <button type="submit" class="bb-btn bb-btn-soft bb-btn-sm">
+                                {% if book.is_sold %}<i class="bi bi-arrow-counterclockwise"></i> Relist{% else %}<i class="bi bi-check2-circle"></i> Mark sold{% endif %}
+                            </button>
+                        </form>
                         <a href="{% url 'books:book_delete' book.pk %}" class="bb-btn bb-btn-sm" style="background:#fef2f2; color:#b91c1c;"><i class="bi bi-trash3"></i> Delete</a>
                     </div>
                 {% endif %}
@@ -221,7 +293,7 @@
 
     {% if recommendations %}
         <div class="bb-section-header px-0" style="padding-left:0; padding-right:0;">
-            <h3 class="bb-section-title">More books nearby</h3>
+            <h3 class="bb-section-title"><i class="bi bi-stars" style="color:#7c3aed;"></i> AI recommendations</h3>
             <a href="{% url 'books:book_list' %}" class="bb-section-arrow"><i class="bi bi-arrow-right fs-4"></i></a>
         </div>
         <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3 mb-2">
@@ -229,22 +301,23 @@
                 <div class="col">
                     <div class="bb-book-card w-100">
                         <div class="bb-card-img-wrap">
-                            <a href="{% url 'books:book_detail' item.pk %}">
-                                {% if item.image %}
-                                    <img src="{{ item.image.url }}" alt="{{ item.title }}">
+                            <a href="{% url 'books:book_detail' item.book.pk %}">
+                                {% if item.book.image %}
+                                    <img src="{{ item.book.image|thumb:400 }}" alt="{{ item.book.title }}">
                                 {% else %}
                                     <div class="d-flex align-items-center justify-content-center h-100 bg-light text-center p-2">
-                                        <span class="text-muted fw-bold small">📖 {{ item.title|truncatechars:20 }}</span>
+                                        <span class="text-muted fw-bold small">📖 {{ item.book.title|truncatechars:20 }}</span>
                                     </div>
                                 {% endif %}
                             </a>
                         </div>
                         <div class="bb-price-meta">
-                            <span class="bb-price">₹ {{ item.price|floatformat:0 }}</span>
+                            <span class="bb-price">{% if item.book.is_donation %}FREE{% else %}₹ {{ item.book.price|floatformat:0 }}{% endif %}</span>
                         </div>
-                        <a href="{% url 'books:book_detail' item.pk %}">
-                            <p class="bb-book-name" title="{{ item.title }}">{{ item.title }}</p>
+                        <a href="{% url 'books:book_detail' item.book.pk %}">
+                            <p class="bb-book-name" title="{{ item.book.title }}">{{ item.book.title }}</p>
                         </a>
+                        <small class="text-muted" style="font-size:.7rem;"><i class="bi bi-stars" style="color:#7c3aed;"></i> {{ item.reason }}</small>
                     </div>
                 </div>
             {% endfor %}
@@ -268,8 +341,23 @@
             <a href="{% url 'accounts:messages' %}" class="bb-btn bb-btn-outline bb-action-cta">
                 <i class="bi bi-chat-dots-fill"></i> Buyer chats
             </a>
-            <a href="{% url 'books:book_edit' book.pk %}" class="bb-btn bb-btn-primary bb-action-cta">
-                <i class="bi bi-pencil-square"></i> Edit listing
+            <form method="POST" action="{% url 'books:toggle_sold' book.pk %}" class="bb-action-cta">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.path }}">
+                <button type="submit" class="bb-btn bb-btn-primary bb-btn-block">
+                    {% if book.is_sold %}
+                        <i class="bi bi-arrow-counterclockwise"></i> Relist book
+                    {% else %}
+                        <i class="bi bi-check2-circle"></i> Mark as sold
+                    {% endif %}
+                </button>
+            </form>
+        {% elif book.is_sold %}
+            <div class="bb-btn bb-btn-outline bb-action-cta" style="cursor:default; opacity:.85;">
+                <i class="bi bi-bag-check-fill"></i> Already sold
+            </div>
+            <a href="{% url 'books:book_list' %}" class="bb-btn bb-btn-primary bb-action-cta">
+                <i class="bi bi-search"></i> Find similar books
             </a>
         {% else %}
             {% if user.is_authenticated %}

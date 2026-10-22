@@ -42,7 +42,7 @@
                         <div class="col-md-6">
                             <div class="bb-field">
                                 <label for="profile-location-input">Location</label>
-                                <input id="profile-location-input" type="text" name="location" value="{{ profile.location }}" placeholder="e.g. Kothapeta, Dhone">
+                                <input id="profile-location-input" type="text" name="location" value="{{ profile.location }}" placeholder="e.g. Madhapur, Hyderabad">
                             </div>
                         </div>
                     </div>
@@ -86,16 +86,21 @@
                     <div class="bb-field">
                         <span class="bb-label">Account Privacy</span>
                         <div class="d-flex flex-wrap gap-2">
-                            <label class="contact-option mb-0" style="min-width:150px;">
+                            <label class="contact-option mb-0" style="min-width:190px;">
                                 <input type="radio" name="account_privacy" value="public" {% if profile.account_privacy == 'public' %}checked{% endif %}>
                                 <span class="co-title"><i class="bi bi-globe2 me-1"></i> Public</span>
+                                <span class="co-sub">Buyers see your full name, your area and when you joined.</span>
                             </label>
-                            <label class="contact-option mb-0" style="min-width:150px;">
+                            <label class="contact-option mb-0" style="min-width:190px;">
                                 <input type="radio" name="account_privacy" value="private" {% if profile.account_privacy == 'private' or not profile.account_privacy %}checked{% endif %}>
                                 <span class="co-title"><i class="bi bi-lock-fill me-1"></i> Private</span>
+                                <span class="co-sub">Buyers see only your first name. Your area and join date stay hidden.</span>
                             </label>
                         </div>
-                        <p class="bb-hint">Private keeps your phone number hidden and allows chat only. Public is the same unless you pick WhatsApp.</p>
+                        <p class="bb-hint">
+                            Either way your phone number is never shown unless you choose
+                            <strong>WhatsApp / Call</strong> below.
+                        </p>
                     </div>
 
                     <div class="d-flex flex-wrap gap-2 pt-2">
@@ -147,27 +152,76 @@
     syncContactOptions();
 
     function detectGPSProfile(btn) {
+        // Ask the browser for the real position, then turn the coordinates into a
+        // readable area. Falls back to a manual prompt when anything fails.
         const input = document.getElementById('profile-location-input');
+        if (!input) { return; }
         const original = btn.innerHTML;
-        btn.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>Detecting...';
-        const fallback = function () {
-            const manual = prompt('Enter your location (City/Area/Pincode):', input.value || 'Kothapeta, Dhone');
-            if (manual) { input.value = manual; }
-            btn.innerHTML = original;
+        const reset = function () { btn.innerHTML = original; };
+
+        const manual = function (message) {
+            if (message) { bbToast(message); }
+            const typed = prompt('Enter your location (City / Area / Pincode):', input.value || '');
+            if (typed) {
+                input.value = typed.trim();
+                bbToast('Location added — remember to save.');
+            }
+            reset();
         };
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                function () {
-                    input.value = 'Kothapeta, Dhone, Andhra Pradesh';
-                    btn.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Location Detected!';
-                    setTimeout(function () { btn.innerHTML = original; }, 1800);
-                },
-                fallback,
-                { timeout: 8000 }
-            );
-        } else {
-            fallback();
+
+        if (!navigator.geolocation) {
+            manual('This browser cannot detect your location.');
+            return;
         }
+
+        btn.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>Detecting...';
+        btn.disabled = true;
+
+        navigator.geolocation.getCurrentPosition(
+            function (position) {
+                const lat = position.coords.latitude.toFixed(5);
+                const lon = position.coords.longitude.toFixed(5);
+
+                // Reverse geocode with OpenStreetMap. If that is blocked we still
+                // fill in the coordinates so the button never lies about working.
+                const url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2'
+                          + '&zoom=16&addressdetails=1&lat=' + lat + '&lon=' + lon;
+
+                fetch(url, { headers: { 'Accept': 'application/json' } })
+                    .then(function (response) { return response.ok ? response.json() : null; })
+                    .then(function (data) {
+                        const address = (data && data.address) || {};
+                        const area = address.suburb || address.neighbourhood || address.village
+                                  || address.town || address.city_district || '';
+                        const city = address.city || address.town || address.village
+                                  || address.county || address.state_district || '';
+                        const parts = [area, city].filter(function (part) { return part; });
+                        const label = parts.length ? parts.join(', ') : (data && data.display_name) || '';
+                        input.value = label ? label.split(',').slice(0, 2).join(',').trim()
+                                            : ('Lat ' + lat + ', Lon ' + lon);
+                        btn.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Location found';
+                        bbToast('Location detected — remember to save.');
+                        setTimeout(reset, 1800);
+                        btn.disabled = false;
+                    })
+                    .catch(function () {
+                        input.value = 'Lat ' + lat + ', Lon ' + lon;
+                        bbToast('Location detected, but the area name could not be looked up.');
+                        reset();
+                        btn.disabled = false;
+                    });
+            },
+            function (error) {
+                const reason = (error && error.code === 1)
+                    ? 'Location permission was denied.'
+                    : 'We could not detect your location.';
+                manual(reason);
+                btn.disabled = false;
+            },
+            { timeout: 10000, maximumAge: 60000 }
+        );
     }
+
+
 </script>
 {% endblock %}

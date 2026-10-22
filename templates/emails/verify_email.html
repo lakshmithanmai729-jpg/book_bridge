@@ -1,0 +1,30 @@
+{% autoescape off %}
+<div style="font-family:'Segoe UI',Arial,sans-serif;background:#f1f5f9;padding:28px;">
+  <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 6px 22px rgba(15,23,42,.08);">
+    <div style="background:linear-gradient(135deg,#0284c7,#38bdf8);padding:26px 28px;color:#fff;">
+      <div style="font-size:20px;font-weight:800;letter-spacing:-.4px;">BookBridge</div>
+      <div style="font-size:13px;opacity:.9;margin-top:4px;">Buy &amp; sell books nearby</div>
+    </div>
+    <div style="padding:28px;">
+      <h2 style="margin:0 0 10px;font-size:20px;color:#0f172a;">Confirm your email, {{ name }}</h2>
+      <p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 20px;">
+        Welcome to BookBridge! Confirm your email address to secure your account and
+        receive chat notifications.
+      </p>
+      <a href="{{ url }}"
+         style="display:inline-block;background:#0284c7;color:#fff;text-decoration:none;
+                font-weight:700;font-size:14px;padding:13px 26px;border-radius:999px;">
+        Confirm email address
+      </a>
+      <p style="color:#64748b;font-size:12px;line-height:1.6;margin:22px 0 0;">
+        This link expires in {{ expires_days }} days. If the button does not work, paste this
+        link into your browser:<br>
+        <span style="word-break:break-all;color:#0284c7;">{{ url }}</span>
+      </p>
+    </div>
+    <div style="background:#f8fafc;padding:16px 28px;color:#94a3b8;font-size:11px;">
+      100% privacy protected · your phone number is never shown publicly.
+    </div>
+  </div>
+</div>
+{% endautoescape %}
