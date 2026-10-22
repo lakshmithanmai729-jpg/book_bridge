@@ -129,7 +129,7 @@
             <div class="bb-price-meta">
                 <span class="bb-price-val">₹ {{ book.price|floatformat:0 }}</span>
                 <span class="bb-distance-tag">
-                    <i class="bi bi-geo-alt-fill"></i> &lt; 100 m
+                    <i class="bi bi-geo-alt-fill"></i> {{ book.location_area|default:book.location_city|default:"Nearby"|truncatechars:14 }}
                 </span>
             </div>
 
@@ -261,7 +261,7 @@
             <div class="bb-price-meta">
                 <span class="bb-price-val">₹ {{ book.price|floatformat:0 }}</span>
                 <span class="bb-distance-tag">
-                    <i class="bi bi-geo-alt-fill"></i> &lt; 100 m
+                    <i class="bi bi-geo-alt-fill"></i> {{ book.location_area|default:book.location_city|default:"Nearby"|truncatechars:14 }}
                 </span>
             </div>
 
@@ -310,7 +310,7 @@
             <div class="bb-price-meta">
                 <span class="bb-price-val">₹ {{ book.price|floatformat:0 }}</span>
                 <span class="bb-distance-tag">
-                    <i class="bi bi-geo-alt-fill"></i> &lt; 100 m
+                    <i class="bi bi-geo-alt-fill"></i> {{ book.location_area|default:book.location_city|default:"Nearby"|truncatechars:14 }}
                 </span>
             </div>
 
