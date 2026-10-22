@@ -10,5 +10,5 @@ whitenoise>=6.6
 # MySQL driver (optional — SQLite is used when DB_NAME is empty)
 # mysqlclient>=2.2
 
-# Optional database drivers (uncomment the one you deploy with)
-# psycopg[binary]>=3.1   # PostgreSQL  (DB_ENGINE=postgres)
+# PostgreSQL driver — used automatically when DATABASE_URL is set
+psycopg[binary]>=3.1; sys_platform != "win32"

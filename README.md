@@ -157,7 +157,7 @@ requests. Run it with `--reset` to start over.
 python manage.py test
 ```
 
-**95 tests** cover Telegram normalisation, contact-mode privacy (phone never leaked), in-app chat
+**104 tests** cover Telegram normalisation, contact-mode privacy (phone never leaked), in-app chat
 send/read, empty chat state, book requests, pagination & filters, mark-sold/relist, reporting and
 moderation visibility, image optimisation, email verification, password reset, chat notifications,
 seller reviews (chat-gated, editable, clamped, moderated), blocking (feeds, chats, unblocking) and
@@ -194,7 +194,26 @@ search ranking, sitemap/robots/manifest, social meta tags and the health check.
 - Write actions are rate limited (`settings.RATE_LIMITS`) through the cache — 25 chat messages per
   5 minutes, 10 listings an hour, 5 reports an hour, 10 reviews an hour.
 
+## Running the app again after a restart
+
+```bash
+./scripts/dev_up.sh          # preview mode, auto-login as demo
+./scripts/dev_up.sh --fresh  # rebuild the demo data too
+./scripts/dev_up.sh --prod   # gunicorn with production settings
+```
+
+Windows: `scripts\dev_up.bat`. The script is idempotent — it only installs,
+migrates, seeds or collects static files when something is actually missing.
+
 ## Going to production
+
+### Deploy to a host (permanent URL)
+
+`render.yaml` (Render blueprint), `Procfile` (Railway/Heroku) and `fly.toml` (Fly.io)
+are included, so any of them can deploy this repo with no extra configuration.
+See **[DEPLOY.md](DEPLOY.md)** for the step-by-step guide (including the free tier
+caveats) — the app reads `DATABASE_URL`, `RENDER_EXTERNAL_HOSTNAME` and `SITE_URL`
+automatically.
 
 ### Docker (fastest)
 

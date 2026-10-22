@@ -16,12 +16,24 @@ ALLOWED_HOSTS = [
     if host.strip()
 ]
 
+# Managed hosts (Render, Railway, Fly, Heroku…) tell us the public hostname at
+# runtime — trust it automatically so a deploy works without extra config.
+for _variable in ('RENDER_EXTERNAL_HOSTNAME', 'RAILWAY_PUBLIC_DOMAIN', 'FLY_APP_HOST'):
+    _host = os.environ.get(_variable)
+    if _host and _host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(_host)
+
 # Needed when the app is served through a proxy / tunnel (e.g. a cloud preview URL).
 CSRF_TRUSTED_ORIGINS = [
     origin.strip()
     for origin in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',')
     if origin.strip()
 ]
+
+# A deployed site's own public URL is always a trusted origin.
+_public_url = os.environ.get('SITE_URL', '').rstrip('/')
+if _public_url and _public_url not in CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS.append(_public_url)
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -80,7 +92,27 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Set DB_ENGINE=postgres for PostgreSQL.
 # Without database credentials the project falls back to a local SQLite file so
 # `python manage.py migrate` / `runserver` work out of the box for development.
-if os.environ.get('DB_NAME'):
+def _database_from_url(url):
+    """Parse postgres://user:pass@host:port/name into a Django DATABASES entry."""
+    from urllib.parse import unquote, urlparse
+
+    parsed = urlparse(url)
+    return {
+        'ENGINE': 'django.db.backends.postgresql'
+        if parsed.scheme.startswith('postgres')
+        else 'django.db.backends.mysql',
+        'NAME': (parsed.path or '').lstrip('/') or 'bookbridge',
+        'USER': unquote(parsed.username or ''),
+        'PASSWORD': unquote(parsed.password or ''),
+        'HOST': parsed.hostname or '',
+        'PORT': str(parsed.port or ''),
+        'CONN_MAX_AGE': 60,
+    }
+
+
+if os.environ.get('DATABASE_URL'):
+    DATABASES = {'default': _database_from_url(os.environ['DATABASE_URL'])}
+elif os.environ.get('DB_NAME'):
     db_engine = (os.environ.get('DB_ENGINE') or 'mysql').lower()
     backend = (
         'django.db.backends.postgresql'
@@ -151,6 +183,9 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+# Project-owned static files (icons, manifest assets). Without this, collectstatic
+# only picks up the admin's files and our icons 404 in production.
+STATICFILES_DIRS = [BASE_DIR / 'static']
 STORAGES = {
     'default': {
         'BACKEND': 'django.core.files.storage.FileSystemStorage',
@@ -172,7 +207,11 @@ if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
-    SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'True').lower() in ('true', '1', 'yes')
+    SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'True').lower() in (
+        'true', '1', 'yes'
+    )
+    # Some PaaS health checks hit the container over plain HTTP.
+    SECURE_REDIRECT_EXEMPT = [r'^healthz/?$']
     SECURE_HSTS_SECONDS = int(os.environ.get('SECURE_HSTS_SECONDS', '31536000'))
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

@@ -1,0 +1,45 @@
+# BookBridge — one-click deploy on Render (free tier).
+#   Dashboard → New → Blueprint → pick this repo → Apply.
+# Everything below is read automatically; no manual setting is required.
+services:
+  - type: web
+    name: bookbridge
+    runtime: python
+    plan: free
+    region: singapore          # closest free region to India; change if you prefer
+    branch: master             # deploy from master (merge PR #2 first)
+    buildCommand: |
+      pip install -r requirements.txt
+      python manage.py collectstatic --noinput
+      python manage.py migrate --noinput
+      python manage.py seed_demo --if-empty
+    startCommand: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 60
+    healthCheckPath: /healthz/
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.6"
+      - key: SECRET_KEY
+        generateValue: true          # Render creates a strong key for you
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: ".onrender.com"
+      - key: SECURE_SSL_REDIRECT
+        value: "True"
+      # Set this to your Postgres connection string to keep data between deploys.
+      # Without it the app runs on SQLite, which is reset on every redeploy.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: bookbridge-db
+          property: connectionString
+      # Email is printed to the Render logs until you add SMTP credentials.
+      - key: EMAIL_BACKEND
+        value: "django.core.mail.backends.console.EmailBackend"
+
+databases:
+  - name: bookbridge-db
+    plan: free
+    region: singapore
+    databaseName: bookbridge
+    user: bookbridge
