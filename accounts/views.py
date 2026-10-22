@@ -13,6 +13,7 @@ from django.utils import timezone
 
 from books.models import Book, Category
 from core.ratelimit import throttled
+from core.validation import clamp, length_error
 from . import notify as notify_service
 
 from .emails import (
@@ -41,15 +42,15 @@ def clean_telegram_username(raw_value):
         return ''
     handle = handle.replace('https://t.me/', '').replace('http://t.me/', '')
     handle = handle.replace('t.me/', '').strip().lstrip('@').strip()
-    return handle
+    return handle[:100]  # UserProfile.telegram_username max_length
 
 
 def save_profile_from_post(request, profile_obj):
     """Shared handler for the profile / profile-edit forms."""
-    name = request.POST.get('name', '').strip()
-    phone_number = request.POST.get('phone_number', '').strip()
-    email = request.POST.get('email', '').strip()
-    location = request.POST.get('location', '').strip()
+    name = clamp(request.POST.get('name', ''), 150)
+    phone_number = clamp(request.POST.get('phone_number', ''), 20)
+    email = clamp(request.POST.get('email', ''), 254)
+    location = clamp(request.POST.get('location', ''), 255)
     privacy = request.POST.get('account_privacy', 'private')
     telegram_username = clean_telegram_username(request.POST.get('telegram_username'))
     contact_preference = request.POST.get('contact_preference', UserProfile.CONTACT_IN_APP)
@@ -302,6 +303,16 @@ def request_book(request):
         category = (request.POST.get('category') or '').strip()
         location = (request.POST.get('location') or '').strip()
         notes = (request.POST.get('notes') or '').strip()
+
+        for value, limit, label in (
+            (book_title, 200, 'Book title'),
+            (category, 100, 'Category'),
+            (location, 255, 'Location'),
+        ):
+            problem = length_error(value, limit, label)
+            if problem:
+                messages.error(request, problem)
+                return redirect('accounts:request_book')
 
         limit_message = throttled(request, 'request')
         if limit_message:

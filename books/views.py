@@ -1,4 +1,5 @@
 import re
+from decimal import Decimal, InvalidOperation
 from urllib.parse import quote
 
 from django.contrib import messages
@@ -15,12 +16,42 @@ from accounts.models import ChatMessage, SellerReview, UserBlock
 from accounts.notify import notify_back_on_sale, notify_price_drop, notify_request_matches
 from ai_engine.utils import get_recommendations
 from core.ratelimit import throttled
+from core.validation import length_error
 
 from .forms import BookForm
 from .images import make_thumbnail, optimize_upload, save_optimized_image
-from .models import Book, BookImage, Category, Report, Wishlist
+from .models import PRICE_MAX, Book, BookImage, Category, Report, Wishlist
 
 PAGE_SIZE = 20
+
+
+def parse_price(raw, is_donation=False):
+    """Turn a typed price into a safe Decimal.
+
+    Returns ``(price, error)``. A junk or out-of-range price is a validation
+    error, never a silent 0 and never a row that breaks every listing page.
+    """
+    if is_donation:
+        return Decimal('0.00'), None
+
+    text = (raw or '').strip().replace(',', '').replace('₹', '').replace(' ', '')
+    if not text:
+        return None, 'Please enter a price, or mark the listing as a free donation.'
+
+    try:
+        price = Decimal(text)
+    except (InvalidOperation, TypeError, ValueError):
+        return None, 'Please enter the price as a number, for example 250.'
+
+    if price.is_nan() or price.is_infinite():
+        return None, 'Please enter the price as a number, for example 250.'
+    if price < 0:
+        return None, 'Price cannot be negative.'
+    if price > Decimal(str(PRICE_MAX)):
+        return None, 'That price is too high. Please keep it under ₹9,99,999.'
+
+    # Match the column's decimal_places so nothing is rounded away silently.
+    return price.quantize(Decimal('0.01')), None
 
 
 def _page(request, queryset, per_page=PAGE_SIZE):
@@ -285,6 +316,17 @@ def book_add(request):
             messages.error(request, 'Please enter the book name.')
             return render(request, 'books/book_form.html', form_context())
 
+        # SQLite ignores column limits but PostgreSQL does not: a long paste
+        # would otherwise be a 500 on the deployed site.
+        for value, limit, label in (
+            (title, 200, 'Book name'),
+            (author, 200, 'Author'),
+        ):
+            problem = length_error(value, limit, label)
+            if problem:
+                messages.error(request, problem)
+                return render(request, 'books/book_form.html', form_context())
+
         default_phone = user_profile.phone_number if user_profile else ''
         # Split the seller's saved address ("Area, City, State") into the
         # structured fields; never invent an address the seller never gave.
@@ -297,10 +339,24 @@ def book_add(request):
         location_city = request.POST.get('location_city', '').strip() or saved_city
         pincode = request.POST.get('pincode', '').strip()
 
+        for value, limit, label in (
+            (location_area, 100, 'Area'),
+            (location_city, 100, 'City'),
+            (pincode, 10, 'Pincode'),
+            (contact_phone, 15, 'Phone number'),
+        ):
+            problem = length_error(value, limit, label)
+            if problem:
+                messages.error(request, problem)
+                return render(request, 'books/book_form.html', form_context())
+
         try:
-            price = float(price_val) if not is_donation else 0.0
-        except (TypeError, ValueError):
-            price = 0.0
+            price, price_error = parse_price(price_val, is_donation=is_donation)
+        except Exception:
+            price, price_error = None, 'Please enter the price as a number, for example 250.'
+        if price_error:
+            messages.error(request, price_error)
+            return render(request, 'books/book_form.html', form_context())
 
         # A stale or tampered category value must never crash the form.
         category = None
@@ -498,7 +554,9 @@ def report_book(request, pk):
 
 
 @login_required
+@require_POST
 def wishlist_toggle(request, pk):
+    """Save/remove a book. POST only: a link prefetch must never change data."""
     book = get_object_or_404(Book, pk=pk)
     wishlist_item = Wishlist.objects.filter(user=request.user, book=book)
     if wishlist_item.exists():

@@ -1,7 +1,10 @@
 import io
+from decimal import Decimal
 
 from django.contrib.auth.models import User
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
+from django.db import IntegrityError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -276,6 +279,76 @@ class BookUploadTests(TestCase):
         self.assertContains(response, 'value="250"')
 
 
+class PriceValidationTests(TestCase):
+    """A price must never be saved outside the column's range.
+
+    An oversized price used to be written to SQLite and then broke every page
+    that rendered the book (decimal.InvalidOperation -> HTTP 500).
+    """
+
+    def setUp(self):
+        # The rate limiter lives in the cache, which is not rolled back with the
+        # database — clear it so these tests do not trip the listing throttle.
+        cache.clear()
+        self.seller = User.objects.create_user('seller', password='Bridge!2345')
+        self.client.force_login(self.seller)
+
+    def _post(self, price, **extra):
+        data = {'title': 'Priced Book', 'author': 'QA', 'price': price, 'condition': 'good'}
+        data.update(extra)
+        return self.client.post(reverse('books:book_add'), data)
+
+    def test_oversized_price_is_rejected_and_saved_nowhere(self):
+        response = self._post('9' * 20)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'too high')
+        self.assertEqual(Book.objects.count(), 0)
+
+    def test_negative_price_is_rejected(self):
+        response = self._post('-50')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'cannot be negative')
+        self.assertEqual(Book.objects.count(), 0)
+
+    def test_text_price_is_an_error_not_a_silent_zero(self):
+        response = self._post('abc')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'as a number')
+        self.assertEqual(Book.objects.count(), 0)
+
+    def test_blank_price_is_an_error_unless_donation(self):
+        response = self._post('')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Please enter a price')
+        self.assertEqual(Book.objects.count(), 0)
+
+    def test_reasonable_price_with_currency_symbol_is_accepted(self):
+        response = self._post('₹1,299.50')
+        book = Book.objects.get(title='Priced Book')
+        self.assertEqual(book.price, Decimal('1299.50'))
+        self.assertRedirects(response, reverse('books:book_detail', args=[book.pk]))
+
+    def test_database_rejects_out_of_range_price_as_a_last_resort(self):
+        with self.assertRaises(IntegrityError):
+            Book.objects.create(seller=self.seller, title='Rogue', author='X', price=Decimal('1E+20'))
+
+    def test_home_page_still_renders_with_extreme_but_valid_price(self):
+        Book.objects.create(seller=self.seller, title='Max', author='X', price=Decimal('999999.99'))
+        self.assertEqual(self.client.get(reverse('books:book_list')).status_code, 200)
+
+    def test_overlong_title_is_rejected_instead_of_truncated(self):
+        response = self._post('199', title='T' * 400)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'too long')
+        self.assertEqual(Book.objects.count(), 0)
+
+    def test_overlong_phone_is_rejected(self):
+        response = self._post('199', contact_phone='9' * 40)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'too long')
+        self.assertEqual(Book.objects.count(), 0)
+
+
 class WishlistTests(TestCase):
     def setUp(self):
         self.seller = User.objects.create_user('seller', password='Bridge!2345')
@@ -286,10 +359,18 @@ class WishlistTests(TestCase):
         self.client.force_login(self.buyer)
         url = reverse('books:wishlist_toggle', args=[self.book.pk])
 
-        self.client.get(url)
+        self.client.post(url)
         self.assertTrue(Wishlist.objects.filter(user=self.buyer, book=self.book).exists())
 
-        self.client.get(url)
+        self.client.post(url)
+        self.assertFalse(Wishlist.objects.filter(user=self.buyer, book=self.book).exists())
+
+    def test_get_does_not_change_the_wishlist(self):
+        """Link prefetchers and old bookmarks must not toggle saved books."""
+        self.client.force_login(self.buyer)
+        url = reverse('books:wishlist_toggle', args=[self.book.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 405)
         self.assertFalse(Wishlist.objects.filter(user=self.buyer, book=self.book).exists())
 
     def test_wishlist_page_lists_items(self):

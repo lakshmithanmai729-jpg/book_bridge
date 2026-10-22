@@ -6,7 +6,7 @@ from django.urls import reverse
 
 from books.models import Book, Category
 
-from .models import BookRequest, ChatMessage, Notification, SellerReview, UserBlock
+from .models import BookRequest, ChatMessage, Notification, SellerReview, UserBlock, UserProfile
 
 
 class UserProfilePrivacyTests(TestCase):
@@ -178,8 +178,48 @@ class BookRequestTests(TestCase):
         self.client.post(reverse('accounts:request_book'), {'book_title': '   '})
         self.assertEqual(BookRequest.objects.count(), 0)
 
+    def test_overlong_title_is_rejected_with_a_message(self):
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse('accounts:request_book'),
+            {'book_title': 'X' * 400},
+            follow=True,
+        )
+        self.assertContains(response, 'too long')
+        self.assertEqual(BookRequest.objects.count(), 0)
+
 
 @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+class ProfileLengthTests(TestCase):
+    """Long pasted values must be trimmed, never sent to the database raw."""
+
+    def setUp(self):
+        self.user = User.objects.create_user('longtext', password='Bridge!2345')
+        self.client.force_login(self.user)
+
+    def test_overlong_profile_values_are_clamped_to_the_column(self):
+        self.client.post(reverse('accounts:profile_edit'), {
+            'name': 'N' * 400,
+            'location': 'L' * 600,
+            'phone_number': '9' * 60,
+            'account_privacy': 'public',
+            'contact_preference': 'in_app',
+        })
+        profile = UserProfile.objects.get(user=self.user)
+        self.assertEqual(len(profile.name), 150)
+        self.assertEqual(len(profile.location), 255)
+        self.assertEqual(len(profile.phone_number), 20)
+
+    def test_telegram_handle_is_clamped(self):
+        self.client.post(reverse('accounts:profile_edit'), {
+            'name': 'Handle',
+            'telegram_username': '@' + 'h' * 300,
+            'account_privacy': 'private',
+            'contact_preference': 'telegram',
+        })
+        self.assertEqual(len(UserProfile.objects.get(user=self.user).telegram_username), 100)
+
+
 class EmailVerificationTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(

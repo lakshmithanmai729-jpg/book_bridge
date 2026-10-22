@@ -31,9 +31,12 @@
                 <i class="bi bi-share"></i>
             </button>
             {% if user.is_authenticated %}
-                <a href="{% url 'books:wishlist_toggle' book.pk %}" class="bb-icon-btn" title="Save to favourites" aria-label="Save to favourites">
-                    <i class="bi bi-heart-fill text-danger"></i>
-                </a>
+                <form method="post" action="{% url 'books:wishlist_toggle' book.pk %}" class="d-inline-flex">
+                    {% csrf_token %}
+                    <button type="submit" class="bb-icon-btn" title="Save to favourites" aria-label="Save to favourites">
+                        <i class="bi bi-heart-fill text-danger"></i>
+                    </button>
+                </form>
             {% else %}
                 <a href="{% url 'accounts:login' %}?next={{ request.path|urlencode }}" class="bb-icon-btn" title="Save to favourites" aria-label="Save to favourites">
                     <i class="bi bi-heart"></i>

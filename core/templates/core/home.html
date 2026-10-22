@@ -112,9 +112,12 @@
                 
                 <!-- Wishlist Heart Button -->
                 {% if user.is_authenticated %}
-                    <a href="{% url 'books:wishlist_toggle' book.pk %}" class="card-heart-btn">
-                        <i class="bi {% if book.id in wishlist_ids %}bi-heart-fill text-danger{% else %}bi-heart text-primary{% endif %}"></i>
-                    </a>
+                    <form method="post" action="{% url 'books:wishlist_toggle' book.pk %}" class="card-heart-form">
+                        {% csrf_token %}
+                        <button type="submit" class="card-heart-btn" title="Save" aria-label="Save">
+                            <i class="bi {% if book.id in wishlist_ids %}bi-heart-fill text-danger{% else %}bi-heart text-primary{% endif %}"></i>
+                        </button>
+                    </form>
                 {% else %}
                     <a href="{% url 'accounts:login' %}" class="card-heart-btn">
                         <i class="bi bi-heart text-primary"></i>
@@ -242,9 +245,12 @@
                     {% endif %}
                 </a>
                 {% if user.is_authenticated %}
-                    <a href="{% url 'books:wishlist_toggle' book.pk %}" class="card-heart-btn">
-                        <i class="bi {% if book.id in wishlist_ids %}bi-heart-fill text-danger{% else %}bi-heart text-primary{% endif %}"></i>
-                    </a>
+                    <form method="post" action="{% url 'books:wishlist_toggle' book.pk %}" class="card-heart-form">
+                        {% csrf_token %}
+                        <button type="submit" class="card-heart-btn" title="Save" aria-label="Save">
+                            <i class="bi {% if book.id in wishlist_ids %}bi-heart-fill text-danger{% else %}bi-heart text-primary{% endif %}"></i>
+                        </button>
+                    </form>
                 {% else %}
                     <a href="{% url 'accounts:login' %}" class="card-heart-btn">
                         <i class="bi bi-heart text-primary"></i>
@@ -288,9 +294,12 @@
                     {% endif %}
                 </a>
                 {% if user.is_authenticated %}
-                    <a href="{% url 'books:wishlist_toggle' book.pk %}" class="card-heart-btn">
-                        <i class="bi {% if book.id in wishlist_ids %}bi-heart-fill text-danger{% else %}bi-heart text-primary{% endif %}"></i>
-                    </a>
+                    <form method="post" action="{% url 'books:wishlist_toggle' book.pk %}" class="card-heart-form">
+                        {% csrf_token %}
+                        <button type="submit" class="card-heart-btn" title="Save" aria-label="Save">
+                            <i class="bi {% if book.id in wishlist_ids %}bi-heart-fill text-danger{% else %}bi-heart text-primary{% endif %}"></i>
+                        </button>
+                    </form>
                 {% else %}
                     <a href="{% url 'accounts:login' %}" class="card-heart-btn">
                         <i class="bi bi-heart text-primary"></i>

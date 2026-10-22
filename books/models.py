@@ -1,7 +1,14 @@
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.contrib.auth.models import User
+from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone
+
+# The price is a DecimalField(max_digits=8, decimal_places=2), so this is the
+# largest value the column can hold. Anything above it breaks every page that
+# renders the book, so it must never reach the database.
+PRICE_MAX = 999999.99
 
 
 class Category(models.Model):
@@ -28,8 +35,19 @@ class Book(models.Model):
     title = models.CharField(max_length=200)
     author = models.CharField(max_length=200)
     description = models.TextField(blank=True)
-    price = models.DecimalField(max_digits=8, decimal_places=2)
-    original_price = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True, default=0)
+    price = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        validators=[MinValueValidator(0), MaxValueValidator(PRICE_MAX)],
+    )
+    original_price = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(PRICE_MAX)],
+    )
     is_negotiable = models.BooleanField(default=True)
     listing_type = models.CharField(max_length=10, choices=[('single', 'Single Book'), ('set', 'Full Set')], default='single')
     is_donation = models.BooleanField(default=False)
@@ -54,6 +72,14 @@ class Book(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        constraints = [
+            # Belt and braces: SQLite does not enforce max_digits, so a single
+            # oversized price used to poison the whole marketplace with 500s.
+            models.CheckConstraint(
+                condition=Q(price__gte=0, price__lte=PRICE_MAX),
+                name='book_price_within_range',
+            ),
+        ]
         indexes = [
             models.Index(fields=['is_sold', 'is_hidden', '-created_at']),
             models.Index(fields=['location_city']),
