@@ -74,6 +74,13 @@ the seller explicitly picked **WhatsApp / Call**.
 - Bootstrap 5 + Bootstrap Icons
 - Pillow (image uploads)
 
+## Run it yourself (VS Code)
+
+Want to run BookBridge on your own computer without any assistant? See
+**[RUN_LOCALLY.md](RUN_LOCALLY.md)** — it covers the one-click Windows script,
+the manual steps, the local link (`http://127.0.0.1:8000`), phone testing on
+the same Wi-Fi, and every common error.
+
 ## Quick start (no terminal knowledge needed)
 
 **Windows:** double-click **`BookBridge-Start.bat`** in the project folder.
