@@ -38,7 +38,20 @@ Built with Django, Bootstrap 5, and a full-width responsive UI (mobile-first, sp
 
 ## Privacy model
 
-Each profile has a `contact_preference`:
+### Public vs Private account
+
+| | Public | Private (default) |
+| --- | --- | --- |
+| Name shown to other members | Full name | First name only |
+| Area / locality | Shown on your seller profile and listing pages | Hidden |
+| Join date | Shown | Hidden |
+| Ratings, reviews, listings | Visible | Visible |
+| Phone number | Only if you choose WhatsApp / Call | Only if you choose WhatsApp / Call |
+
+You choose this in **Account → Profile → Account Privacy**. The seller always sees their own
+full name and details, everywhere.
+
+Each profile also has a `contact_preference`:
 
 | Preference | What buyers see on a listing |
 | --- | --- |

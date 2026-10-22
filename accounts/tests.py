@@ -659,3 +659,93 @@ class SellerAnalyticsTests(TestCase):
         response = self.client.get(reverse('books:my_listings'))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['feedback']['views'], 7)
+
+
+# ---------------------------------------------------------------------------
+# Account privacy: Public vs Private
+# ---------------------------------------------------------------------------
+
+class AccountPrivacyTests(TestCase):
+    def setUp(self):
+        self.seller = User.objects.create_user('seller', password='Bridge!2345')
+        self.buyer = User.objects.create_user('buyer', password='Bridge!2345')
+        profile = self.seller.profile
+        profile.name = 'Lakshmi Thanmai'
+        profile.location = 'Kothapeta, Dhone, Andhra Pradesh'
+        profile.account_privacy = 'private'
+        profile.save()
+        self.book = Book.objects.create(
+            seller=self.seller, title='Privacy Book', author='A', price=99, condition='good',
+        )
+
+    def _seller_page(self):
+        return self.client.get(reverse('accounts:seller_profile', args=[self.seller.pk]))
+
+    def test_private_account_shows_first_name_only(self):
+        page = self._seller_page()
+        self.assertContains(page, 'Lakshmi')
+        self.assertNotContains(page, 'Lakshmi Thanmai')
+
+    def test_private_account_hides_area_and_join_date(self):
+        page = self._seller_page()
+        self.assertNotContains(page, 'Kothapeta')
+        self.assertContains(page, 'Private account')
+
+    def test_public_account_shows_full_name_and_area(self):
+        self.seller.profile.account_privacy = 'public'
+        self.seller.profile.save(update_fields=['account_privacy'])
+
+        page = self._seller_page()
+        self.assertContains(page, 'Lakshmi Thanmai')
+        self.assertContains(page, 'Kothapeta')
+        self.assertNotContains(page, 'Private account')
+
+    def test_book_detail_follows_the_sellers_privacy(self):
+        private_page = self.client.get(reverse('books:book_detail', args=[self.book.pk]))
+        self.assertContains(private_page, 'Lakshmi')
+        self.assertNotContains(private_page, 'Lakshmi Thanmai')
+        self.assertContains(private_page, 'Private account')
+
+        self.seller.profile.account_privacy = 'public'
+        self.seller.profile.save(update_fields=['account_privacy'])
+        public_page = self.client.get(reverse('books:book_detail', args=[self.book.pk]))
+        self.assertContains(public_page, 'Lakshmi Thanmai')
+
+    def test_owner_always_sees_their_full_name(self):
+        self.client.force_login(self.seller)
+        page = self._seller_page()
+        self.assertContains(page, 'Lakshmi Thanmai')
+
+    def test_privacy_choice_is_saved_from_the_profile_form(self):
+        self.client.force_login(self.seller)
+        self.client.post(reverse('accounts:profile_edit'), {
+            'name': 'Lakshmi Thanmai',
+            'location': 'Kothapeta, Dhone, Andhra Pradesh',
+            'account_privacy': 'public',
+            'contact_preference': 'in_app',
+        })
+        self.seller.profile.refresh_from_db()
+        self.assertEqual(self.seller.profile.account_privacy, 'public')
+
+    def test_invalid_privacy_value_falls_back_to_private(self):
+        self.client.force_login(self.seller)
+        self.client.post(reverse('accounts:profile_edit'), {
+            'name': 'Lakshmi Thanmai',
+            'account_privacy': 'everyone-can-see-everything',
+            'contact_preference': 'in_app',
+        })
+        self.seller.profile.refresh_from_db()
+        self.assertEqual(self.seller.profile.account_privacy, 'private')
+
+    def test_private_does_not_hide_listings(self):
+        self.assertContains(self._seller_page(), 'Privacy Book')
+        self.assertContains(self.client.get(reverse('books:book_list')), 'Privacy Book')
+
+    def test_private_never_exposes_the_phone_number(self):
+        self.seller.profile.contact_preference = 'whatsapp'
+        self.seller.profile.save(update_fields=['contact_preference'])
+        self.book.contact_phone = '9876543210'
+        self.book.save(update_fields=['contact_phone'])
+
+        page = self._seller_page()
+        self.assertNotContains(page, '9876543210')

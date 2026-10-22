@@ -1268,7 +1268,7 @@
                 <form method="GET" action="{% url 'books:book_list' %}">
                     <div class="mb-3">
                         <label class="form-label small fw-semibold">Location / Area</label>
-                        <input type="text" name="location" class="form-control rounded-3" placeholder="e.g. Kothapeta, Dhone" value="Kothapeta, Dhone">
+                        <input type="text" name="location" class="form-control rounded-3" placeholder="e.g. Madhapur, Hyderabad" value="{{ user.profile.location|default:'' }}">
                     </div>
                     <button type="submit" class="btn btn-primary w-100 rounded-pill py-2 fw-bold" style="background:#0284c7; border:none;">
                         Set Location

@@ -25,12 +25,10 @@
             <div class="chat-shell">
                 <div class="chat-head">
                     <div class="bb-avatar">
-                        {% if other_profile.name %}{{ other_profile.name|slice:":1"|upper }}{% else %}{{ other_user.username|slice:":1"|upper }}{% endif %}
+                        {{ other_profile.public_name|slice:":1"|upper }}
                     </div>
                     <div class="flex-grow-1" style="min-width:0;">
-                        <div class="chat-name text-truncate">
-                            {% if other_profile.name %}{{ other_profile.name }}{% else %}{{ other_user.username }}{% endif %}
-                        </div>
+                        <div class="chat-name text-truncate">{{ other_profile.public_name }}</div>
                         <div class="chat-sub">
                             <i class="bi bi-shield-check text-success"></i>
                             Chatting on BookBridge

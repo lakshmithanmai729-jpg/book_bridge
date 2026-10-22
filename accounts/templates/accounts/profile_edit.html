@@ -86,16 +86,21 @@
                     <div class="bb-field">
                         <span class="bb-label">Account Privacy</span>
                         <div class="d-flex flex-wrap gap-2">
-                            <label class="contact-option mb-0" style="min-width:150px;">
+                            <label class="contact-option mb-0" style="min-width:190px;">
                                 <input type="radio" name="account_privacy" value="public" {% if profile.account_privacy == 'public' %}checked{% endif %}>
                                 <span class="co-title"><i class="bi bi-globe2 me-1"></i> Public</span>
+                                <span class="co-sub">Buyers see your full name, your area and when you joined.</span>
                             </label>
-                            <label class="contact-option mb-0" style="min-width:150px;">
+                            <label class="contact-option mb-0" style="min-width:190px;">
                                 <input type="radio" name="account_privacy" value="private" {% if profile.account_privacy == 'private' or not profile.account_privacy %}checked{% endif %}>
                                 <span class="co-title"><i class="bi bi-lock-fill me-1"></i> Private</span>
+                                <span class="co-sub">Buyers see only your first name. Your area and join date stay hidden.</span>
                             </label>
                         </div>
-                        <p class="bb-hint">Private keeps your phone number hidden and allows chat only. Public is the same unless you pick WhatsApp.</p>
+                        <p class="bb-hint">
+                            Either way your phone number is never shown unless you choose
+                            <strong>WhatsApp / Call</strong> below.
+                        </p>
                     </div>
 
                     <div class="d-flex flex-wrap gap-2 pt-2">

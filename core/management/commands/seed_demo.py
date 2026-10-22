@@ -229,7 +229,9 @@ class Command(BaseCommand):
             profile.location = spec['location']
             profile.telegram_username = spec['telegram']
             profile.contact_preference = spec['preference']
-            profile.account_privacy = 'private'
+            # demo stays private (first name + hidden area), priya is public,
+            # so the two modes can be compared side by side in the preview.
+            profile.account_privacy = 'public' if spec['username'] == 'priya' else 'private'
             profile.save()
             if spec['username'] == 'demo':
                 # The demo account can also open the team dashboard (/staff/).

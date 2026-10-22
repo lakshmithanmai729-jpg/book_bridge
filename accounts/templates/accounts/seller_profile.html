@@ -1,6 +1,6 @@
 {% extends 'core/base.html' %}
 {% load book_extras %}
-{% block title %}{{ seller_profile.name|default:seller.username }} - BookBridge{% endblock %}
+{% block title %}{{ display_name }} - BookBridge{% endblock %}
 
 {% block content %}
 <div class="bb-page">
@@ -20,7 +20,7 @@
                 <i class="bi bi-slash-circle-fill"></i> This member blocked you
             </h6>
             <p class="bb-panel-sub mb-0">
-                You cannot message {{ seller_profile.name|default:seller.username }} or see their listings.
+                You cannot message {{ display_name }} or see their listings.
                 If you think this is a mistake, contact support.
             </p>
         </div>
@@ -32,24 +32,35 @@
             <div class="bb-panel h-100">
                 <div class="d-flex align-items-center gap-3">
                     <div class="bb-avatar lg" style="width:72px; height:72px; font-size:1.6rem;">
-                        {{ seller_profile.name|default:seller.username|slice:":1"|upper }}
+                        {{ display_name|slice:":1"|upper }}
                     </div>
                     <div style="min-width:0;">
                         <div class="d-flex align-items-center gap-2 flex-wrap">
-                            <h5 class="mb-0 fw-bold text-truncate">
-                                {{ seller_profile.name|default:seller.username }}
-                            </h5>
+                            <h5 class="mb-0 fw-bold text-truncate">{{ display_name }}</h5>
+                            {% if is_me %}
+                                <span class="bb-chip" title="Only you can see this name">
+                                    <i class="bi bi-person-badge"></i> You
+                                </span>
+                            {% endif %}
                             {% if seller_profile.is_verified %}
                                 <span class="bb-chip green" title="Email confirmed">
                                     <i class="bi bi-patch-check-fill"></i> Verified
                                 </span>
                             {% endif %}
                         </div>
-                        <small class="text-muted d-block">
-                            <i class="bi bi-geo-alt"></i>
-                            {{ seller_profile.location|default:"Location not shared" }}
-                        </small>
-                        <small class="text-muted">Member since {{ seller.date_joined|date:"M Y" }}</small>
+                        {% if seller_profile.shows_location_publicly %}
+                            <small class="text-muted d-block">
+                                <i class="bi bi-geo-alt"></i>
+                                {{ seller_profile.location|default:"Location not shared" }}
+                            </small>
+                            <small class="text-muted">Member since {{ seller.date_joined|date:"M Y" }}</small>
+                        {% else %}
+                            <small class="text-muted d-block">
+                                <i class="bi bi-lock-fill"></i>
+                                {% if is_me %}Private account — buyers see only your first name
+                                {% else %}Private account — location and join date are hidden{% endif %}
+                            </small>
+                        {% endif %}
                     </div>
                 </div>
 
@@ -187,13 +198,11 @@
                 {% for review in reviews %}
                     <div class="d-flex gap-3 py-3 {% if not forloop.last %}border-bottom{% endif %}" style="border-color:#f1f5f9 !important;">
                         <div class="bb-avatar" style="width:44px; height:44px; font-size:1rem;">
-                            {{ review.reviewer.profile.name|default:review.reviewer.username|slice:":1"|upper }}
+                            {{ review.reviewer.profile.public_name|slice:":1"|upper }}
                         </div>
                         <div style="min-width:0;" class="flex-grow-1">
                             <div class="d-flex align-items-center gap-2 flex-wrap">
-                                <span class="fw-bold small">
-                                    {{ review.reviewer.profile.name|default:review.reviewer.username }}
-                                </span>
+                                <span class="fw-bold small">{{ review.reviewer.profile.public_name }}</span>
                                 <span class="text-warning small">
                                     {% for _ in review.filled_stars %}<i class="bi bi-star-fill"></i>{% endfor %}
                                     {% for _ in review.empty_stars %}<i class="bi bi-star"></i>{% endfor %}

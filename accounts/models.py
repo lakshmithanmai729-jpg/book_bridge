@@ -79,6 +79,31 @@ class UserProfile(models.Model):
             self.CONTACT_WHATSAPP: 'WhatsApp / Call',
         }.get(self.contact_preference, 'In-App Chat')
 
+    # ---------- account privacy (public vs private) ----------
+
+    @property
+    def is_public(self):
+        return self.account_privacy == 'public'
+
+    @property
+    def public_name(self):
+        """The name other members may see on public pages.
+
+        Public accounts show the full name they entered. Private accounts only
+        ever expose the first name — enough to be polite, not enough to be
+        identified. Sellers see their own full name everywhere (is_owner views
+        use ``name`` directly).
+        """
+        full = (self.name or '').strip() or self.user.username
+        if self.is_public:
+            return full
+        return full.split()[0] if full.split() else self.user.username
+
+    @property
+    def shows_location_publicly(self):
+        """Private accounts keep their locality and join date off public pages."""
+        return self.is_public
+
     # ---------- trust & safety ----------
 
     @property

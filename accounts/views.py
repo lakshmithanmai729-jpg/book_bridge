@@ -454,9 +454,13 @@ def seller_profile(request, user_id):
             Wishlist.objects.filter(user=request.user).values_list('book_id', flat=True)
         )
 
+    # Public visitors only ever see the privacy-safe name.
+    display_name = profile_obj.name if is_me else profile_obj.public_name
+
     return render(request, 'accounts/seller_profile.html', {
         'seller': seller,
         'seller_profile': profile_obj,
+        'display_name': display_name,
         'rating': rating,
         'rating_stars': rating_stars,
         'reviews': reviews[:20],

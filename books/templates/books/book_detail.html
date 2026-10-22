@@ -185,7 +185,7 @@
                     <div style="min-width:0;" class="flex-grow-1">
                         <div class="d-flex align-items-center gap-2 flex-wrap">
                             <a href="{% url 'accounts:seller_profile' book.seller.pk %}" class="fw-bold text-dark text-truncate text-decoration-none" style="font-size:1.05rem;">
-                                {% if seller_profile and seller_profile.name %}{{ seller_profile.name }}{% else %}{{ book.seller.username }}{% endif %}
+                                {% if seller_profile %}{{ seller_profile.public_name }}{% else %}{{ book.seller.username }}{% endif %}
                             </a>
                             {% if seller_profile.is_verified %}
                                 <span class="bb-chip green" style="padding:3px 9px; font-size:0.7rem;" title="Email confirmed">
@@ -212,8 +212,12 @@
                             </small>
                         </div>
                         <small class="text-muted d-block">
-                            {% if seller_profile.location %}{{ seller_profile.location }}{% else %}BookBridge member{% endif %}
-                            · Joined {{ book.seller.date_joined|date:"M Y" }}
+                            {% if seller_profile and not seller_profile.shows_location_publicly %}
+                                <i class="bi bi-lock-fill"></i> Private account
+                            {% else %}
+                                {% if seller_profile.location %}{{ seller_profile.location }}{% else %}BookBridge member{% endif %}
+                                · Joined {{ book.seller.date_joined|date:"M Y" }}
+                            {% endif %}
                         </small>
                     </div>
                 </div>
