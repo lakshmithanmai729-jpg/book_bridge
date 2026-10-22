@@ -7,15 +7,20 @@ services:
     runtime: python
     plan: free
     region: singapore          # closest free region to India; change if you prefer
-    branch: master             # deploy from master (merge PR #2 first)
+    branch: master             # deploys automatically on every merge to master
+    # Only build artefacts here — the database is not guaranteed to be awake
+    # while a build runs, and a failed migration used to fail the whole build.
     buildCommand: |
       pip install -r requirements.txt
       python manage.py collectstatic --noinput
-      python manage.py migrate --noinput
-      python manage.py seed_demo --if-empty
-      python manage.py ensure_demo_media
-      python manage.py ensure_admin
-    startCommand: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 60
+    # Everything that touches the database runs at boot, when it is definitely
+    # reachable: migrate, categories, demo covers, then the owner's admin.
+    startCommand: |
+      python manage.py migrate --noinput &&
+      python manage.py seed_demo --if-empty &&
+      python manage.py ensure_demo_media &&
+      python manage.py ensure_admin &&
+      gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 60 --access-logfile -
     healthCheckPath: /healthz/
     autoDeploy: true
     envVars:

@@ -51,10 +51,10 @@ Windows లో: `scripts\dev_up.bat`
 దీని తర్వాత **sandbox కి ఎలాంటి సంబంధం లేకుండా** app 24/7 online ఉంటుంది.
 మీరు ఫోన్/ల్యాప్టాప్ ఏదైనా — link open చేస్తే app వస్తుంది.
 
-### ముందుగా: PR #2 merge చేయండి
-Render `master` branch నుంచి deploy చేస్తుంది. కాబట్టి పని మొత్తం master లో ఉండాలి.
-**నన్ను "PR merge చేయి" అని చెప్పండి — నేను merge చేస్తాను.** (లేదా `render.yaml` లో
-`branch:` విలువను మీ branch పేరుకు మార్చండి.)
+### ✅ PR #2 merge అయింది
+మొత్తం code ఇప్పుడు **`master`** లో ఉంది. Render `master` నుంచే deploy చేస్తుంది,
+కాబట్టి ఇంక ఏమీ merge చేయాల్సిన అవసరం లేదు. ఇక మీరు చేయాల్సింది Render లో
+4 క్లిక్‌లు మాత్రమే.
 
 ### Steps (4 clicks)
 
