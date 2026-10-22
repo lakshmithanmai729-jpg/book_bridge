@@ -13,6 +13,7 @@ from django.utils import timezone
 
 from books.models import Book, Category
 from core.ratelimit import throttled
+from . import notify as notify_service
 
 from .emails import (
     mark_verified,
@@ -21,7 +22,7 @@ from .emails import (
     send_verification_email,
 )
 from .forms import SignUpForm
-from .models import BookRequest, ChatMessage, SellerReview, UserBlock, UserProfile
+from .models import BookRequest, ChatMessage, Notification, SellerReview, UserBlock, UserProfile
 
 
 def get_profile(user):
@@ -507,8 +508,9 @@ def review_seller(request, user_id):
             existing.comment = comment
             existing.save(update_fields=['rating', 'comment'])
             message_text = 'Your rating was updated. Thank you!'
+            review = existing
         else:
-            SellerReview.objects.create(
+            review = SellerReview.objects.create(
                 reviewer=request.user,
                 seller=seller,
                 book=_conversation_book(request.user, seller),
@@ -516,6 +518,8 @@ def review_seller(request, user_id):
                 comment=comment,
             )
             message_text = f'Thanks! You rated {get_profile(seller).name or seller.username}.'
+
+        notify_service.notify_new_review(review)
 
         SellerReview.invalidate_summary(seller.pk)
         messages.success(request, message_text)
@@ -571,5 +575,95 @@ def blocked_users(request):
     )
     return render(request, 'accounts/blocked_users.html', {
         'blocks': blocks,
+        'profile': get_profile(request.user),
+    })
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 — notification centre + seller analytics
+# ---------------------------------------------------------------------------
+
+@login_required
+def notifications_list(request):
+    """The bell menu: everything that happened around the member's books."""
+    tab = request.GET.get('tab', 'all')
+    queryset = Notification.objects.filter(recipient=request.user).select_related('actor', 'book')
+    if tab == 'unread':
+        queryset = queryset.filter(is_read=False)
+
+    unread = Notification.objects.filter(recipient=request.user, is_read=False).count()
+    return render(request, 'accounts/notifications.html', {
+        'notifications': queryset[:60],
+        'tab': tab,
+        'unread_count': unread,
+        'profile': get_profile(request.user),
+    })
+
+
+@login_required
+def notification_open(request, pk):
+    """Mark one notification as read and follow its link."""
+    note = get_object_or_404(Notification, pk=pk, recipient=request.user)
+    if not note.is_read:
+        note.is_read = True
+        note.save(update_fields=['is_read'])
+
+    if note.url and url_has_allowed_host_and_scheme(
+        note.url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return redirect(note.url)
+    return redirect('accounts:notifications')
+
+
+@login_required
+@require_POST
+def notifications_read_all(request):
+    updated = Notification.objects.filter(recipient=request.user, is_read=False).update(is_read=True)
+    if updated:
+        messages.success(request, f'Marked {updated} notification(s) as read.')
+    return redirect('accounts:notifications')
+
+
+@login_required
+def seller_analytics(request):
+    """Numbers sellers care about: views, saves, chats and conversion."""
+    from django.db.models import Count
+
+    books = (
+        Book.objects
+        .filter(seller=request.user)
+        .select_related('category')
+        .annotate(saves=Count('wishlist', distinct=True))
+        .order_by('-created_at')
+    )
+
+    active = [book for book in books if not book.is_sold and not book.is_hidden]
+    sold = [book for book in books if book.is_sold]
+
+    total_views = sum(book.views_count for book in books)
+    total_saves = sum(book.saves for book in books)
+
+    chat_count = ChatMessage.objects.filter(
+        Q(sender=request.user) | Q(receiver=request.user)
+    ).values('sender_id', 'receiver_id', 'book_id').distinct().count()
+
+    wishlisted_by_others = (
+        Book.objects.filter(seller=request.user)
+        .annotate(saves=Count('wishlist', distinct=True))
+        .filter(saves__gt=0)
+        .count()
+    )
+
+    top_books = sorted(books, key=lambda item: (item.views_count, item.saves), reverse=True)[:5]
+
+    return render(request, 'accounts/seller_analytics.html', {
+        'books': books[:20],
+        'active_count': len(active),
+        'sold_count': len(sold),
+        'total_views': total_views,
+        'total_saves': total_saves,
+        'chat_count': chat_count,
+        'wishlisted_by_others': wishlisted_by_others,
+        'top_books': top_books,
         'profile': get_profile(request.user),
     })

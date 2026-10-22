@@ -5,13 +5,14 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
-from django.db.models import F, Q
+from django.db.models import Count, F, Q, Sum
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from accounts.models import SellerReview, UserBlock
+from accounts.models import ChatMessage, SellerReview, UserBlock
+from accounts.notify import notify_back_on_sale, notify_price_drop, notify_request_matches
 from ai_engine.utils import get_recommendations
 from core.ratelimit import throttled
 
@@ -329,6 +330,7 @@ def book_add(request):
             book.image = book.images.first().image
             book.save(update_fields=['image'])
 
+        notify_request_matches(book)
         messages.success(request, f'“{book.title}” is live! Buyers nearby can now see it.')
         return redirect('books:book_detail', pk=book.pk)
 
@@ -340,6 +342,7 @@ def book_edit(request, pk):
     book = get_object_or_404(Book, pk=pk, seller=request.user)
     if request.method == 'POST':
         form = BookForm(request.POST, request.FILES, instance=book)
+        old_price = book.price
         if form.is_valid():
             book = form.save()
             if book.image and not book.image.name.lower().endswith('.webp'):
@@ -350,6 +353,8 @@ def book_edit(request, pk):
             if not book.image and book.images.exists():
                 book.image = book.images.first().image
                 book.save(update_fields=['image'])
+            if not book.is_donation:
+                notify_price_drop(book, old_price, book.price)
             messages.success(request, 'Listing updated.')
             return redirect('books:book_detail', pk=book.pk)
         messages.error(request, 'Please check the highlighted fields.')
@@ -390,13 +395,24 @@ def my_listings(request):
         'all': base.count(),
     }
 
+    queryset = queryset.annotate(saves=Count('wishlist', distinct=True))
     page_obj = _page(request, queryset.order_by('-created_at'), per_page=12)
+
+    totals = base.aggregate(views=Sum('views_count'))
+    feedback = {
+        'views': totals['views'] or 0,
+        'saves': Wishlist.objects.filter(book__seller=request.user).count(),
+        'messages': ChatMessage.objects.filter(
+            Q(sender=request.user) | Q(receiver=request.user)
+        ).values('sender_id', 'receiver_id', 'book_id').distinct().count(),
+    }
 
     return render(request, 'books/my_listings.html', {
         'page_obj': page_obj,
         'books': page_obj,
         'tab': tab,
         'counts': counts,
+        'feedback': feedback,
         'query_without_page': _query_without_page(request),
     })
 
@@ -406,7 +422,10 @@ def my_listings(request):
 def toggle_sold(request, pk):
     """Mark a listing as sold (or put it back on sale)."""
     book = get_object_or_404(Book, pk=pk, seller=request.user)
+    was_sold = book.is_sold
     book.mark_sold(not book.is_sold)
+    if was_sold and not book.is_sold:
+        notify_back_on_sale(book)
     if book.is_sold:
         messages.success(request, f'“{book.title}” marked as sold.')
     else:

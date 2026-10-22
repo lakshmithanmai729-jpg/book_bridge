@@ -6,7 +6,7 @@ from django.urls import reverse
 
 from books.models import Book, Category
 
-from .models import BookRequest, ChatMessage, SellerReview, UserBlock
+from .models import BookRequest, ChatMessage, Notification, SellerReview, UserBlock
 
 
 class UserProfilePrivacyTests(TestCase):
@@ -501,3 +501,161 @@ class SafetyCentreTests(TestCase):
         seller = User.objects.create_user('seller', password='Bridge!2345')
         response = self.client.get(reverse('accounts:seller_profile', args=[seller.pk]))
         self.assertEqual(response.status_code, 200)
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 - notifications & seller analytics
+# ---------------------------------------------------------------------------
+
+class NotificationTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.seller = User.objects.create_user('seller', password='Bridge!2345')
+        self.buyer = User.objects.create_user('buyer', password='Bridge!2345')
+        self.book = Book.objects.create(
+            seller=self.seller, title='Organic Chemistry', author='Morrison',
+            price=400, condition='good', location_city='Hyderabad',
+        )
+
+    def test_price_drop_notifies_wishlist_users_only(self):
+        from books.models import Wishlist
+        Wishlist.objects.create(user=self.buyer, book=self.book)
+
+        self.client.force_login(self.seller)
+        self.client.post(reverse('books:book_edit', args=[self.book.pk]), {
+            'title': self.book.title,
+            'author': self.book.author,
+            'price': '250',
+            'condition': 'good',
+        })
+
+        note = Notification.objects.filter(recipient=self.buyer, kind='price_drop').first()
+        self.assertIsNotNone(note)
+        self.assertIn('250', note.body)
+        self.assertFalse(Notification.objects.filter(recipient=self.seller, kind='price_drop').exists())
+
+    def test_price_increase_does_not_notify(self):
+        from books.models import Wishlist
+        Wishlist.objects.create(user=self.buyer, book=self.book)
+
+        self.client.force_login(self.seller)
+        self.client.post(reverse('books:book_edit', args=[self.book.pk]), {
+            'title': self.book.title,
+            'author': self.book.author,
+            'price': '500',
+            'condition': 'good',
+        })
+        self.assertFalse(Notification.objects.filter(recipient=self.buyer, kind='price_drop').exists())
+
+    def test_relisting_notifies_people_who_saved_the_book(self):
+        from books.models import Wishlist
+        Wishlist.objects.create(user=self.buyer, book=self.book)
+        self.book.mark_sold(True)
+
+        self.client.force_login(self.seller)
+        self.client.post(reverse('books:toggle_sold', args=[self.book.pk]))
+
+        self.assertTrue(
+            Notification.objects.filter(recipient=self.buyer, kind='back_on_sale').exists()
+        )
+
+    def test_new_listing_matches_open_book_requests(self):
+        BookRequest.objects.create(
+            user=self.buyer, book_title='Organic Chemistry Morrison', category='NEET',
+        )
+        self.client.force_login(self.seller)
+        self.client.post(reverse('books:book_add'), {
+            'title': 'Organic Chemistry', 'author': 'Morrison', 'price': '300',
+            'condition': 'good', 'location_city': 'Hyderabad',
+        })
+        self.assertTrue(
+            Notification.objects.filter(recipient=self.buyer, kind='request_match').exists()
+        )
+
+    def test_review_notifies_the_seller(self):
+        ChatMessage.objects.create(sender=self.buyer, receiver=self.seller, book=self.book, text='Hi')
+        self.client.force_login(self.buyer)
+        self.client.post(reverse('accounts:review_seller', args=[self.seller.pk]), {
+            'rating': '5', 'comment': 'Great seller',
+        })
+        note = Notification.objects.filter(recipient=self.seller, kind='review').first()
+        self.assertIsNotNone(note)
+        self.assertIn('5-star', note.title)
+
+    def test_blocked_people_do_not_get_notifications(self):
+        from books.models import Wishlist
+        Wishlist.objects.create(user=self.buyer, book=self.book)
+        UserBlock.objects.create(blocker=self.buyer, blocked=self.seller)
+
+        self.client.force_login(self.seller)
+        self.client.post(reverse('books:book_edit', args=[self.book.pk]), {
+            'title': self.book.title, 'author': self.book.author,
+            'price': '100', 'condition': 'good',
+        })
+        self.assertFalse(Notification.objects.filter(recipient=self.buyer, kind='price_drop').exists())
+
+    def test_bell_count_and_notification_page(self):
+        Notification.objects.create(
+            recipient=self.buyer, kind='system', title='Welcome to BookBridge',
+        )
+        self.client.force_login(self.buyer)
+        response = self.client.get(reverse('accounts:notifications'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Welcome to BookBridge')
+        self.assertEqual(response.context['unread_count'], 1)
+
+    def test_opening_a_notification_marks_it_read(self):
+        Notification.objects.create(
+            recipient=self.buyer, kind='system', title='Hello', url='/books/',
+        )
+        note = Notification.objects.get(recipient=self.buyer)
+        self.client.force_login(self.buyer)
+        response = self.client.get(reverse('accounts:notification_open', args=[note.pk]))
+        self.assertRedirects(response, '/books/')
+        note.refresh_from_db()
+        self.assertTrue(note.is_read)
+
+    def test_mark_all_read(self):
+        for index in range(3):
+            Notification.objects.create(recipient=self.buyer, kind='system', title=f'Note {index}')
+        self.client.force_login(self.buyer)
+        self.client.post(reverse('accounts:notifications_read_all'))
+        self.assertEqual(Notification.objects.filter(recipient=self.buyer, is_read=False).count(), 0)
+
+    def test_members_cannot_open_someone_elses_notification(self):
+        Notification.objects.create(recipient=self.seller, kind='system', title='Private')
+        note = Notification.objects.get(recipient=self.seller)
+        self.client.force_login(self.buyer)
+        response = self.client.get(reverse('accounts:notification_open', args=[note.pk]))
+        self.assertEqual(response.status_code, 404)
+
+
+class SellerAnalyticsTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.seller = User.objects.create_user('seller', password='Bridge!2345')
+        self.buyer = User.objects.create_user('buyer', password='Bridge!2345')
+        self.book = Book.objects.create(
+            seller=self.seller, title='Analytics Book', author='A', price=120, condition='good',
+        )
+        Book.objects.filter(pk=self.book.pk).update(views_count=7)
+
+    def test_analytics_page_totals(self):
+        from books.models import Wishlist
+        Wishlist.objects.create(user=self.buyer, book=self.book)
+        self.client.force_login(self.seller)
+        response = self.client.get(reverse('accounts:seller_analytics'))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['total_views'], 7)
+        self.assertEqual(response.context['total_saves'], 1)
+        self.assertEqual(response.context['active_count'], 1)
+
+    def test_analytics_requires_login(self):
+        response = self.client.get(reverse('accounts:seller_analytics'))
+        self.assertEqual(response.status_code, 302)
+
+    def test_my_listings_feedback_strip(self):
+        self.client.force_login(self.seller)
+        response = self.client.get(reverse('books:my_listings'))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['feedback']['views'], 7)

@@ -1170,6 +1170,10 @@
 
         <div class="bb-top-actions">
             {% if user.is_authenticated %}
+                <a href="{% url 'accounts:notifications' %}" class="bb-icon-btn" title="Notifications" aria-label="Notifications">
+                    <i class="bi bi-bell-fill"></i>
+                    {% if unread_notification_count %}<span class="bb-unread-dot">{{ unread_notification_count }}</span>{% endif %}
+                </a>
                 <a href="{% url 'accounts:messages' %}" class="bb-icon-btn" title="Messages" aria-label="Messages">
                     <i class="bi bi-chat-dots-fill"></i>
                     {% if unread_message_count %}<span class="bb-unread-dot">{{ unread_message_count }}</span>{% endif %}

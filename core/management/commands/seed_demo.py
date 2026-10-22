@@ -18,7 +18,7 @@ from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 from django.utils.text import slugify
 
-from accounts.models import BookRequest, ChatMessage, SellerReview, UserProfile
+from accounts.models import BookRequest, ChatMessage, Notification, SellerReview, UserProfile
 from books.models import Book, Category
 
 PASSWORD = 'bookbridge123'
@@ -356,6 +356,27 @@ class Command(BaseCommand):
                 comment='Slightly worn cover but all pages intact — good deal for the price.',
             )
             SellerReview.invalidate_summary(arjun.pk)
+
+        # ---- Phase 3 demo notifications for the demo account ----
+        Notification.objects.filter(recipient=demo).delete()
+        if demo_books:
+            Notification.objects.create(
+                recipient=demo,
+                actor=priya,
+                book=demo_books[0],
+                kind=Notification.KIND_PRICE_DROP,
+                title=f'Price drop: {demo_books[0].title}',
+                body='A book on your wishlist just got cheaper.',
+                url=f'/books/{demo_books[0].pk}/',
+            )
+            Notification.objects.create(
+                recipient=demo,
+                actor=arjun,
+                kind=Notification.KIND_REVIEW,
+                title='New 5-star review ★★★★★',
+                body='Genuine seller. Kept the book aside for me and replied within minutes.',
+                url='/accounts/profile/',
+            )
 
         self.stdout.write(self.style.SUCCESS(
             f'Demo data ready: {len(users)} users, {Book.objects.count()} books, '

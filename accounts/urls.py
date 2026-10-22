@@ -38,6 +38,12 @@ urlpatterns = [
     path('block/<int:user_id>/', views.toggle_block, name='toggle_block'),
     path('blocked/', views.blocked_users, name='blocked_users'),
 
+    # Notifications & seller analytics
+    path('notifications/', views.notifications_list, name='notifications'),
+    path('notifications/read/<int:pk>/', views.notification_open, name='notification_open'),
+    path('notifications/read-all/', views.notifications_read_all, name='notifications_read_all'),
+    path('analytics/', views.seller_analytics, name='seller_analytics'),
+
     path('messages/', views.messages_view, name='messages'),
     path('chat/start/<int:book_id>/', views.start_chat, name='start_chat'),
     path('chat/<int:user_id>/', views.chat_detail, name='chat_detail'),

@@ -249,6 +249,69 @@ class SellerReview(models.Model):
         ).exists()
 
 
+class Notification(models.Model):
+    """An in-app notification for one member (price drops, matches, reviews…)."""
+
+    KIND_PRICE_DROP = 'price_drop'
+    KIND_BACK_ON_SALE = 'back_on_sale'
+    KIND_REQUEST_MATCH = 'request_match'
+    KIND_REVIEW = 'review'
+    KIND_SYSTEM = 'system'
+    KIND_CHOICES = [
+        (KIND_PRICE_DROP, 'Price drop'),
+        (KIND_BACK_ON_SALE, 'Back on sale'),
+        (KIND_REQUEST_MATCH, 'Book you wanted'),
+        (KIND_REVIEW, 'New review'),
+        (KIND_SYSTEM, 'BookBridge'),
+    ]
+
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    actor = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name='notifications_sent'
+    )
+    book = models.ForeignKey(
+        'books.Book', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='notifications',
+    )
+    kind = models.CharField(max_length=20, choices=KIND_CHOICES, default=KIND_SYSTEM)
+    title = models.CharField(max_length=200)
+    body = models.TextField(blank=True, default='')
+    url = models.CharField(max_length=500, blank=True, default='')
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [models.Index(fields=['recipient', 'is_read'])]
+
+    def __str__(self):
+        return f'{self.kind} → {self.recipient.username}: {self.title[:40]}'
+
+    @property
+    def icon(self):
+        return {
+            self.KIND_PRICE_DROP: 'bi-tags-fill',
+            self.KIND_BACK_ON_SALE: 'bi-arrow-repeat',
+            self.KIND_REQUEST_MATCH: 'bi-search-heart-fill',
+            self.KIND_REVIEW: 'bi-star-fill',
+        }.get(self.kind, 'bi-bell-fill')
+
+    @property
+    def color(self):
+        return {
+            self.KIND_PRICE_DROP: '#047857',
+            self.KIND_BACK_ON_SALE: '#0284c7',
+            self.KIND_REQUEST_MATCH: '#7c3aed',
+            self.KIND_REVIEW: '#f59e0b',
+        }.get(self.kind, '#0284c7')
+
+    @classmethod
+    def unread_count(cls, user):
+        if not user or not getattr(user, 'is_authenticated', False):
+            return 0
+        return cls.objects.filter(recipient=user, is_read=False).count()
+
+
 class UserBlock(models.Model):
     """One user hiding another user's listings and chats."""
 

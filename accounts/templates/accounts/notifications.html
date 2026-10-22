@@ -1,0 +1,75 @@
+{% extends 'core/base.html' %}
+{% block title %}Notifications - BookBridge{% endblock %}
+
+{% block content %}
+<div class="bb-page">
+    <div class="bb-page-head justify-content-between flex-wrap">
+        <div class="d-flex align-items-center gap-2">
+            <a href="{% url 'accounts:profile' %}" class="bb-back-btn" aria-label="Back">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <div>
+                <h1>Notifications</h1>
+                <small class="text-muted">
+                    {% if unread_count %}{{ unread_count }} unread{% else %}You are all caught up{% endif %}
+                </small>
+            </div>
+        </div>
+        {% if unread_count %}
+            <form method="POST" action="{% url 'accounts:notifications_read_all' %}" class="mb-0">
+                {% csrf_token %}
+                <button type="submit" class="bb-btn bb-btn-outline bb-btn-sm">
+                    <i class="bi bi-check2-all"></i> Mark all as read
+                </button>
+            </form>
+        {% endif %}
+    </div>
+
+    <div class="bb-chip-row ps-0 pe-0 mb-3">
+        <a href="?tab=all" class="btn {% if tab != 'unread' %}btn-dark{% else %}btn-outline-secondary{% endif %}">
+            All
+        </a>
+        <a href="?tab=unread" class="btn {% if tab == 'unread' %}btn-dark{% else %}btn-outline-secondary{% endif %}">
+            Unread {% if unread_count %}<span class="badge bg-danger ms-1">{{ unread_count }}</span>{% endif %}
+        </a>
+    </div>
+
+    <div class="bb-panel" style="max-width:900px;">
+        {% for note in notifications %}
+            <a href="{% url 'accounts:notification_open' note.pk %}"
+               class="d-flex gap-3 py-3 text-decoration-none text-dark {% if not forloop.last %}border-bottom{% endif %}"
+               style="border-color:#f1f5f9 !important;">
+                <div class="d-flex align-items-center justify-content-center flex-shrink-0"
+                     style="width:44px; height:44px; border-radius:14px; background:{{ note.color }}14; color:{{ note.color }};">
+                    <i class="bi {{ note.icon }}" style="font-size:1.2rem;"></i>
+                </div>
+                <div class="flex-grow-1" style="min-width:0;">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <span class="fw-bold small">{{ note.title }}</span>
+                        {% if not note.is_read %}
+                            <span class="badge rounded-pill" style="background:#0284c7; font-size:0.62rem;">NEW</span>
+                        {% endif %}
+                    </div>
+                    {% if note.body %}
+                        <p class="small text-muted mb-1 mt-1">{{ note.body|truncatechars:160 }}</p>
+                    {% endif %}
+                    <small class="text-muted">
+                        <i class="bi bi-clock"></i> {{ note.created_at|timesince }} ago
+                        · {{ note.get_kind_display }}
+                    </small>
+                </div>
+                <i class="bi bi-chevron-right text-muted align-self-center"></i>
+            </a>
+        {% empty %}
+            <div class="text-center py-5">
+                <div style="font-size:2.8rem;">🔔</div>
+                <h6 class="fw-bold mt-3 mb-1">No notifications yet</h6>
+                <p class="text-muted small mb-0">
+                    Save books to your favourites — we will tell you when the price drops,
+                    when a sold book is relisted, or when a book you requested appears nearby.
+                </p>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
