@@ -184,8 +184,17 @@ class Command(BaseCommand):
             action='store_true',
             help='Delete previously seeded demo users and their listings first.',
         )
+        parser.add_argument(
+            '--if-empty',
+            action='store_true',
+            help='Only seed when the marketplace has no books yet (used by the start scripts).',
+        )
 
     def handle(self, *args, **options):
+        if options['if_empty'] and Book.objects.exists():
+            self.stdout.write('Database already has books — skipping demo seeding.')
+            return
+
         random.seed(7)
 
         if options['reset']:

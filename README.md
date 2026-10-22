@@ -39,7 +39,18 @@ the seller explicitly picked **WhatsApp / Call**.
 - Bootstrap 5 + Bootstrap Icons
 - Pillow (image uploads)
 
-## Setup
+## Quick start (no terminal knowledge needed)
+
+**Windows:** double-click **`BookBridge-Start.bat`** in the project folder.
+**macOS / Linux:** run **`./BookBridge-Start.sh`**.
+
+The script creates the virtual environment, installs requirements, copies `.env.example` to `.env`
+if missing, applies migrations, loads demo data when the database is empty, and opens
+<http://127.0.0.1:8000> automatically.
+
+Demo login: **demo / bookbridge123**
+
+## Manual setup
 
 1. Clone the repo and create a virtual environment:
 
