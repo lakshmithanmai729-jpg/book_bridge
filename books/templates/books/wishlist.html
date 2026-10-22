@@ -2,56 +2,60 @@
 {% block title %}My Favourites - BookBridge{% endblock %}
 
 {% block content %}
-<div class="bb-section-header">
-    <div>
-        <h3 class="bb-section-title">My Favourites</h3>
-        <small class="text-muted">Books you saved for later pickup</small>
+<div class="bb-page">
+    <div class="bb-page-head justify-content-between flex-wrap">
+        <div>
+            <h1>My Favourites</h1>
+            <small class="text-muted">Books you saved for later pickup</small>
+        </div>
+        <a href="{% url 'books:book_list' %}" class="bb-btn bb-btn-outline bb-btn-sm">
+            <i class="bi bi-compass"></i> Explore More Books
+        </a>
     </div>
-    <a href="{% url 'books:book_list' %}" class="btn btn-outline-primary rounded-pill btn-sm px-3 fw-semibold">
-        Explore More Books
-    </a>
-</div>
 
-<div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 g-3 mb-5">
-    {% for item in items %}
-        <div class="col">
-            <div class="bb-book-card w-100">
-                <div class="bb-card-img-wrap">
-                    <a href="{% url 'books:book_detail' item.book.pk %}">
-                        {% if item.book.image %}
-                            <img src="{{ item.book.image.url }}" alt="{{ item.book.title }}">
-                        {% else %}
-                            <div class="d-flex align-items-center justify-content-center h-100 bg-light text-center p-2">
-                                <span class="text-muted fw-bold small">📖 {{ item.book.title|truncatechars:20 }}</span>
-                            </div>
-                        {% endif %}
-                    </a>
-                    <a href="{% url 'books:wishlist_toggle' item.book.pk %}" class="card-heart-btn active" title="Remove from wishlist">
-                        <i class="bi bi-heart-fill text-danger"></i>
+    <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 row-cols-xxl-6 g-3 g-lg-4 mb-5">
+        {% for item in items %}
+            <div class="col">
+                <div class="bb-book-card w-100">
+                    <div class="bb-card-img-wrap">
+                        <a href="{% url 'books:book_detail' item.book.pk %}">
+                            {% if item.book.image %}
+                                <img src="{{ item.book.image.url }}" alt="{{ item.book.title }}">
+                            {% else %}
+                                <div class="d-flex align-items-center justify-content-center h-100 bg-light text-center p-2">
+                                    <span class="text-muted fw-bold small">📖 {{ item.book.title|truncatechars:20 }}</span>
+                                </div>
+                            {% endif %}
+                        </a>
+                        <a href="{% url 'books:wishlist_toggle' item.book.pk %}" class="card-heart-btn active" title="Remove from wishlist">
+                            <i class="bi bi-heart-fill text-danger"></i>
+                        </a>
+                    </div>
+
+                    <div class="bb-price-meta">
+                        <span class="bb-price">₹ {{ item.book.price|floatformat:0 }}</span>
+                        <span class="bb-distance-pill">
+                            <i class="bi bi-geo-alt-fill"></i> &lt; 100 m
+                        </span>
+                    </div>
+
+                    <a href="{% url 'books:book_detail' item.book.pk %}" class="text-decoration-none">
+                        <p class="small fw-semibold text-dark text-truncate mb-0" title="{{ item.book.title }}">{{ item.book.title }}</p>
                     </a>
                 </div>
-
-                <div class="d-flex align-items-center justify-content-between mt-2 mb-1">
-                    <span class="bb-price">₹ {{ item.book.price|floatformat:0 }}</span>
-                    <span class="bb-distance-pill">
-                        <i class="bi bi-geo-alt-fill"></i> &lt; 100 m
-                    </span>
-                </div>
-
-                <a href="{% url 'books:book_detail' item.book.pk %}" class="text-decoration-none">
-                    <p class="small fw-semibold text-dark text-truncate mb-0" title="{{ item.book.title }}">{{ item.book.title }}</p>
-                </a>
             </div>
-        </div>
-    {% empty %}
-        <div class="col-12 text-center py-5">
-            <i class="bi bi-heart text-muted" style="font-size: 3rem;"></i>
-            <h5 class="text-muted mt-2">No favourites saved yet</h5>
-            <p class="small text-muted">Tap the heart icon on any book to save it here.</p>
-            <a href="{% url 'books:book_list' %}" class="btn btn-primary rounded-pill px-4 py-2 fw-semibold" style="background:#0284c7; border:none;">
-                Browse Books Nearby
-            </a>
-        </div>
-    {% endfor %}
+        {% empty %}
+            <div class="col-12">
+                <div class="bb-empty">
+                    <div class="bb-empty-icon"><i class="bi bi-heart"></i></div>
+                    <h3>No favourites saved yet</h3>
+                    <p>Tap the heart icon on any book to save it here.</p>
+                    <a href="{% url 'books:book_list' %}" class="bb-btn bb-btn-primary">
+                        <i class="bi bi-book"></i> Browse Books Nearby
+                    </a>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
 </div>
 {% endblock %}

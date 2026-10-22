@@ -1,33 +1,120 @@
 {% extends 'core/base.html' %}
+{% block title %}Sign in - BookBridge{% endblock %}
+
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6">
-        <h2 class="mb-4">Login to Book Bridge</h2>
-        <form method="POST">
-            {% csrf_token %}
-            {% for field in form %}
-                <div class="mb-3">
-                    <label class="form-label">{{ field.label }}</label>
-                    {{ field }}
+<style>
+    .auth-grid { display: grid; grid-template-columns: 1fr; gap: 24px; align-items: stretch; }
+    .auth-side {
+        background: linear-gradient(140deg, #0f172a 0%, #0c4a6e 45%, #0284c7 100%);
+        border-radius: 24px;
+        color: #ffffff;
+        padding: 34px 32px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-height: 320px;
+        box-shadow: 0 18px 40px rgba(2, 132, 199, 0.24);
+    }
+    .auth-side h2 { font-weight: 900; font-size: 1.9rem; letter-spacing: -0.6px; line-height: 1.15; }
+    .auth-side p { color: #cbd5e1; font-size: 0.95rem; line-height: 1.6; max-width: 420px; }
+    .auth-side .auth-features { display: flex; flex-direction: column; gap: 12px; margin-top: 24px; }
+    .auth-side .auth-feature { display: flex; align-items: center; gap: 10px; font-size: 0.88rem; font-weight: 600; color: #e2e8f0; }
+    .auth-side .auth-feature i { color: #7dd3fc; font-size: 1.05rem; }
+    .auth-card {
+        background: #ffffff;
+        border: 1px solid #eef2f7;
+        border-radius: 24px;
+        box-shadow: 0 14px 36px rgba(15, 23, 42, 0.07);
+        padding: 32px;
+    }
+    .auth-card h1 { font-size: 1.5rem; font-weight: 900; letter-spacing: -0.4px; margin-bottom: 4px; }
+    .auth-card .auth-sub { color: #64748b; font-size: 0.88rem; margin-bottom: 22px; }
+    .auth-card input {
+        width: 100%;
+        border: 1.5px solid #e2e8f0;
+        background: #f8fafc;
+        border-radius: 14px;
+        padding: 13px 16px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #0f172a;
+        outline: none;
+        transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+    }
+    .auth-card input:focus { border-color: #0284c7; background: #fff; box-shadow: 0 0 0 3px rgba(2,132,199,0.13); }
+    .auth-card label { font-size: 0.78rem; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px; display: block; }
+    .auth-card .help-text { font-size: 0.75rem; color: #94a3b8; margin-top: 5px; }
+    .auth-card ul.errorlist { list-style: none; padding: 0; margin: 8px 0 0; color: #dc2626; font-size: 0.8rem; font-weight: 600; }
+    .auth-card .form-row { margin-bottom: 18px; }
+    @media (min-width: 992px) {
+        .auth-grid { grid-template-columns: 1.05fr 1fr; gap: 32px; }
+    }
+</style>
+
+<div class="bb-page">
+    <div class="auth-grid">
+        <div class="auth-side">
+            <div>
+                <span class="bb-chip" style="background:rgba(255,255,255,0.14); color:#e0f2fe;"><i class="bi bi-shield-lock-fill"></i> 100% Privacy Protected</span>
+                <h2 class="mt-3">Buy, sell and share books with readers right next to you.</h2>
+                <p>BookBridge connects students and book lovers locally — and lets you chat safely without ever sharing your phone number.</p>
+            </div>
+            <div class="auth-features">
+                <div class="auth-feature"><i class="bi bi-telegram"></i> Telegram and in-app chat — no phone number needed</div>
+                <div class="auth-feature"><i class="bi bi-geo-alt-fill"></i> Books listed by area and college campus</div>
+                <div class="auth-feature"><i class="bi bi-gift-fill"></i> Donate or pick up free books nearby</div>
+            </div>
+        </div>
+
+        <div class="auth-card">
+            <h1>Welcome back</h1>
+            <p class="auth-sub">Sign in to manage your books, chats and requests.</p>
+
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger border-0 rounded-4 small fw-semibold">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.GET.next|default:'' }}">
+
+                <div class="form-row">
+                    <label for="id_username">{{ form.username.label }}</label>
+                    {{ form.username }}
+                    {% for error in form.username.errors %}<ul class="errorlist"><li>{{ error }}</li></ul>{% endfor %}
                 </div>
-            {% endfor %}
-            <button type="submit" class="btn btn-primary">Login</button>
-        </form>
+                <div class="form-row">
+                    <label for="id_password">{{ form.password.label }}</label>
+                    {{ form.password }}
+                    {% for error in form.password.errors %}<ul class="errorlist"><li>{{ error }}</li></ul>{% endfor %}
+                </div>
+
+                <button type="submit" class="bb-btn bb-btn-primary bb-btn-block" style="padding:15px;">Sign in</button>
+            </form>
+
+            <p class="text-center text-muted small mt-3 mb-0">
+                New to BookBridge? <a href="{% url 'accounts:signup' %}" class="fw-bold" style="color:#0284c7;">Create an account</a>
+            </p>
+        </div>
     </div>
 </div>
+
 <script>
-    document.querySelectorAll('input[type=password], input[type=text]').forEach(function(input) {
-        input.classList.add('form-control');
+    document.querySelectorAll('.auth-card input').forEach(function (input) {
+        if (input.type === 'text' || input.type === 'password' || input.type === 'email') {
+            input.classList.add('form-control');
+            input.style.borderRadius = '14px';
+        }
     });
-    document.querySelectorAll('input[type=password]').forEach(function(input) {
+    // Password visibility toggle
+    document.querySelectorAll('.auth-card input[type=password]').forEach(function (input) {
         const toggle = document.createElement('span');
-        toggle.textContent = '👁️';
-        toggle.style.cursor = 'pointer';
-        toggle.style.marginLeft = '8px';
+        toggle.innerHTML = '<i class="bi bi-eye"></i>';
+        toggle.style.cssText = 'cursor:pointer; float:right; margin-top:-41px; margin-right:16px; position:relative; color:#64748b;';
         input.insertAdjacentElement('afterend', toggle);
-        toggle.addEventListener('click', function() {
+        toggle.addEventListener('click', function () {
             input.type = input.type === 'password' ? 'text' : 'password';
-            toggle.textContent = input.type === 'password' ? '👁️' : '🙈';
+            toggle.innerHTML = input.type === 'password' ? '<i class="bi bi-eye"></i>' : '<i class="bi bi-eye-slash"></i>';
         });
     });
 </script>

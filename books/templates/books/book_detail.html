@@ -2,177 +2,322 @@
 {% block title %}{{ book.title }} - BookBridge{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-7 col-md-9">
-        <!-- Header with Back Arrow, Report, Share, Wishlist (Matching Screenshot 5) -->
-        <div class="d-flex align-items-center justify-content-between mb-3">
-            <div class="d-flex align-items-center gap-2">
-                <a href="javascript:history.back()" class="btn btn-light rounded-circle shadow-sm p-2" style="width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center;">
-                    <i class="bi bi-arrow-left fs-5"></i>
-                </a>
-                <h5 class="fw-bold mb-0">Book Details</h5>
-            </div>
-
-            <div class="d-flex align-items-center gap-2">
-                <!-- Report Icon -->
-                <button type="button" class="btn btn-light rounded-circle p-2 text-dark shadow-sm" style="width: 38px; height: 38px;" onclick="alert('Thank you. BookBridge safety team will review this listing.')" title="Report Listing">
-                    <i class="bi bi-exclamation-circle fs-5"></i>
-                </button>
-                <!-- Share Icon -->
-                <button type="button" class="btn btn-light rounded-circle p-2 text-dark shadow-sm" style="width: 38px; height: 38px;" onclick="shareListing()" title="Share">
-                    <i class="bi bi-share fs-5"></i>
-                </button>
-                <!-- Wishlist Icon -->
-                {% if user.is_authenticated %}
-                    <a href="{% url 'books:wishlist_toggle' book.pk %}" class="btn btn-light rounded-circle p-2 text-primary shadow-sm" style="width: 38px; height: 38px;">
-                        <i class="bi bi-heart-fill text-danger fs-5"></i>
-                    </a>
-                {% else %}
-                    <a href="{% url 'accounts:login' %}" class="btn btn-light rounded-circle p-2 text-primary shadow-sm" style="width: 38px; height: 38px;">
-                        <i class="bi bi-heart fs-5"></i>
-                    </a>
-                {% endif %}
+<div class="bb-page" style="padding-bottom:16px;">
+    <!-- Header row -->
+    <div class="bb-page-head justify-content-between flex-wrap">
+        <div class="d-flex align-items-center gap-2">
+            <a href="javascript:history.back()" class="bb-back-btn" aria-label="Back">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <div>
+                <h1>Book Details</h1>
+                <small class="text-muted">{{ book.get_condition_display }} condition · {{ book.location_city|default:"Nearby" }}</small>
             </div>
         </div>
 
-        <!-- Book Image -->
-        <div class="card border-0 rounded-4 shadow-sm mb-4 bg-white overflow-hidden text-center">
-            {% if book.image %}
-                <img src="{{ book.image.url }}" alt="{{ book.title }}" style="max-height: 420px; width: 100%; object-fit: contain; background: #f8fafc; padding: 12px;">
-            {% elif book.gallery_images %}
-                <img src="{{ book.gallery_images.0.image.url }}" alt="{{ book.title }}" style="max-height: 420px; width: 100%; object-fit: contain; background: #f8fafc; padding: 12px;">
+        <div class="d-flex align-items-center gap-2">
+            <button type="button" class="bb-icon-btn" onclick="alert('Thank you. The BookBridge safety team will review this listing.')" title="Report listing" aria-label="Report listing">
+                <i class="bi bi-exclamation-circle"></i>
+            </button>
+            <button type="button" class="bb-icon-btn" onclick="shareListing()" title="Share" aria-label="Share">
+                <i class="bi bi-share"></i>
+            </button>
+            {% if user.is_authenticated %}
+                <a href="{% url 'books:wishlist_toggle' book.pk %}" class="bb-icon-btn" title="Save to favourites" aria-label="Save to favourites">
+                    <i class="bi bi-heart-fill text-danger"></i>
+                </a>
             {% else %}
-                <div class="d-flex align-items-center justify-content-center bg-light" style="height: 280px;">
-                    <span class="fs-1 text-muted">📖</span>
-                </div>
+                <a href="{% url 'accounts:login' %}?next={{ request.path|urlencode }}" class="bb-icon-btn" title="Save to favourites" aria-label="Save to favourites">
+                    <i class="bi bi-heart"></i>
+                </a>
             {% endif %}
         </div>
+    </div>
 
-        {% if book.gallery_images %}
-            <div class="d-flex flex-wrap gap-2 mb-4">
-                {% for image in book.gallery_images %}
-                    <img src="{{ image.image.url }}" alt="{{ book.title }} image {{ forloop.counter }}" class="img-fluid rounded-3 border" style="width: 90px; height: 90px; object-fit: cover;">
-                {% endfor %}
-            </div>
-        {% endif %}
-
-        <!-- Book Title & Subtitle (Matching Screenshot 5) -->
-        <div class="mb-3">
-            <h3 class="fw-bold text-dark mb-1">{{ book.title }}</h3>
-            <p class="text-muted small mb-2">{{ book.title }} (Class XI–XII, Competitive Prep).</p>
-        </div>
-
-        <!-- Pricing Details (Matching Screenshot 5) -->
-        <div class="mb-3">
-            <div class="text-muted small">Original MRP: ₹{{ book.original_price|default:"700"|floatformat:0 }}</div>
-            <div class="fs-5 fw-bold text-dark">
-                Selling Price: ₹{{ book.price|floatformat:0 }} <span class="text-muted fw-normal fs-6">({% if book.is_negotiable %}Negotiable{% else %}Fixed{% endif %})</span>
-            </div>
-        </div>
-
-        <!-- Condition & Description (Matching Screenshot 5) -->
-        <div class="mb-4">
-            <p class="text-secondary" style="font-size: 0.95rem; line-height: 1.5;">
-                {{ book.description|default:"Book is in good condition, almost new. Suitable for aspirants. Local pickup only." }}
-            </p>
-        </div>
-
-        <!-- Category & Author Pills (Matching Screenshot 5) -->
-        <div class="d-flex flex-column gap-2 mb-4">
-            <div class="d-flex align-items-center gap-3">
-                <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; background: #e0f2fe; color: #0284c7;">
-                    <i class="bi bi-grid-fill"></i>
+    <div class="row g-4">
+        <!-- ================= LEFT: gallery + details ================= -->
+        <div class="col-lg-7">
+            <div class="bb-panel p-2 p-md-3">
+                <div class="position-relative rounded-4 overflow-hidden" style="background:linear-gradient(135deg,#f0f9ff,#e0f2fe);">
+                    {% if book.image %}
+                        <img src="{{ book.image.url }}" alt="{{ book.title }}" style="width:100%; max-height:560px; object-fit:contain; display:block;">
+                    {% elif book.gallery_images %}
+                        <img src="{{ book.gallery_images.0.image.url }}" alt="{{ book.title }}" style="width:100%; max-height:560px; object-fit:contain; display:block;">
+                    {% else %}
+                        <div class="d-flex flex-column align-items-center justify-content-center" style="height:320px;">
+                            <span style="font-size:3.2rem;">📖</span>
+                            <span class="fw-bold text-muted mt-2">{{ book.title }}</span>
+                        </div>
+                    {% endif %}
+                    {% if book.is_donation %}
+                        <span class="bb-chip green position-absolute" style="top:12px; left:12px; padding:6px 12px;"><i class="bi bi-gift-fill"></i> Free / Donation</span>
+                    {% endif %}
                 </div>
-                <div class="fw-semibold text-dark">
-                    Category &nbsp;–&nbsp; <span class="fw-bold">{{ book.category.name|default:"General" }}</span>
-                </div>
-            </div>
 
-            <div class="d-flex align-items-center gap-3">
-                <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; background: #e0f2fe; color: #0284c7;">
-                    <i class="bi bi-feather"></i>
-                </div>
-                <div class="fw-semibold text-dark">
-                    Author &nbsp;–&nbsp; <span class="fw-bold">{{ book.author }}</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Location Box (Matching Screenshot 5) -->
-        <div class="card border rounded-4 p-3 mb-4 bg-white shadow-sm">
-            <div class="d-flex align-items-center justify-content-between">
-                <div>
-                    <small class="text-muted fw-bold d-block text-uppercase" style="letter-spacing: 0.5px;">LOCATION</small>
-                    <span class="fw-bold text-dark fs-6">
-                        {% if book.location_area %}{{ book.location_area }}{% else %}{{ book.location_city|default:"Kothapeta, Dhone" }}{% endif %}
-                    </span>
-                </div>
-                <span class="bb-distance-pill fs-6 py-1 px-3">
-                    <i class="bi bi-geo-alt-fill text-success"></i> &lt; 100 m
-                </span>
-            </div>
-        </div>
-
-        <!-- Tips for a Safe Deal Card (Matching Screenshot 5 EXACTLY) -->
-        <div class="safe-deal-card mb-5">
-            <div class="d-flex align-items-center gap-2 mb-3 text-danger fw-bold fs-6">
-                <i class="bi bi-shield-fill-exclamation fs-5"></i> Tips for a safe deal
-            </div>
-            
-            <div class="d-flex align-items-start gap-2 mb-2">
-                <i class="bi bi-exclamation-triangle text-danger mt-1"></i>
-                <span class="text-dark small">Never give money or product in advance.</span>
-            </div>
-
-            <div class="d-flex align-items-start gap-2 mb-2">
-                <i class="bi bi-credit-card text-danger mt-1"></i>
-                <span class="text-dark small">Do not enter UPI PIN while receiving money.</span>
-            </div>
-
-            <div class="d-flex align-items-start gap-2 mb-3">
-                <i class="bi bi-shield-check text-danger mt-1"></i>
-                <span class="text-dark small">Be safe, take necessary precautions while meeting with buyers and sellers.</span>
-            </div>
-
-            <hr class="text-muted my-2">
-
-            <small class="text-muted d-block" style="font-size: 0.76rem; line-height: 1.4;">
-                BookBridge is not responsible for any fraudulent activities. It is just a medium to connect you with nearby sellers.
-            </small>
-        </div>
-
-        <!-- Bottom Sticky Chat Action Bar (Matching Screenshot 5) -->
-        <div class="fixed-bottom bg-white border-top py-3 shadow-lg" style="z-index: 1045;">
-            <div class="container text-center" style="max-width: 600px;">
-                <div class="small text-muted mb-2">Available for sale</div>
-                {% if book.contact_phone %}
-                    <a href="https://wa.me/91{{ book.contact_phone }}?text=Hi%20{{ book.seller.username }},%20I%20am%20interested%20in%20your%20book%20'{{ book.title|urlencode }}'%20on%20BookBridge." 
-                       target="_blank" 
-                       class="btn btn-outline-primary w-100 rounded-pill py-2 fw-bold d-flex align-items-center justify-content-center gap-2" 
-                       style="border-color: #0284c7; color: #0284c7; font-size: 1.05rem;">
-                        <i class="bi bi-chat-dots-fill"></i> Chat
-                    </a>
-                {% else %}
-                    <a href="{% url 'accounts:messages' %}" 
-                       class="btn btn-outline-primary w-100 rounded-pill py-2 fw-bold d-flex align-items-center justify-content-center gap-2" 
-                       style="border-color: #0284c7; color: #0284c7; font-size: 1.05rem;">
-                        <i class="bi bi-chat-dots-fill"></i> Chat
-                    </a>
+                {% if book.gallery_images %}
+                    <div class="d-flex flex-wrap gap-2 mt-3">
+                        {% for image in book.gallery_images %}
+                            <img src="{{ image.image.url }}" alt="{{ book.title }} photo {{ forloop.counter }}" class="rounded-3 border" style="width:78px; height:78px; object-fit:cover;">
+                        {% endfor %}
+                    </div>
                 {% endif %}
             </div>
+
+            <div class="bb-panel mt-4">
+                <h2 class="fw-bold mb-1" style="font-size:1.6rem; letter-spacing:-0.4px;">{{ book.title }}</h2>
+                <p class="text-muted mb-3">by <strong class="text-dark">{{ book.author }}</strong></p>
+
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                    <span class="bb-chip blue"><i class="bi bi-grid-fill"></i> {{ book.category.name|default:"General" }}</span>
+                    <span class="bb-chip"><i class="bi bi-stars"></i> {{ book.get_condition_display }}</span>
+                    {% if book.listing_type == 'set' %}<span class="bb-chip amber"><i class="bi bi-collection-fill"></i> Full set</span>{% endif %}
+                    {% if book.is_negotiable %}<span class="bb-chip green"><i class="bi bi-tags-fill"></i> Negotiable</span>{% endif %}
+                    {% if book.is_sold %}<span class="bb-chip red"><i class="bi bi-x-circle-fill"></i> Sold</span>{% endif %}
+                </div>
+
+                <p class="text-secondary mb-0" style="font-size:0.96rem; line-height:1.65;">
+                    {{ book.description|default:"This book is in good condition and ready for a new reader. Local pickup only — meet in a safe public place." }}
+                </p>
+            </div>
+
+            <div class="row g-3 mt-1">
+                <div class="col-md-6">
+                    <div class="bb-panel h-100">
+                        <span class="bb-label" style="margin-bottom:6px;">Location</span>
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="bi bi-geo-alt-fill text-danger fs-5"></i>
+                            <div>
+                                <div class="fw-bold text-dark">
+                                    {% if book.location_area %}{{ book.location_area }}{% else %}{{ book.location_city|default:"Kothapeta, Dhone" }}{% endif %}
+                                </div>
+                                <small class="text-muted">
+                                    {% if book.location_city %}{{ book.location_city }}{% endif %}
+                                    {% if book.pincode %} · {{ book.pincode }}{% endif %}
+                                </small>
+                            </div>
+                        </div>
+                        <span class="bb-distance-pill mt-3"><i class="bi bi-geo-alt-fill"></i> &lt; 100 m away</span>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="bb-panel h-100">
+                        <span class="bb-label" style="margin-bottom:6px;">Listing</span>
+                        <div class="fw-bold text-dark">Listed {{ book.created_at|date:"d M Y" }}</div>
+                        <small class="text-muted">Listing #{{ book.pk }} · Local pickup</small>
+                        <div class="mt-3">
+                            <span class="bb-chip green"><i class="bi bi-shield-check"></i> Verified seller chat</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Safe deal -->
+            <div class="safe-deal-card mt-4">
+                <div class="d-flex align-items-center gap-2 mb-3 text-danger fw-bold fs-6">
+                    <i class="bi bi-shield-fill-exclamation fs-5"></i> Tips for a safe deal
+                </div>
+                <div class="d-flex align-items-start gap-2 mb-2">
+                    <i class="bi bi-exclamation-triangle text-danger mt-1"></i>
+                    <span class="text-dark small">Never give money or product in advance.</span>
+                </div>
+                <div class="d-flex align-items-start gap-2 mb-2">
+                    <i class="bi bi-credit-card text-danger mt-1"></i>
+                    <span class="text-dark small">Do not enter your UPI PIN while receiving money.</span>
+                </div>
+                <div class="d-flex align-items-start gap-2 mb-3">
+                    <i class="bi bi-shield-check text-danger mt-1"></i>
+                    <span class="text-dark small">Meet in a public place and take necessary precautions with buyers and sellers.</span>
+                </div>
+                <hr class="text-muted my-2">
+                <small class="text-muted d-block" style="font-size: 0.76rem; line-height: 1.4;">
+                    BookBridge is not responsible for any fraudulent activity. It is only a medium that connects you with nearby readers.
+                </small>
+            </div>
         </div>
+
+        <!-- ================= RIGHT: price + seller ================= -->
+        <div class="col-lg-5">
+            <div class="bb-panel">
+                <div class="d-flex align-items-end justify-content-between gap-3 flex-wrap">
+                    <div>
+                        {% if book.is_donation %}
+                            <div class="text-muted small text-decoration-line-through">MRP ₹{{ book.original_price|floatformat:0 }}</div>
+                            <div class="fw-bold" style="font-size:2rem; color:#047857; line-height:1;">FREE</div>
+                        {% else %}
+                            <div class="text-muted small">Original MRP: ₹{{ book.original_price|default:book.price|floatformat:0 }}</div>
+                            <div class="fw-bold text-dark" style="font-size:2rem; line-height:1.1;">₹{{ book.price|floatformat:0 }}</div>
+                            <small class="text-muted fw-semibold">{% if book.is_negotiable %}Negotiable{% else %}Fixed price{% endif %}</small>
+                        {% endif %}
+                    </div>
+                    <span class="bb-chip {% if book.is_sold %}red{% else %}green{% endif %}" style="font-size:0.8rem; padding:7px 12px;">
+                        <i class="bi bi-broadcast"></i> {% if book.is_sold %}Sold{% else %}Available now{% endif %}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Seller & privacy card -->
+            <div class="bb-panel mt-4">
+                <span class="bb-label" style="margin-bottom:10px;">Seller</span>
+                <div class="d-flex align-items-center gap-3">
+                    <div class="bb-avatar lg">{{ book.seller.username|slice:":1"|upper }}</div>
+                    <div style="min-width:0;">
+                        <div class="fw-bold text-dark text-truncate" style="font-size:1.05rem;">
+                            {% if seller_profile and seller_profile.name %}{{ seller_profile.name }}{% else %}{{ book.seller.username }}{% endif %}
+                        </div>
+                        <small class="text-muted d-block">
+                            {% if seller_profile.location %}{{ seller_profile.location }}{% else %}BookBridge member{% endif %}
+                        </small>
+                        <small class="text-muted">Joined {{ book.seller.date_joined|date:"M Y" }}</small>
+                    </div>
+                </div>
+
+                <div class="d-flex flex-wrap gap-2 mt-3">
+                    {% if whatsapp_url %}
+                        <span class="bb-chip amber"><i class="bi bi-whatsapp"></i> Shares number on WhatsApp</span>
+                    {% else %}
+                        <span class="bb-chip green"><i class="bi bi-shield-lock-fill"></i> Phone hidden</span>
+                    {% endif %}
+                    {% if telegram_username %}
+                        <span class="bb-chip blue"><i class="bi bi-telegram"></i> @{{ telegram_username }}</span>
+                    {% endif %}
+                    {% if seller_profile %}
+                        <span class="bb-chip"><i class="bi bi-chat-dots"></i> Prefers {{ seller_profile.contact_short_label }}</span>
+                    {% endif %}
+                </div>
+
+                <div class="privacy-note mt-3">
+                    <i class="bi bi-shield-lock-fill"></i>
+                    <span>
+                        {% if telegram_username %}
+                            This seller uses Telegram — message them without seeing their phone number.
+                        {% elif whatsapp_url %}
+                            This seller chose WhatsApp / Call, so their number is only shared when you tap the WhatsApp button.
+                        {% else %}
+                            This seller keeps their phone number private. Start an in-app chat to ask about this book.
+                        {% endif %}
+                    </span>
+                </div>
+
+                {% if is_owner %}
+                    <div class="d-flex flex-wrap gap-2 mt-3">
+                        <a href="{% url 'books:book_edit' book.pk %}" class="bb-btn bb-btn-outline bb-btn-sm"><i class="bi bi-pencil-square"></i> Edit listing</a>
+                        <a href="{% url 'books:book_delete' book.pk %}" class="bb-btn bb-btn-sm" style="background:#fef2f2; color:#b91c1c;"><i class="bi bi-trash3"></i> Delete</a>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Contact preference explainer -->
+            <div class="bb-panel mt-4" style="background:#f0f9ff; border-color:#e0f2fe;">
+                <h6 class="bb-panel-title mb-2" style="font-size:0.95rem;"><i class="bi bi-info-circle-fill" style="color:#0284c7;"></i> Safe ways to reach this seller</h6>
+                <ul class="small text-muted mb-0 ps-3" style="line-height:1.8;">
+                    <li><strong>In-App Chat</strong> — talk inside BookBridge, no number needed.</li>
+                    {% if telegram_username %}<li><strong>Telegram</strong> — message <span class="fw-semibold">@{{ telegram_username }}</span> privately.</li>{% endif %}
+                    {% if whatsapp_url %}<li><strong>WhatsApp</strong> — this seller chose to share their number.</li>{% endif %}
+                    {% if not whatsapp_url %}<li>Phone number is hidden by the seller's privacy setting.</li>{% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    {% if recommendations %}
+        <div class="bb-section-header px-0" style="padding-left:0; padding-right:0;">
+            <h3 class="bb-section-title">More books nearby</h3>
+            <a href="{% url 'books:book_list' %}" class="bb-section-arrow"><i class="bi bi-arrow-right fs-4"></i></a>
+        </div>
+        <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3 mb-2">
+            {% for item in recommendations %}
+                <div class="col">
+                    <div class="bb-book-card w-100">
+                        <div class="bb-card-img-wrap">
+                            <a href="{% url 'books:book_detail' item.pk %}">
+                                {% if item.image %}
+                                    <img src="{{ item.image.url }}" alt="{{ item.title }}">
+                                {% else %}
+                                    <div class="d-flex align-items-center justify-content-center h-100 bg-light text-center p-2">
+                                        <span class="text-muted fw-bold small">📖 {{ item.title|truncatechars:20 }}</span>
+                                    </div>
+                                {% endif %}
+                            </a>
+                        </div>
+                        <div class="bb-price-meta">
+                            <span class="bb-price">₹ {{ item.price|floatformat:0 }}</span>
+                        </div>
+                        <a href="{% url 'books:book_detail' item.pk %}">
+                            <p class="bb-book-name" title="{{ item.title }}">{{ item.title }}</p>
+                        </a>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <div style="height:120px;"></div>
+</div>
+
+<!-- Fixed bottom action bar: Telegram + In-App Chat (+ WhatsApp when allowed) -->
+<div class="bb-action-bar">
+    <div class="bb-action-bar-inner">
+        <div class="d-none d-md-flex flex-column me-2">
+            <small class="text-muted fw-bold" style="font-size:0.68rem; letter-spacing:0.5px;">{% if book.is_donation %}FREE BOOK{% else %}SELLING PRICE{% endif %}</small>
+            <span class="fw-bold text-dark" style="font-size:1.3rem; line-height:1.1;">
+                {% if book.is_donation %}FREE{% else %}₹{{ book.price|floatformat:0 }}{% endif %}
+            </span>
+        </div>
+
+        {% if is_owner %}
+            <a href="{% url 'accounts:messages' %}" class="bb-btn bb-btn-outline bb-action-cta">
+                <i class="bi bi-chat-dots-fill"></i> Buyer chats
+            </a>
+            <a href="{% url 'books:book_edit' book.pk %}" class="bb-btn bb-btn-primary bb-action-cta">
+                <i class="bi bi-pencil-square"></i> Edit listing
+            </a>
+        {% else %}
+            {% if user.is_authenticated %}
+                <a href="{% url 'accounts:start_chat' book.pk %}" class="bb-btn bb-btn-dark bb-action-cta" title="In-App Chat">
+                    <i class="bi bi-chat-dots-fill"></i>
+                    <span class="d-none d-sm-inline">In-App Chat</span><span class="d-sm-none">Chat</span>
+                </a>
+            {% else %}
+                <a href="{% url 'accounts:login' %}?next={{ request.path|urlencode }}" class="bb-btn bb-btn-dark bb-action-cta" title="Sign in to use In-App Chat">
+                    <i class="bi bi-chat-dots-fill"></i>
+                    <span class="d-none d-sm-inline">In-App Chat</span><span class="d-sm-none">Chat</span>
+                </a>
+            {% endif %}
+
+            {% if telegram_username %}
+                <a href="{{ telegram_url }}" target="_blank" rel="noopener" class="bb-btn bb-btn-telegram bb-action-cta">
+                    <i class="bi bi-telegram"></i> Telegram
+                </a>
+            {% endif %}
+
+            {% if whatsapp_url %}
+                <a href="{{ whatsapp_url }}" target="_blank" rel="noopener" class="bb-btn bb-btn-whatsapp bb-action-cta">
+                    <i class="bi bi-whatsapp"></i> WhatsApp
+                </a>
+            {% endif %}
+        {% endif %}
+
+        <span class="bb-action-note">
+            <i class="bi bi-shield-lock-fill text-success"></i>
+            {% if whatsapp_url %}
+                Phone number shared because this seller chose WhatsApp / Call.
+            {% else %}
+                Phone number hidden · chat safely without sharing your number.
+            {% endif %}
+        </span>
     </div>
 </div>
 
 <script>
     function shareListing() {
+        const shareData = {
+            title: '{{ book.title|escapejs }} on BookBridge',
+            text: 'Check out this book on BookBridge!',
+            url: window.location.href,
+        };
         if (navigator.share) {
-            navigator.share({
-                title: '{{ book.title }} on BookBridge',
-                text: 'Check out this book on BookBridge!',
-                url: window.location.href,
-            });
-        } else {
+            navigator.share(shareData).catch(function () {});
+        } else if (navigator.clipboard) {
             navigator.clipboard.writeText(window.location.href);
             alert('BookBridge link copied to clipboard!');
         }

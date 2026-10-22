@@ -1,102 +1,172 @@
 {% extends 'core/base.html' %}
-{% block title %}My Profile - BookBridge{% endblock %}
+{% block title %}Edit Profile - BookBridge{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-6 col-md-8">
-        <!-- Header with Back Arrow (Matching Screenshot 4) -->
-        <div class="d-flex align-items-center gap-3 mb-4">
-            <a href="{% url 'accounts:profile' %}" class="btn btn-light rounded-circle shadow-sm p-2" style="width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center;">
-                <i class="bi bi-arrow-left fs-5"></i>
-            </a>
-            <h4 class="fw-bold mb-0">My Profile</h4>
+<div class="bb-page">
+    <div class="bb-page-head">
+        <a href="{% url 'accounts:profile' %}" class="bb-back-btn" aria-label="Back">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div>
+            <h1>Edit Profile</h1>
+            <small class="text-muted">Your identity, contacts and privacy settings</small>
         </div>
+    </div>
 
-        <div class="card border-0 rounded-4 shadow-sm p-4 bg-white mb-5">
-            <form method="POST">
-                {% csrf_token %}
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="bb-panel">
+                <form method="POST" action="{% url 'accounts:profile_edit' %}">
+                    {% csrf_token %}
 
-                <!-- Name Field -->
-                <div class="mb-4">
-                    <label class="form-label text-muted small fw-bold">Name</label>
-                    <input type="text" name="name" class="form-control form-control-lg border-0 border-bottom rounded-0 px-0 fs-6 fw-semibold text-dark" value="{{ profile.name|default:user.username }}" required>
-                </div>
-
-                <!-- Phone number Field -->
-                <div class="mb-4">
-                    <label class="form-label text-muted small fw-bold">Phone number</label>
-                    <input type="text" name="phone_number" class="form-control form-control-lg border-0 border-bottom rounded-0 px-0 fs-6 fw-semibold text-dark" value="{{ profile.phone_number }}" placeholder="e.g. 918341519514">
-                </div>
-
-                <!-- Email Id Field -->
-                <div class="mb-4">
-                    <label class="form-label text-muted small fw-bold">Email Id</label>
-                    <input type="email" name="email" class="form-control form-control-lg border-0 border-bottom rounded-0 px-0 fs-6 fw-semibold text-dark" value="{{ user.email }}" placeholder="e.g. yourname@gmail.com">
-                </div>
-
-                <!-- Location Field -->
-                <div class="mb-4">
-                    <label class="form-label text-muted small fw-bold">Location</label>
-                    <input type="text" name="location" id="profile-location-input" class="form-control form-control-lg border-0 border-bottom rounded-0 px-0 fs-6 fw-semibold text-dark" value="{{ profile.location }}" placeholder="e.g. CV4G+7XX, Dhone at Dronachalam, Kothapeta, Dhone, Andhra Pradesh 518222, India">
-                </div>
-
-                <!-- Account Privacy (Matching Screenshot 4) -->
-                <div class="mb-4">
-                    <label class="form-label text-muted small fw-bold d-block">Account Privacy</label>
-                    <div class="d-flex align-items-center gap-4 mb-2">
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="account_privacy" id="privacyPublic" value="public" {% if profile.account_privacy == 'public' %}checked{% endif %}>
-                            <label class="form-check-label fw-semibold" for="privacyPublic">
-                                Public
-                            </label>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="bb-field">
+                                <label for="edit-name">Name</label>
+                                <input id="edit-name" type="text" name="name" value="{{ profile.name|default:user.username }}" placeholder="Your full name" required>
+                            </div>
                         </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="account_privacy" id="privacyPrivate" value="private" {% if profile.account_privacy == 'private' or not profile.account_privacy %}checked{% endif %}>
-                            <label class="form-check-label fw-semibold" for="privacyPrivate">
-                                Private
+                        <div class="col-md-6">
+                            <div class="bb-field">
+                                <label for="edit-email">Email Id</label>
+                                <input id="edit-email" type="email" name="email" value="{{ user.email }}" placeholder="e.g. yourname@gmail.com">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="bb-field">
+                                <label for="edit-phone">Phone Number (private)</label>
+                                <input id="edit-phone" type="tel" name="phone_number" value="{{ profile.phone_number }}" placeholder="e.g. 9876543210">
+                                <p class="bb-hint"><i class="bi bi-eye-slash"></i> Never shown publicly unless you choose WhatsApp / Call.</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="bb-field">
+                                <label for="profile-location-input">Location</label>
+                                <input id="profile-location-input" type="text" name="location" value="{{ profile.location }}" placeholder="e.g. Kothapeta, Dhone">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bb-field">
+                        <label for="edit-telegram">Telegram Username (@username)</label>
+                        <div class="input-group">
+                            <span class="input-group-text fw-bold" style="background:#f0f9ff; border:1.5px solid #e2e8f0; border-right:none; border-radius:14px 0 0 14px; color:#0284c7;">@</span>
+                            <input id="edit-telegram" type="text" name="telegram_username" value="{{ profile.telegram_handle }}" placeholder="your_telegram_username" style="border-radius:0 14px 14px 0;">
+                        </div>
+                        <div class="privacy-note">
+                            <i class="bi bi-shield-lock-fill"></i>
+                            <span>Buyers can chat with you on Telegram without seeing your real phone number.</span>
+                        </div>
+                    </div>
+
+                    <div class="bb-field">
+                        <span class="bb-label">Preferred Contact Mode</span>
+                        <div class="contact-options" id="contactOptions">
+                            <label class="contact-option {% if profile.contact_preference == 'telegram' %}selected{% endif %}">
+                                <input type="radio" name="contact_preference" value="telegram" {% if profile.contact_preference == 'telegram' %}checked{% endif %}>
+                                <span class="co-icon" style="color:#0ea5e9;"><i class="bi bi-telegram"></i></span>
+                                <span class="co-title">Telegram <span class="bb-chip green">Recommended</span></span>
+                                <span class="co-sub">No phone shared — buyers message your @handle.</span>
+                            </label>
+                            <label class="contact-option {% if profile.contact_preference == 'in_app' or not profile.contact_preference %}selected{% endif %}">
+                                <input type="radio" name="contact_preference" value="in_app" {% if profile.contact_preference == 'in_app' or not profile.contact_preference %}checked{% endif %}>
+                                <span class="co-icon" style="color:#6366f1;"><i class="bi bi-chat-dots-fill"></i></span>
+                                <span class="co-title">In-App Chat</span>
+                                <span class="co-sub">Talk inside BookBridge. Phone stays private.</span>
+                            </label>
+                            <label class="contact-option {% if profile.contact_preference == 'whatsapp' %}selected{% endif %}">
+                                <input type="radio" name="contact_preference" value="whatsapp" {% if profile.contact_preference == 'whatsapp' %}checked{% endif %}>
+                                <span class="co-icon" style="color:#16a34a;"><i class="bi bi-whatsapp"></i></span>
+                                <span class="co-title">WhatsApp / Call</span>
+                                <span class="co-sub">Shows your phone number to interested buyers.</span>
                             </label>
                         </div>
                     </div>
-                    <small class="text-muted d-block line-height-sm">
-                        Public allows buyers to contact you via WhatsApp and in-app chat, while Private keeps your phone number hidden and allows chat only.
-                    </small>
-                </div>
 
-                <!-- Action Buttons (Matching Screenshot 4) -->
-                <div class="d-flex gap-3 pt-3">
-                    <button type="button" class="btn btn-light rounded-4 py-3 fw-bold flex-grow-1" style="background: #e0f2fe; color: #0284c7; border: none;" onclick="detectGPSProfile()">
-                        Change Location
-                    </button>
-                    <button type="submit" class="btn btn-primary rounded-4 py-3 fw-bold flex-grow-1 shadow-sm" style="background: #0284c7; border: none;">
-                        Save Changes
-                    </button>
-                </div>
-            </form>
+                    <div class="bb-field">
+                        <span class="bb-label">Account Privacy</span>
+                        <div class="d-flex flex-wrap gap-2">
+                            <label class="contact-option mb-0" style="min-width:150px;">
+                                <input type="radio" name="account_privacy" value="public" {% if profile.account_privacy == 'public' %}checked{% endif %}>
+                                <span class="co-title"><i class="bi bi-globe2 me-1"></i> Public</span>
+                            </label>
+                            <label class="contact-option mb-0" style="min-width:150px;">
+                                <input type="radio" name="account_privacy" value="private" {% if profile.account_privacy == 'private' or not profile.account_privacy %}checked{% endif %}>
+                                <span class="co-title"><i class="bi bi-lock-fill me-1"></i> Private</span>
+                            </label>
+                        </div>
+                        <p class="bb-hint">Private keeps your phone number hidden and allows chat only. Public is the same unless you pick WhatsApp.</p>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2 pt-2">
+                        <button type="button" class="bb-btn bb-btn-outline" onclick="detectGPSProfile(this)">
+                            <i class="bi bi-crosshair"></i> Change Location
+                        </button>
+                        <button type="submit" class="bb-btn bb-btn-primary">
+                            <i class="bi bi-check2-circle"></i> Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="bb-panel" style="background:#f0f9ff; border-color:#e0f2fe;">
+                <h6 class="bb-panel-title"><i class="bi bi-shield-lock-fill" style="color:#0284c7;"></i> How privacy works</h6>
+                <ul class="small text-muted mb-0 ps-3" style="line-height:1.7;">
+                    <li>Your phone number is stored privately and never printed on listings.</li>
+                    <li><strong>Telegram</strong> and <strong>In-App Chat</strong> let buyers reach you without your number.</li>
+                    <li>Only if you switch to <strong>WhatsApp / Call</strong> will your number be offered to buyers.</li>
+                    <li>You can change this preference at any time.</li>
+                </ul>
+            </div>
+
+            <div class="bb-panel mt-4">
+                <h6 class="bb-panel-title"><i class="bi bi-telegram" style="color:#0ea5e9;"></i> Why Telegram?</h6>
+                <p class="bb-panel-sub mb-2">Telegram handles are public aliases — buyers can message you instantly without ever seeing your phone number.</p>
+                <span class="bb-chip green"><i class="bi bi-check2-circle"></i> Recommended by BookBridge</span>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
-    function detectGPSProfile() {
+    function syncContactOptions() {
+        document.querySelectorAll('#contactOptions .contact-option').forEach(function (option) {
+            const input = option.querySelector('input[type="radio"]');
+            option.classList.toggle('selected', input.checked);
+        });
+        document.querySelectorAll('input[name="account_privacy"]').forEach(function (input) {
+            const option = input.closest('.contact-option');
+            if (option) { option.classList.toggle('selected', input.checked); }
+        });
+    }
+    document.querySelectorAll('.contact-option input[type="radio"]').forEach(function (input) {
+        input.addEventListener('change', syncContactOptions);
+    });
+    syncContactOptions();
+
+    function detectGPSProfile(btn) {
+        const input = document.getElementById('profile-location-input');
+        const original = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>Detecting...';
+        const fallback = function () {
+            const manual = prompt('Enter your location (City/Area/Pincode):', input.value || 'Kothapeta, Dhone');
+            if (manual) { input.value = manual; }
+            btn.innerHTML = original;
+        };
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
-                function(pos) {
-                    const loc = "Kothapeta, Dhone, Andhra Pradesh";
-                    document.getElementById('profile-location-input').value = loc;
-                    alert('Location updated to: ' + loc);
+                function () {
+                    input.value = 'Kothapeta, Dhone, Andhra Pradesh';
+                    btn.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Location Detected!';
+                    setTimeout(function () { btn.innerHTML = original; }, 1800);
                 },
-                function(err) {
-                    const manual = prompt('Enter your location (City/Area/Pincode):', 'Kothapeta, Dhone');
-                    if (manual) {
-                        document.getElementById('profile-location-input').value = manual;
-                    }
-                }
+                fallback,
+                { timeout: 8000 }
             );
         } else {
-            const manual = prompt('Enter your location (City/Area/Pincode):', 'Kothapeta, Dhone');
-            if (manual) {
-                document.getElementById('profile-location-input').value = manual;
-            }
+            fallback();
         }
     }
 </script>

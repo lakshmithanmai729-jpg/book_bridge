@@ -1,0 +1,163 @@
+{% extends 'core/base.html' %}
+{% block title %}Chat with {{ other_user.username }} - BookBridge{% endblock %}
+
+{% block content %}
+{% now "d M Y" as today_date %}
+<div class="bb-page">
+    <div class="bb-page-head justify-content-between flex-wrap">
+        <div class="d-flex align-items-center gap-2">
+            <a href="{% url 'accounts:messages' %}" class="bb-back-btn" aria-label="Back to messages">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <div>
+                <h1>In-App Chat</h1>
+                <small class="text-muted">
+                    {% if book %}About “{{ book.title|truncatechars:48 }}”{% else %}Private conversation{% endif %}
+                </small>
+            </div>
+        </div>
+        <span class="bb-chip green"><i class="bi bi-shield-lock-fill"></i> Phone number hidden</span>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="chat-shell">
+                <div class="chat-head">
+                    <div class="bb-avatar">
+                        {% if other_profile.name %}{{ other_profile.name|slice:":1"|upper }}{% else %}{{ other_user.username|slice:":1"|upper }}{% endif %}
+                    </div>
+                    <div class="flex-grow-1" style="min-width:0;">
+                        <div class="chat-name text-truncate">
+                            {% if other_profile.name %}{{ other_profile.name }}{% else %}{{ other_user.username }}{% endif %}
+                        </div>
+                        <div class="chat-sub">
+                            <i class="bi bi-shield-check text-success"></i>
+                            Chatting on BookBridge
+                            {% if other_profile.telegram_handle %} · Telegram @{{ other_profile.telegram_handle }}{% endif %}
+                        </div>
+                    </div>
+                    {% if other_profile.telegram_url %}
+                        <a href="{{ other_profile.telegram_url }}" target="_blank" rel="noopener" class="bb-btn bb-btn-telegram bb-btn-sm">
+                            <i class="bi bi-telegram"></i> Telegram
+                        </a>
+                    {% endif %}
+                </div>
+
+                {% if book %}
+                    <div class="chat-book-strip">
+                        {% if book.image %}
+                            <img src="{{ book.image.url }}" alt="{{ book.title }}">
+                        {% else %}
+                            <span style="font-size:1.4rem;">📖</span>
+                        {% endif %}
+                        <span class="flex-grow-1 text-truncate">{{ book.title }} · ₹{{ book.price|floatformat:0 }}</span>
+                        <a href="{% url 'books:book_detail' book.pk %}" class="fw-bold" style="color:#0284c7;">View</a>
+                    </div>
+                {% endif %}
+
+                <div class="chat-scroll" id="chatScroll">
+                    {% if conversation %}
+                        {% for message in conversation %}
+                            {% ifchanged message.created_at|date:"d M Y" %}
+                                <div class="chat-date-divider">
+                                    {% if message.created_at|date:"d M Y" == today_date %}Today{% else %}{{ message.created_at|date:"d M Y" }}{% endif %}
+                                </div>
+                            {% endifchanged %}
+                            <div class="chat-row {% if message.sender_id == user.id %}me{% else %}them{% endif %}">
+                                <div class="chat-bubble">
+                                    {{ message.text|linebreaksbr }}
+                                    <span class="chat-time">{{ message.created_at|time:"H:i" }}</span>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center my-auto py-4">
+                            <div class="fs-1">👋</div>
+                            <h6 class="fw-bold mt-2 mb-1">Say hi to
+                                {% if other_profile.name %}{{ other_profile.name }}{% else %}{{ other_user.username }}{% endif %}
+                            </h6>
+                            <p class="text-muted small mb-0" style="max-width:340px; margin:0 auto;">
+                                Ask if the book is still available, its condition, or arrange a safe pickup.
+                                Your phone number stays private.
+                            </p>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <form method="POST" class="chat-composer" autocomplete="off">
+                    {% csrf_token %}
+                    {% if book %}<input type="hidden" name="book" value="{{ book.pk }}">{% endif %}
+                    <input type="text" name="text" id="chatInput" placeholder="Write a message..." required maxlength="2000">
+                    <button type="submit" class="chat-send" aria-label="Send message">
+                        <i class="bi bi-send-fill"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            {% if book %}
+                <div class="bb-panel">
+                    <span class="bb-label" style="margin-bottom:10px;">About this book</span>
+                    <a href="{% url 'books:book_detail' book.pk %}" class="d-flex gap-3 align-items-center text-decoration-none text-dark">
+                        {% if book.image %}
+                            <img src="{{ book.image.url }}" alt="{{ book.title }}" style="width:64px; height:84px; object-fit:cover; border-radius:12px;">
+                        {% else %}
+                            <div class="d-flex align-items-center justify-content-center" style="width:64px; height:84px; border-radius:12px; background:#f1f5f9; font-size:1.6rem;">📖</div>
+                        {% endif %}
+                        <div style="min-width:0;">
+                            <div class="fw-bold text-truncate">{{ book.title }}</div>
+                            <small class="text-muted d-block text-truncate">{{ book.author }}</small>
+                            <span class="fw-bold text-dark">₹{{ book.price|floatformat:0 }}</span>
+                        </div>
+                    </a>
+                </div>
+            {% endif %}
+
+            <div class="bb-panel mt-4" style="background:#f0f9ff; border-color:#e0f2fe;">
+                <h6 class="bb-panel-title"><i class="bi bi-shield-lock-fill" style="color:#0284c7;"></i> Your privacy is protected</h6>
+                <ul class="small text-muted mb-0 ps-3" style="line-height:1.75;">
+                    <li>Phone numbers are never shown in chat.</li>
+                    <li>Only this buyer and seller can see the conversation.</li>
+                    <li>You can also use Telegram if the other person shared a handle.</li>
+                </ul>
+            </div>
+
+            {% if related_books %}
+                <div class="bb-panel mt-4">
+                    <h6 class="bb-panel-title">Other chats with this person</h6>
+                    <div class="d-flex flex-column gap-2 mt-2">
+                        {% for related in related_books %}
+                            {% if not book or related.pk != book.pk %}
+                                <a href="{% url 'accounts:chat_detail' other_user.id %}?book={{ related.pk }}" class="d-flex align-items-center gap-2 text-decoration-none text-dark py-2 border-bottom" style="border-color:#f1f5f9 !important;">
+                                    <i class="bi bi-book text-primary"></i>
+                                    <span class="small fw-semibold text-truncate">{{ related.title }}</span>
+                                    <i class="bi bi-chevron-right ms-auto text-muted small"></i>
+                                </a>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+
+            <div class="bb-panel mt-4">
+                <h6 class="bb-panel-title"><i class="bi bi-exclamation-triangle-fill" style="color:#f59e0b;"></i> Safe deal checklist</h6>
+                <ul class="small text-muted mb-0 ps-3" style="line-height:1.75;">
+                    <li>Never pay in advance.</li>
+                    <li>Do not share OTPs or UPI PINs.</li>
+                    <li>Meet in a public place for pickup.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const scroller = document.getElementById('chatScroll');
+        if (scroller) { scroller.scrollTop = scroller.scrollHeight; }
+        const input = document.getElementById('chatInput');
+        if (input) { input.focus({ preventScroll: true }); }
+    })();
+</script>
+{% endblock %}
