@@ -1,7 +1,9 @@
+import re
+
 from django.contrib.auth.models import User
 from django.core import mail
 from django.core.cache import cache
-from django.test import TestCase, override_settings
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from books.models import Book, Category
@@ -233,7 +235,8 @@ class EmailVerificationTests(TestCase):
             'password1': 'Bridge!2345',
             'password2': 'Bridge!2345',
         })
-        self.assertRedirects(response, reverse('accounts:login'))
+        # A new member is signed in straight away — no second login step.
+        self.assertRedirects(response, reverse('core:home'))
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn('Confirm your BookBridge email address', mail.outbox[0].subject)
         self.assertIn('/accounts/email/verify/', mail.outbox[0].body)
@@ -789,3 +792,239 @@ class AccountPrivacyTests(TestCase):
 
         page = self._seller_page()
         self.assertNotContains(page, '9876543210')
+
+
+@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+class SignupLoginFlowTests(TestCase):
+    """Everything a stranger who receives the link will actually do."""
+
+    PASSWORD = 'Bridge!2345'
+
+    def post_signup(self, **overrides):
+        data = {
+            'username': 'newreader',
+            'email': 'newreader@example.com',
+            'password1': self.PASSWORD,
+            'password2': self.PASSWORD,
+        }
+        data.update(overrides)
+        return self.client.post(reverse('accounts:signup'), data)
+
+    # --- signing up -------------------------------------------------
+
+    def test_signup_logs_the_person_in_and_goes_home(self):
+        response = self.post_signup()
+
+        self.assertRedirects(response, reverse('core:home'))
+        self.assertTrue(User.objects.filter(username='newreader').exists())
+        self.assertEqual(
+            int(self.client.session['_auth_user_id']),
+            User.objects.get(username='newreader').pk,
+        )
+
+    def test_signup_fills_the_profile_and_stays_logged_in(self):
+        self.post_signup()
+        user = User.objects.get(username='newreader')
+
+        self.assertEqual(user.profile.name, 'newreader')
+        # The home page renders for the member, not the anonymous version.
+        self.assertEqual(self.client.get(reverse('core:home')).status_code, 200)
+
+    def test_stray_spaces_around_the_username_are_ignored(self):
+        self.post_signup(username='  spaced  ')
+        self.assertTrue(User.objects.filter(username='spaced').exists())
+
+    def test_email_is_stored_in_lowercase(self):
+        self.post_signup(email='Mixed.Case@Example.COM')
+        self.assertEqual(
+            User.objects.get(username='newreader').email, 'mixed.case@example.com'
+        )
+
+    def test_double_submit_with_the_same_password_signs_them_in(self):
+        """The exact bug people hit on a phone: one account, two requests."""
+        self.post_signup()
+
+        # Second request arrives with the same details, as a fresh browser
+        # would send it (no session, so no "already logged in" shortcut).
+        second = Client()
+        response = second.post(reverse('accounts:signup'), {
+            'username': 'newreader',
+            'email': 'newreader@example.com',
+            'password1': self.PASSWORD,
+            'password2': self.PASSWORD,
+        })
+
+        self.assertRedirects(response, reverse('core:home'))
+        self.assertEqual(User.objects.filter(username__iexact='newreader').count(), 1)
+        self.assertEqual(
+            int(second.session['_auth_user_id']),
+            User.objects.get(username='newreader').pk,
+        )
+
+    def test_double_submit_with_a_different_password_offers_sign_in(self):
+        User.objects.create_user('taken', email='taken@example.com', password='Somebody!2345')
+
+        response = self.post_signup(username='taken', email='other@example.com')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'already has an account')
+        self.assertContains(response, reverse('accounts:login'))
+        # No second account, and nobody was signed in.
+        self.assertEqual(User.objects.filter(username__iexact='taken').count(), 1)
+        self.assertNotIn('_auth_user_id', self.client.session)
+
+    def test_username_differing_only_in_case_is_treated_as_taken(self):
+        User.objects.create_user('Sirisha98', email='s@example.com', password='Somebody!2345')
+
+        response = self.post_signup(username='sirisha98', email='new@example.com')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'already has an account')
+        self.assertEqual(User.objects.filter(username__iexact='sirisha98').count(), 1)
+
+    def test_email_already_registered_is_explained(self):
+        User.objects.create_user('first', email='shared@example.com', password=self.PASSWORD)
+
+        response = self.post_signup(username='second', email='Shared@Example.com')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'already registered')
+        self.assertFalse(User.objects.filter(username='second').exists())
+
+    def test_fields_tell_phones_not_to_capitalise(self):
+        response = self.client.get(reverse('accounts:signup'))
+
+        self.assertContains(response, 'autocapitalize="none"')
+        self.assertContains(response, 'autocorrect="off"')
+        self.assertContains(response, 'spellcheck="false"')
+
+    def test_submit_button_shows_a_working_state(self):
+        response = self.client.get(reverse('accounts:signup'))
+        self.assertContains(response, 'data-busy="Creating your account…"')
+
+    def test_signup_says_so_when_email_is_not_delivered(self):
+        with override_settings(EMAIL_BACKEND='django.core.mail.backends.console.EmailBackend'):
+            response = self.client.get(reverse('accounts:signup'))
+        self.assertContains(response, 'Email delivery is not switched on')
+
+    # --- signing in -------------------------------------------------
+
+    def test_login_ignores_capital_letters_and_spaces(self):
+        User.objects.create_user('sirisha98', password=self.PASSWORD)
+
+        response = self.client.post(reverse('accounts:login'), {
+            'username': '  Sirisha98 ',
+            'password': self.PASSWORD,
+        })
+
+        self.assertRedirects(response, reverse('core:home'))
+        self.assertIn('_auth_user_id', self.client.session)
+
+    def test_login_still_rejects_a_wrong_password(self):
+        User.objects.create_user('sirisha98', password=self.PASSWORD)
+
+        response = self.client.post(reverse('accounts:login'), {
+            'username': 'Sirisha98',
+            'password': 'wrong-password',
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn('_auth_user_id', self.client.session)
+
+    def test_login_button_shows_a_working_state(self):
+        response = self.client.get(reverse('accounts:login'))
+        self.assertContains(response, 'data-busy="Signing you in…"')
+
+    # --- forgotten password without email ---------------------------
+
+    def test_reset_page_admits_that_no_email_will_arrive(self):
+        with override_settings(EMAIL_BACKEND='django.core.mail.backends.console.EmailBackend'):
+            response = self.client.get(reverse('accounts:password_reset'))
+        self.assertContains(response, 'Email is not switched on')
+
+    def test_reset_page_prefills_the_email_from_the_link(self):
+        response = self.client.get(
+            reverse('accounts:password_reset'), {'email': 'lost@example.com'}
+        )
+        self.assertContains(response, 'value="lost@example.com"')
+
+    def test_reset_page_is_quiet_when_smtp_is_configured(self):
+        with override_settings(EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend'):
+            response = self.client.get(reverse('accounts:password_reset'))
+        self.assertNotContains(response, 'Email is not switched on')
+
+
+@override_settings(STORAGES={
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+})
+class AdminTemporaryPasswordTests(TestCase):
+    """The owner needs a way to help a member when email is unavailable."""
+
+    def setUp(self):
+        self.admin = User.objects.create_superuser(
+            'owner', email='owner@example.com', password='Bridge!2345'
+        )
+        self.member = User.objects.create_user('locked', password='Bridge!2345')
+        self.client.force_login(self.admin)
+
+    def test_action_sets_a_password_the_owner_can_share(self):
+        response = self.client.post(
+            reverse('admin:auth_user_changelist'),
+            {'action': 'set_temporary_password', '_selected_action': [str(self.member.pk)]},
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(
+            User.objects.get(pk=self.member.pk).check_password('Bridge!2345')
+        )
+
+        # The generated password is readable, so it can be shared privately.
+        shown = ' '.join(str(message) for message in response.context['messages'])
+        match = re.search(r'locked → (BookBridge-\d{6})', shown)
+        self.assertIsNotNone(match, shown)
+        self.assertTrue(
+            User.objects.get(pk=self.member.pk).check_password(match.group(1))
+        )
+
+    def test_temporary_password_can_be_used_to_sign_in(self):
+        from django.contrib.messages import get_messages
+
+        response = self.client.post(
+            reverse('admin:auth_user_changelist'),
+            {'action': 'set_temporary_password', '_selected_action': [str(self.member.pk)]},
+        )
+
+        shown = ' '.join(str(message) for message in get_messages(response.wsgi_request))
+        match = re.search(r'locked → (BookBridge-\d{6})', shown)
+        self.assertIsNotNone(match, shown)
+
+        # The member signs in with the password the owner read out to them.
+        fresh = Client()
+        signed_in = fresh.post(reverse('accounts:login'), {
+            'username': 'locked',
+            'password': match.group(1),
+        })
+        self.assertRedirects(signed_in, reverse('core:home'))
+        self.assertEqual(int(fresh.session['_auth_user_id']), self.member.pk)
+
+
+class SignupDoesNotLeakTests(TestCase):
+    """Typing somebody's username must not reveal their email address."""
+
+    def test_claim_box_never_prints_the_existing_email(self):
+        User.objects.create_user(
+            'arjun', email='arjun.private@example.com', password='Bridge!2345'
+        )
+
+        response = self.client.post(reverse('accounts:signup'), {
+            'username': 'arjun',
+            'email': 'someone.else@example.com',
+            'password1': 'Different!2345',
+            'password2': 'Different!2345',
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'already has an account')
+        self.assertNotContains(response, 'arjun.private@example.com')

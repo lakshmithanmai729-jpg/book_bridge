@@ -1,8 +1,37 @@
 from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.auth.models import User
+from django.utils.crypto import get_random_string
 
 from .models import (
     BookRequest, ChatMessage, Notification, SellerReview, UserBlock, UserProfile,
 )
+
+
+# The built-in User screen, plus one action that exists because a free deploy
+# has no working email: when somebody forgets their password the owner can set
+# a readable one and pass it on.
+admin.site.unregister(User)
+
+
+@admin.register(User)
+class BookBridgeUserAdmin(BaseUserAdmin):
+    actions = ('set_temporary_password',)
+
+    @admin.action(description='Set a temporary password (shown to you — share it with the member)')
+    def set_temporary_password(self, request, queryset):
+        lines = []
+        for user in queryset:
+            temporary = f'BookBridge-{get_random_string(6, "0123456789")}'
+            user.set_password(temporary)
+            user.save(update_fields=['password'])
+            lines.append(f'{user.username} → {temporary}')
+
+        self.message_user(
+            request,
+            'Temporary passwords set. Share each one privately — the member can '
+            'change it after signing in: ' + '; '.join(lines),
+        )
 
 
 @admin.register(UserProfile)
