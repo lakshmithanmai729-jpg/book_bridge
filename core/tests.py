@@ -211,3 +211,199 @@ class ExportPreviewTests(TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaises(CommandError):
                 call_command('export_preview', '--out', tmp, '--user', 'nobody', stdout=None)
+
+
+class DemoModeSeedingTests(TestCase):
+    """DEMO_MODE fills a live demo without handing out working passwords."""
+
+    def run_seed(self, *args, **kwargs):
+        from django.core.management import call_command
+        from io import StringIO
+
+        out = StringIO()
+        call_command('seed_demo', '--if-empty', *args, stdout=out, **kwargs)
+        return out.getvalue()
+
+    def test_demo_mode_seeds_books_without_usable_passwords(self):
+        with override_settings(DEBUG=False, DEMO_MODE=True):
+            output = self.run_seed()
+
+        self.assertEqual(User.objects.filter(username__in=['demo', 'arjun', 'priya', 'rahul']).count(), 4)
+        self.assertGreaterEqual(Book.objects.count(), 16)
+        for user in User.objects.filter(username__in=['demo', 'arjun', 'priya', 'rahul']):
+            self.assertFalse(
+                user.has_usable_password(),
+                f'{user.username} must not be signable-into on a public demo',
+            )
+            self.assertFalse(user.is_superuser)
+        self.assertIn('unusable passwords', output)
+
+    def test_demo_accounts_cannot_log_in_with_the_readme_password(self):
+        with override_settings(DEBUG=False, DEMO_MODE=True):
+            self.run_seed()
+
+        response = self.client.post(reverse('accounts:login'), {
+            'username': 'demo',
+            'password': 'bookbridge123',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn('_auth_user_id', self.client.session)
+
+    def test_second_run_is_idempotent(self):
+        with override_settings(DEBUG=False, DEMO_MODE=True):
+            self.run_seed()
+            books = Book.objects.count()
+            output = self.run_seed()
+
+        self.assertEqual(Book.objects.count(), books)
+        self.assertIn('already present', output)
+
+    def test_demo_mode_seeds_even_when_the_owner_already_added_a_book(self):
+        owner = User.objects.create_user('owner', password='Bridge!2345')
+        Book.objects.create(
+            seller=owner, title='My Own Listing', author='Me', price=100,
+        )
+
+        with override_settings(DEBUG=False, DEMO_MODE=True):
+            self.run_seed()
+
+        self.assertTrue(Book.objects.filter(title='My Own Listing').exists())
+        self.assertGreaterEqual(Book.objects.count(), 17)
+
+    def test_without_demo_mode_a_live_site_still_gets_no_accounts(self):
+        with override_settings(DEBUG=False, DEMO_MODE=False):
+            output = self.run_seed()
+
+        self.assertFalse(User.objects.filter(username='demo').exists())
+        self.assertIn('DEMO_MODE is not set', output)
+
+    def test_demo_passwords_flag_is_the_opt_in_for_a_staging_site(self):
+        with override_settings(DEBUG=False, DEMO_MODE=False):
+            self.run_seed('--demo-passwords')
+
+        demo = User.objects.get(username='demo')
+        self.assertTrue(demo.has_usable_password())
+        self.assertTrue(demo.check_password('bookbridge123'))
+
+
+class DatabaseStorageTests(TestCase):
+    """MEDIA_STORAGE=db keeps covers in the database, across restarts."""
+
+    DB_STORAGE = {
+        'default': {'BACKEND': 'core.storage.DatabaseStorage'},
+        'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+    }
+
+    def test_save_open_exists_delete_round_trip(self):
+        from django.core.files.base import ContentFile
+        from django.core.files.storage import storages
+
+        with override_settings(STORAGES=self.DB_STORAGE):
+            storage = storages['default']
+            name = storage.save('book_images/round-trip.webp', ContentFile(b'hello-cover'))
+
+            self.assertEqual(name, 'book_images/round-trip.webp')
+            self.assertTrue(storage.exists(name))
+            self.assertEqual(storage.size(name), len(b'hello-cover'))
+            self.assertEqual(storage.url(name), '/media/book_images/round-trip.webp')
+            with storage.open(name) as handle:
+                self.assertEqual(handle.read(), b'hello-cover')
+
+            storage.delete(name)
+            self.assertFalse(storage.exists(name))
+
+    def test_a_saved_photo_is_served_at_its_media_url(self):
+        from django.core.files.base import ContentFile
+        from django.core.files.storage import storages
+
+        with override_settings(STORAGES=self.DB_STORAGE, DEBUG=False):
+            storages['default'].save('book_images/served.jpg', ContentFile(b'jpeg-bytes'))
+            response = self.client.get('/media/book_images/served.jpg')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, b'jpeg-bytes')
+        self.assertEqual(response['Content-Type'], 'image/jpeg')
+        self.assertIn('max-age', response['Cache-Control'])
+
+    def test_missing_photo_returns_404_not_a_server_error(self):
+        with override_settings(STORAGES=self.DB_STORAGE):
+            response = self.client.get('/media/book_images/never-saved.jpg')
+        self.assertEqual(response.status_code, 404)
+
+    def test_book_upload_lands_in_the_database(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from core.models import StoredFile
+
+        seller = User.objects.create_user('seller', password='Bridge!2345')
+        book = Book.objects.create(seller=seller, title='In DB', author='A', price=50)
+
+        with override_settings(STORAGES=self.DB_STORAGE):
+            book.image.save('cover.jpg', SimpleUploadedFile('cover.jpg', b'fake-jpeg'), save=True)
+            self.assertTrue(
+                StoredFile.objects.filter(name=book.image.name).exists(),
+                'the cover should be a row, not a file on disk',
+            )
+            response = self.client.get(book.image.url)
+            self.assertEqual(response.status_code, 200)
+
+    def test_ensure_demo_media_recreates_missing_covers_in_the_database(self):
+        from django.core.management import call_command
+        from io import StringIO
+        from core.models import StoredFile
+
+        with override_settings(DEBUG=True, STORAGES=self.DB_STORAGE):
+            call_command('seed_demo', '--if-empty', stdout=StringIO())
+            # Simulate the free host wiping its disk: rows survive, files do not.
+            StoredFile.objects.all().delete()
+
+            out = StringIO()
+            call_command('ensure_demo_media', stdout=out)
+
+            self.assertIn('Recreated', out.getvalue())
+            self.assertGreaterEqual(StoredFile.objects.count(), 16)
+
+    def test_media_storage_setting_defaults_to_the_disk(self):
+        from django.conf import settings
+
+        self.assertIn(getattr(settings, 'MEDIA_STORAGE', 'filesystem'), ('filesystem', 'db'))
+
+
+class DatabaseUrlParsingTests(TestCase):
+    """A Neon connection string must keep its sslmode."""
+
+    def test_neon_url_keeps_ssl_options_and_health_checks(self):
+        from config.settings import _database_from_url
+
+        config = _database_from_url(
+            'postgresql://bookbridge:p%40ss@ep-cool-123-pooler.ap-southeast-1.aws.neon.tech'
+            '/neondb?sslmode=require&channel_binding=require'
+        )
+
+        self.assertEqual(config['ENGINE'], 'django.db.backends.postgresql')
+        self.assertEqual(config['PASSWORD'], 'p@ss')
+        self.assertEqual(config['NAME'], 'neondb')
+        self.assertEqual(config['HOST'], 'ep-cool-123-pooler.ap-southeast-1.aws.neon.tech')
+        self.assertEqual(config['OPTIONS']['sslmode'], 'require')
+        self.assertEqual(config['OPTIONS']['channel_binding'], 'require')
+        self.assertTrue(config['CONN_HEALTH_CHECKS'])
+
+    def test_url_without_options_still_works(self):
+        from config.settings import _database_from_url
+
+        config = _database_from_url('postgres://user:pass@db.example.com:5432/books')
+
+        self.assertEqual(config['PORT'], '5432')
+        self.assertNotIn('OPTIONS', config)
+
+    def test_db_status_reports_the_connection_without_leaking_secrets(self):
+        from django.core.management import call_command
+        from io import StringIO
+
+        out = StringIO()
+        call_command('db_status', stdout=out)
+        text = out.getvalue()
+
+        self.assertIn('Database', text)
+        self.assertIn('connected', text)
+        self.assertIn('Uploaded photos', text)
+        self.assertNotIn('PASSWORD', text)

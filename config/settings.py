@@ -93,11 +93,25 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Without database credentials the project falls back to a local SQLite file so
 # `python manage.py migrate` / `runserver` work out of the box for development.
 def _database_from_url(url):
-    """Parse postgres://user:pass@host:port/name into a Django DATABASES entry."""
-    from urllib.parse import unquote, urlparse
+    """Parse postgres://user:pass@host:port/name?sslmode=require into DATABASES.
+
+    The query string matters: Neon and most managed Postgres providers put
+    ``sslmode=require`` there and refuse a connection without it. Dropping it
+    (as this function used to) made a Neon URL fail with a confusing
+    "connection refused" at deploy time.
+    """
+    from urllib.parse import parse_qs, unquote, urlparse
 
     parsed = urlparse(url)
-    return {
+    params = {key.lower(): values[-1] for key, values in parse_qs(parsed.query).items()}
+
+    options = {}
+    for key in ('sslmode', 'channel_binding', 'connect_timeout', 'options',
+                'sslcert', 'sslkey', 'sslrootcert', 'application_name'):
+        if params.get(key):
+            options[key] = params[key]
+
+    config = {
         'ENGINE': 'django.db.backends.postgresql'
         if parsed.scheme.startswith('postgres')
         else 'django.db.backends.mysql',
@@ -106,8 +120,15 @@ def _database_from_url(url):
         'PASSWORD': unquote(parsed.password or ''),
         'HOST': parsed.hostname or '',
         'PORT': str(parsed.port or ''),
-        'CONN_MAX_AGE': 60,
+        # A hosted database (Neon, Render) drops idle connections when it
+        # suspends. Health checks make Django notice and reconnect instead of
+        # handing the request a dead socket.
+        'CONN_MAX_AGE': int(params.get('conn_max_age', '60')),
+        'CONN_HEALTH_CHECKS': True,
     }
+    if options:
+        config['OPTIONS'] = options
+    return config
 
 
 if os.environ.get('DATABASE_URL'):
@@ -186,9 +207,31 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 # Project-owned static files (icons, manifest assets). Without this, collectstatic
 # only picks up the admin's files and our icons 404 in production.
 STATICFILES_DIRS = [BASE_DIR / 'static']
+# ---------------------------------------------------------------------------
+# Demo mode
+#   A review deploy needs books, photos and chats on screen without anybody
+#   adding them by hand. DEMO_MODE=1 lets `seed_demo` run with DEBUG off.
+#   Demo accounts created this way get an unusable password, so the public
+#   README password cannot be used to sign in on a live site.
+# ---------------------------------------------------------------------------
+DEMO_MODE = os.environ.get('DEMO_MODE', 'False').lower() in ('true', '1', 'yes')
+
+# ---------------------------------------------------------------------------
+# Uploaded photos (book covers)
+#   filesystem - local disk. Fine for development, wiped by a free host on
+#                every restart.
+#   db         - stored in the database as bytes, so covers survive a redeploy
+#                on a free plan with no object storage. Set MEDIA_STORAGE=db.
+# ---------------------------------------------------------------------------
+MEDIA_STORAGE = os.environ.get('MEDIA_STORAGE', 'filesystem').strip().lower()
+
 STORAGES = {
     'default': {
-        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+        'BACKEND': (
+            'core.storage.DatabaseStorage'
+            if MEDIA_STORAGE == 'db'
+            else 'django.core.files.storage.FileSystemStorage'
+        ),
     },
     'staticfiles': {
         'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',

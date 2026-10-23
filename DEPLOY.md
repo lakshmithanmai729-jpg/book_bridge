@@ -106,6 +106,20 @@ DJANGO_SUPERUSER_PASSWORD = పొడవైన పాస్‌వర్డ్ (�
 | Email | Render logs లో print అవుతుంది. Gmail SMTP కావాలంటే కింద చూడండి (password reset కి అవసరం) |
 | Demo accounts | Production లో create అవ్వవు (భద్రత). మీ సొంత admin మాత్రమే |
 
+### 🎭 Demo content మరియు శాశ్వత photos
+
+`render.yaml` లో ఇవి ఇప్పటికే పెట్టి ఉన్నాయి:
+
+| Variable | విలువ | ఏమి చేస్తుంది |
+| --- | --- | --- |
+| `DEMO_MODE` | `1` | 16 books + photos + chats ఆటోమేటిక్ (demo accounts **login అవ్వలేని** passwords తో) |
+| `MEDIA_STORAGE` | `db` | Upload అయిన photos database లో — restart కి పోవు |
+
+**Database 30 రోజులకు expire అవ్వకూడదంటే** → **`NEON.md`** చూడండి
+(Neon free, ఎప్పటికీ expire అవ్వదు, card అవసరం లేదు).
+
+Deploy అయ్యాక ఏమి connect అయిందో చూడాలంటే Logs లో `db_status` output ఉంటుంది.
+
 ### 📧 Email పనిచేయించడం (password reset కి కావాలి)
 
 Default గా Render లో email **పంపబడదు** — logs లో మాత్రమే print అవుతుంది. అంటే

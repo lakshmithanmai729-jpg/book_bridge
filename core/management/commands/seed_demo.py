@@ -9,17 +9,26 @@ Demo logins (password: bookbridge123):
     priya  – seller, WhatsApp contact
     rahul  – seller, in-app chat only
 
-Production safety: when ``DEBUG`` is off this command only creates the
-categories. Demo accounts all share a public password, so seeding them on a
-live site would let anyone sign in. Pass ``--force-demo`` if you really want
-the demo data on a non-debug instance.
+Production safety: demo accounts all share a public password, so a live site
+never gets them. There are two ways to put content on a deployed demo:
+
+    DEMO_MODE=1 (environment variable)   — seeds books, photos and chats, and
+        gives every demo account an *unusable* password, so nobody can sign in
+        as them. The marketplace simply looks populated. This is what the free
+        Render deployment uses.
+
+    --demo-passwords                     — also sets the shared README password.
+        Only for a private staging site that nobody else can reach.
 """
 import random
+import tempfile
 import textwrap
 from pathlib import Path
 
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.core.files import File
+from django.core.files.storage import default_storage
 from django.core.management.base import BaseCommand
 from django.utils.text import slugify
 
@@ -213,29 +222,62 @@ class Command(BaseCommand):
         parser.add_argument(
             '--force-demo',
             action='store_true',
-            help='Seed the demo accounts even when DEBUG is off (never do this on a public site).',
+            help='Seed the demo data even when DEBUG is off and DEMO_MODE is unset.',
+        )
+        parser.add_argument(
+            '--demo-passwords',
+            action='store_true',
+            help=(
+                'Give the demo accounts the shared README password. Only for a '
+                'private staging site — on a public site DEMO_MODE seeds the '
+                'same content with unusable passwords.'
+            ),
         )
 
     def handle(self, *args, **options):
-        if options['if_empty'] and Book.objects.exists():
-            self.stdout.write('Database already has books — skipping demo seeding.')
+        demo_usernames = [spec['username'] for spec in USERS]
+
+        # "--if-empty" means "until the demo content exists". Counting all
+        # books would skip the demo whenever the owner had already added one
+        # listing of their own — which is exactly what happens in practice.
+        if options['if_empty'] and User.objects.filter(
+            username__in=demo_usernames
+        ).exists():
+            self.stdout.write('Demo data is already present — skipping.')
             return
+
+        demo_mode = getattr(settings, 'DEMO_MODE', False)
+        allowed = (
+            settings.DEBUG
+            or demo_mode
+            or options['force_demo']
+            or options['demo_passwords']
+        )
 
         # A live site must never get accounts whose password is printed in the
         # README. Categories are harmless and needed by the sell form, so those
         # are still created.
-        if not settings.DEBUG and not options['force_demo']:
+        if not allowed:
             created = 0
             for name in CATEGORIES:
                 _, was_created = Category.objects.get_or_create(name=name)
                 created += int(was_created)
             self.stdout.write(self.style.WARNING(
-                'DEBUG is off — demo accounts were NOT created (public password). '
-                f'Ensured {created} categories. Create your own admin with '
-                '`python manage.py createsuperuser`, or run this command with '
-                '--force-demo for a private staging site.'
+                'DEBUG is off and DEMO_MODE is not set — demo accounts were NOT '
+                f'created (public password). Ensured {created} categories. Set '
+                'DEMO_MODE=1 to fill the marketplace with demo books whose '
+                'accounts cannot be signed into, or run this command with '
+                '--demo-passwords on a private staging site.'
             ))
             return
+
+        # Who is allowed to have a password that other people know?
+        share_passwords = settings.DEBUG or options['force_demo'] or options['demo_passwords']
+        if demo_mode and not share_passwords:
+            self.stdout.write(
+                'DEMO_MODE: seeding demo content with unusable passwords '
+                '(nobody can sign in as these accounts).'
+            )
 
         random.seed(7)
 
@@ -255,7 +297,11 @@ class Command(BaseCommand):
                 defaults={'email': spec['email']},
             )
             if created:
-                user.set_password(PASSWORD)
+                if share_passwords:
+                    user.set_password(PASSWORD)
+                else:
+                    # The content is public, the accounts are not.
+                    user.set_unusable_password()
                 user.save()
             profile = user.profile
             profile.name = spec['name']
@@ -267,7 +313,7 @@ class Command(BaseCommand):
             # so the two modes can be compared side by side in the preview.
             profile.account_privacy = 'public' if spec['username'] == 'priya' else 'private'
             profile.save()
-            if spec['username'] == 'demo' and options['with_admin']:
+            if spec['username'] == 'demo' and options['with_admin'] and share_passwords:
                 # Local preview / demo only. A live site never seeds demo
                 # accounts at all (see the DEBUG guard above), so this stays a
                 # presentation account that can open every backend screen.
@@ -288,9 +334,6 @@ class Command(BaseCommand):
                     )
                 )
             users[spec['username']] = user
-
-        media_root = Path(settings.MEDIA_ROOT) / 'book_images'
-        media_root.mkdir(parents=True, exist_ok=True)
 
         books = {}
         for spec in BOOKS:
@@ -320,11 +363,19 @@ class Command(BaseCommand):
 
             if created and not book.image:
                 filename = f"seed_{slugify(title)[:40]}.jpg"
-                target = media_root / filename
-                if not target.exists():
-                    make_cover(title, author, colors, target)
-                if target.exists():
-                    book.image.name = f'book_images/{filename}'
+                stored_name = f'book_images/{filename}'
+                # Generate into a temporary folder, then hand the bytes to the
+                # configured storage. That way the covers land in the database
+                # (MEDIA_STORAGE=db) just as happily as on local disk.
+                if not default_storage.exists(stored_name):
+                    with tempfile.TemporaryDirectory() as tmp:
+                        target = Path(tmp) / filename
+                        make_cover(title, author, colors, target)
+                        if target.exists():
+                            with open(target, 'rb') as handle:
+                                default_storage.save(stored_name, File(handle))
+                if default_storage.exists(stored_name):
+                    book.image.name = stored_name
                     book.save(update_fields=['image'])
 
         # A small, believable set of conversations.
@@ -484,4 +535,13 @@ class Command(BaseCommand):
             f'{SellerReview.objects.count()} reviews, {Wishlist.objects.count()} wishlists, '
             f'{Report.objects.count()} reports, {AIEvent.objects.count()} AI events.'
         ))
-        self.stdout.write('Sign in with demo / bookbridge123 (or arjun, priya, rahul — same password).')
+        if share_passwords:
+            self.stdout.write(
+                'Sign in with demo / bookbridge123 (or arjun, priya, rahul — same password).'
+            )
+        else:
+            self.stdout.write(
+                'Demo accounts have unusable passwords on purpose: the marketplace '
+                'looks populated but nobody can sign in as demo/arjun/priya/rahul. '
+                'Use your own admin account.'
+            )
