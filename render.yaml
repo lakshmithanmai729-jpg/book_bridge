@@ -14,12 +14,14 @@ services:
       pip install -r requirements.txt
       python manage.py collectstatic --noinput
     # Everything that touches the database runs at boot, when it is definitely
-    # reachable: migrate, categories, demo covers, then the owner's admin.
+    # reachable: migrate, demo content, covers, the owner's admin, then a short
+    # report of what we are actually connected to (visible in the logs).
     startCommand: |
       python manage.py migrate --noinput &&
       python manage.py seed_demo --if-empty &&
       python manage.py ensure_demo_media &&
       python manage.py ensure_admin &&
+      python manage.py db_status &&
       gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 60 --access-logfile -
     healthCheckPath: /healthz/
     autoDeploy: true
@@ -34,12 +36,23 @@ services:
         value: ".onrender.com"
       - key: SECURE_SSL_REDIRECT
         value: "True"
-      # Set this to your Postgres connection string to keep data between deploys.
-      # Without it the app runs on SQLite, which is reset on every redeploy.
+      # Your database. The block at the bottom of this file creates a free
+      # Render Postgres, which EXPIRES 30 DAYS AFTER CREATION. To keep your
+      # data for good, replace this value with a Neon connection string
+      # (see NEON.md) — Neon's free plan does not expire.
       - key: DATABASE_URL
         fromDatabase:
           name: bookbridge-db
           property: connectionString
+      # Fill the marketplace with demo books/photos/chats. The demo accounts
+      # get unusable passwords, so nobody can sign in as them. Remove this for
+      # a real marketplace.
+      - key: DEMO_MODE
+        value: "1"
+      # Keep uploaded photos in the database. A free instance's disk is wiped
+      # on every restart, so this is what stops covers from disappearing.
+      - key: MEDIA_STORAGE
+        value: "db"
       # Email is printed to the Render logs until you add SMTP credentials.
       - key: EMAIL_BACKEND
         value: "django.core.mail.backends.console.EmailBackend"

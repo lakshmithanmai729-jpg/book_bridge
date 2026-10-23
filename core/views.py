@@ -1,19 +1,23 @@
 from datetime import timedelta
 
+from django.conf import settings
 from django.contrib import admin
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.models import User
+from django.core.files.storage import default_storage
 from django.db import connection
 from django.db.models import Count
-from django.http import JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
 from django.utils import timezone
+from django.views.static import serve as serve_from_disk
 
 from accounts.models import BookRequest, ChatMessage, Notification, SellerReview, UserBlock
 from ai_engine.models import AIEvent
 from ai_engine.recommend import picks_for_user
 from books.models import Book, Category, Report, Wishlist
+from core.storage import DatabaseStorage
 
 
 def home(request):
@@ -60,6 +64,36 @@ def home(request):
 def safety(request):
     """Public safety centre: how to trade, report and block safely."""
     return render(request, 'core/safety.html')
+
+
+def serve_media(request, path):
+    """Serve an uploaded file, whichever storage backend is in use.
+
+    Photos live in the database when ``MEDIA_STORAGE=db`` (so they survive a
+    restart on a free host) and on disk otherwise. Both answer at the same
+    ``/media/<path>`` URL, so templates never need to know the difference.
+    """
+    storage = default_storage
+
+    if isinstance(storage, DatabaseStorage):
+        from core.models import StoredFile
+
+        try:
+            row = StoredFile.objects.only('data', 'content_type', 'size').get(name=path)
+        except StoredFile.DoesNotExist:
+            raise Http404('No such photo.')
+
+        response = HttpResponse(
+            bytes(row.data),
+            content_type=row.content_type or 'application/octet-stream',
+        )
+        response['Content-Length'] = row.size
+        # Fingerprinted names never change content, and a book cover is not
+        # secret — let the browser keep it for a day.
+        response['Cache-Control'] = 'public, max-age=86400'
+        return response
+
+    return serve_from_disk(request, path, document_root=settings.MEDIA_ROOT, show_indexes=False)
 
 
 def healthz(request):

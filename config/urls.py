@@ -1,9 +1,9 @@
 from django.conf import settings
-from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path, re_path
-from django.views.static import serve
+
+from core import views as core_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -23,16 +23,12 @@ urlpatterns = [
 # Uploaded book photos are user content, so they live outside STATIC_ROOT and
 # WhiteNoise will not serve them. Django's static() helper does nothing when
 # DEBUG is off, which used to leave every cover image as a broken link on the
-# deployed site. serve() is protected against path traversal and is fine at
-# this scale; move to object storage (S3/Cloudinary) if traffic grows.
+# deployed site. One route now serves them in every mode, reading from the
+# database when MEDIA_STORAGE=db and from disk otherwise.
 urlpatterns += [
     re_path(
         r'^media/(?P<path>.*)$',
-        serve,
-        {'document_root': settings.MEDIA_ROOT, 'show_indexes': False},
+        core_views.serve_media,
         name='serve_media',
     )
 ]
-
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
