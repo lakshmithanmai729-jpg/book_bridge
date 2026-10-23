@@ -45,6 +45,37 @@
     .auth-card .help-text { font-size: 0.75rem; color: #94a3b8; margin-top: 5px; line-height: 1.5; }
     .auth-card ul.errorlist { list-style: none; padding: 0; margin: 8px 0 0; color: #dc2626; font-size: 0.8rem; font-weight: 600; }
     .auth-card .form-row { margin-bottom: 18px; }
+    .auth-card .claim-box {
+        background: #eff6ff;
+        border: 1.5px solid #bfdbfe;
+        border-radius: 16px;
+        padding: 16px 18px;
+        margin-bottom: 20px;
+        font-size: 0.88rem;
+        color: #0f172a;
+        line-height: 1.55;
+    }
+    .auth-card .claim-box .claim-title { font-weight: 800; display: block; margin-bottom: 4px; }
+    .auth-card .claim-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .auth-card .claim-actions a {
+        text-decoration: none;
+        border-radius: 10px;
+        padding: 8px 14px;
+        font-size: 0.82rem;
+        font-weight: 800;
+    }
+    .auth-card .claim-actions .primary { background: #0284c7; color: #fff; }
+    .auth-card .claim-actions .secondary { background: #fff; color: #0369a1; border: 1.5px solid #bae6fd; }
+    .auth-card .mail-note {
+        background: #fffbeb;
+        border: 1.5px solid #fde68a;
+        border-radius: 14px;
+        padding: 12px 14px;
+        font-size: 0.8rem;
+        color: #78350f;
+        line-height: 1.5;
+        margin-bottom: 20px;
+    }
     @media (min-width: 992px) {
         .auth-grid { grid-template-columns: 1.05fr 1fr; gap: 32px; }
     }
@@ -69,7 +100,35 @@
             <h1>Create your account</h1>
             <p class="auth-sub">It takes less than a minute.</p>
 
-            <form method="POST">
+            {% if existing_user %}
+                <div class="claim-box">
+                    <span class="claim-title">
+                        <i class="bi bi-person-check-fill"></i>
+                        “{{ existing_user.username }}” already has an account
+                    </span>
+                    If that is you, sign in with your password — we will not create a
+                    second account. Otherwise pick a different username below.
+                    <div class="claim-actions">
+                        <a class="primary" href="{% url 'accounts:login' %}">Sign in</a>
+                        {# Never print the existing account's email here: anyone
+                           could type a username and read somebody's address. #}
+                        <a class="secondary" href="{% url 'accounts:password_reset' %}">
+                            Forgot password?
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+
+            {% if not email_delivery_enabled %}
+                <div class="mail-note">
+                    <i class="bi bi-info-circle-fill"></i>
+                    <strong>Email delivery is not switched on for this site yet.</strong>
+                    Your account works immediately — you just will not receive a
+                    confirmation email. Ask the site owner to reset a forgotten password.
+                </div>
+            {% endif %}
+
+            <form method="POST" autocomplete="on">
                 {% csrf_token %}
                 {% for field in form %}
                     <div class="form-row">
@@ -85,7 +144,9 @@
                     <div class="alert alert-danger border-0 rounded-4 small fw-semibold">{{ error }}</div>
                 {% endfor %}
 
-                <button type="submit" class="bb-btn bb-btn-primary bb-btn-block" style="padding:15px;">Sign up free</button>
+                <button type="submit" class="bb-btn bb-btn-primary bb-btn-block"
+                        style="padding:15px;"
+                        data-busy="Creating your account…">Sign up free</button>
             </form>
 
             <p class="text-center text-muted small mt-3 mb-0">
@@ -111,5 +172,42 @@
             toggle.innerHTML = input.type === 'password' ? '<i class="bi bi-eye"></i>' : '<i class="bi bi-eye-slash"></i>';
         });
     });
+
+    // One tap, one account. On a slow phone the page can take a second to
+    // respond and the button used to stay tappable — the second tap created a
+    // duplicate request and the person saw "already exists" for their own
+    // brand new account.
+    (function () {
+        var form = document.querySelector('.auth-card form');
+        if (!form) { return; }
+        var button = form.querySelector('button[type=submit]');
+        if (!button) { return; }
+
+        var label = button.innerHTML;
+        var sending = false;
+
+        form.addEventListener('submit', function (event) {
+            if (sending) {
+                event.preventDefault();
+                return;
+            }
+            sending = true;
+            button.disabled = true;
+            button.style.opacity = '0.75';
+            button.innerHTML =
+                '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>'
+                + (button.dataset.busy || 'Please wait…');
+        });
+
+        // If the browser restores this page from its back/forward cache the
+        // button would still be disabled — put it back.
+        window.addEventListener('pageshow', function (event) {
+            if (!event.persisted) { return; }
+            sending = false;
+            button.disabled = false;
+            button.style.opacity = '';
+            button.innerHTML = label;
+        });
+    })();
 </script>
 {% endblock %}

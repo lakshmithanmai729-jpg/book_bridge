@@ -103,8 +103,35 @@ DJANGO_SUPERUSER_PASSWORD = పొడవైన పాస్‌వర్డ్ (�
 | 15 నిమిషాలు ఎవరూ open చేయకపోతే | app sleep అవుతుంది. తర్వాత మొదటి load కి ~30 sec |
 | Book cover uploads | free disk ephemeral — redeploy కి పోతాయి (demo కి fine) |
 | Database | free PostgreSQL — data **permanent** గా ఉంటుంది |
-| Email | Render logs లో print అవుతుంది. Gmail SMTP కావాలంటే `EMAIL_*` env vars add చేయండి |
+| Email | Render logs లో print అవుతుంది. Gmail SMTP కావాలంటే కింద చూడండి (password reset కి అవసరం) |
 | Demo accounts | Production లో create అవ్వవు (భద్రత). మీ సొంత admin మాత్రమే |
+
+### 📧 Email పనిచేయించడం (password reset కి కావాలి)
+
+Default గా Render లో email **పంపబడదు** — logs లో మాత్రమే print అవుతుంది. అంటే
+"Forgot password" పనిచేయదు. ఇది మార్చడానికి 3 నిమిషాలు:
+
+1. Gmail → **Google Account → Security → 2-Step Verification ON** చేయండి
+2. అదే page లో **App passwords** → "BookBridge" అని పేరు పెట్టి create చేయండి
+3. 16 అక్షరాల password copy చేయండి
+4. Render → **Environment** → ఇవి add చేయండి:
+
+```
+EMAIL_BACKEND       = django.core.mail.backends.smtp.EmailBackend
+EMAIL_HOST          = smtp.gmail.com
+EMAIL_PORT          = 587
+EMAIL_USE_TLS       = True
+EMAIL_HOST_USER     = yourname@gmail.com
+EMAIL_HOST_PASSWORD = <16-అక్షరాల app password>
+DEFAULT_FROM_EMAIL  = BookBridge <yourname@gmail.com>
+```
+
+`Save, rebuild, and deploy` నొక్కండి. ఇక verification + password reset emails
+నిజంగా వెళ్తాయి.
+
+**Email లేకపోయినా పనిచేసే మార్గం:** `/admin/auth/user/` → user select చేయండి →
+**Action: "Set a temporary password"** → password screen మీద కనిపిస్తుంది →
+ఆ వ్యక్తికి ఇవ్వండి. వాళ్ళు login అయ్యాక `Change password` తో మార్చుకోవచ్చు.
 
 ### Media files permanent గా కావాలంటే (optional)
 Render Dashboard → Environment → ఇవి add చేయండి:

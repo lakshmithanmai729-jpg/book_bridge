@@ -12,14 +12,14 @@ urlpatterns = [
     path('profile/', views.profile, name='profile'),
     path('profile/edit/', views.profile_edit, name='profile_edit'),
     # Password reset (email link -> choose a new password)
-    path('password-reset/', auth_views.PasswordResetView.as_view(
+    path('password-reset/', views.BookBridgePasswordResetView.as_view(
         template_name='accounts/password_reset.html',
         email_template_name='emails/password_reset.txt',
         html_email_template_name='emails/password_reset.html',
         subject_template_name='emails/password_reset_subject.txt',
         success_url='/accounts/password-reset/sent/',
     ), name='password_reset'),
-    path('password-reset/sent/', auth_views.PasswordResetDoneView.as_view(
+    path('password-reset/sent/', views.BookBridgePasswordResetDoneView.as_view(
         template_name='accounts/password_reset_sent.html',
     ), name='password_reset_done'),
     path('password-reset/<uidb64>/<token>/', auth_views.PasswordResetConfirmView.as_view(

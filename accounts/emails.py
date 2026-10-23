@@ -12,6 +12,17 @@ logger = logging.getLogger(__name__)
 SALT = 'bookbridge.email-verify'
 MAX_AGE = 60 * 60 * 24 * 3          # verification links live for 3 days
 
+# Backends that accept a message and throw it away. On a free host the default
+# is the console backend, so "check your inbox" would be a lie — the signup,
+# login and password-reset screens use this to say so up front.
+NO_DELIVERY_BACKENDS = ('console', 'dummy', 'locmem', 'filebased')
+
+
+def email_delivery_configured():
+    """True when this deployment can actually deliver mail to a member."""
+    backend = getattr(settings, 'EMAIL_BACKEND', '') or ''
+    return not any(marker in backend.lower() for marker in NO_DELIVERY_BACKENDS)
+
 
 def make_verification_token(user):
     return TimestampSigner(salt=SALT).sign(str(user.pk))

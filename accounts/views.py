@@ -1,8 +1,9 @@
 from django.contrib import messages
-from django.contrib.auth import login, logout
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.models import User
+from django.db import IntegrityError
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -17,12 +18,13 @@ from core.validation import clamp, length_error
 from . import notify as notify_service
 
 from .emails import (
+    email_delivery_configured,
     mark_verified,
     notify_new_message,
     read_verification_token,
     send_verification_email,
 )
-from .forms import SignUpForm
+from .forms import SignInForm, SignUpForm
 from .models import BookRequest, ChatMessage, Notification, SellerReview, UserBlock, UserProfile
 
 
@@ -80,28 +82,79 @@ def save_profile_from_post(request, profile_obj):
             messages.warning(request, 'We could not send the confirmation email right now.')
 
 
-def signup(request):
-    if request.method == 'POST':
-        form = SignUpForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            UserProfile.objects.get_or_create(user=user, defaults={'name': user.username})
-            if user.email:
-                send_verification_email(user, request)
-            messages.success(
-                request,
-                'Welcome to BookBridge! We sent a confirmation link to your email. '
-                'Please sign in to continue.',
-            )
-            return redirect('accounts:login')
+def _signed_up(request, user, email_sent):
+    """Finish a signup: a member should never have to log in twice."""
+    UserProfile.objects.get_or_create(user=user, defaults={'name': user.username})
+    login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+
+    greeting = f'Welcome to BookBridge, {user.username}! Your account is ready.'
+    if email_sent:
+        messages.success(request, f'{greeting} We sent a confirmation link to {user.email}.')
+    elif user.email:
+        messages.success(
+            request,
+            f'{greeting} You can confirm {user.email} later from your profile page.',
+        )
     else:
-        form = SignUpForm()
-    return render(request, 'accounts/signup.html', {'form': form})
+        messages.success(request, greeting)
+    return redirect('core:home')
+
+
+def signup(request):
+    form = SignUpForm(request.POST or None)
+
+    if request.method == 'POST':
+        # Validate first: that is what fills in ``existing_user`` when the
+        # username is already taken.
+        form_valid = form.is_valid()
+
+        # A double tap, or a page that finally loaded after a slow cold start,
+        # sends the same form twice. If the username already belongs to
+        # somebody and the password matches, that is the same person — sign
+        # them in instead of shouting "already exists".
+        existing = getattr(form, 'existing_user', None)
+        if existing is not None:
+            password = request.POST.get('password1') or ''
+            if password:
+                person = authenticate(
+                    request, username=existing.username, password=password
+                )
+                if person is not None:
+                    UserProfile.objects.get_or_create(
+                        user=person, defaults={'name': person.username}
+                    )
+                    login(request, person, backend='django.contrib.auth.backends.ModelBackend')
+                    messages.info(
+                        request,
+                        f'You already had a BookBridge account as “{person.username}”, '
+                        'so we signed you in.',
+                    )
+                    return redirect('core:home')
+
+        if form_valid:
+            try:
+                user = form.save()
+            except IntegrityError:
+                # Two people picked the same username at the same moment.
+                form.add_error(
+                    'username',
+                    'Somebody just took that username. Please choose another one.',
+                )
+            else:
+                return _signed_up(
+                    request, user, send_verification_email(user, request) if user.email else False
+                )
+
+    return render(request, 'accounts/signup.html', {
+        'form': form,
+        'existing_user': getattr(form, 'existing_user', None),
+        'email_delivery_enabled': email_delivery_configured(),
+    })
 
 
 def user_login(request):
     if request.method == 'POST':
-        form = AuthenticationForm(request, data=request.POST)
+        form = SignInForm(request, data=request.POST)
         if form.is_valid():
             user = form.get_user()
             login(request, user)
@@ -113,13 +166,37 @@ def user_login(request):
                 return redirect(next_url)
             return redirect('core:home')
     else:
-        form = AuthenticationForm()
+        form = SignInForm(request)
     return render(request, 'accounts/login.html', {'form': form})
 
 
 def user_logout(request):
     logout(request)
     return redirect('core:home')
+
+
+class BookBridgePasswordResetView(auth_views.PasswordResetView):
+    """Django's reset form, plus an honest note when mail cannot be sent."""
+
+    def get_initial(self):
+        initial = super().get_initial()
+        # The "Forgot password?" link carries the email we already know about.
+        email = (self.request.GET.get('email') or '').strip()
+        if email:
+            initial['email'] = email
+        return initial
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['email_delivery_enabled'] = email_delivery_configured()
+        return context
+
+
+class BookBridgePasswordResetDoneView(auth_views.PasswordResetDoneView):
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['email_delivery_enabled'] = email_delivery_configured()
+        return context
 
 
 @login_required
