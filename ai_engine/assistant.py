@@ -67,19 +67,43 @@ def _known_locations():
 
 
 def _match_category(text):
-    """Return (category, matched word) so the keyword can leave the free-text query."""
-    lowered = text.lower()
-    for category in Category.objects.all():
-        if category.name.lower() in lowered:
-            return category, category.name.lower()
+    """Return (category, matched word) so the keyword can leave the free-text query.
 
+    Two passes, and both only ever look at what the student actually typed:
+
+    1. the category name itself (also its singular — "novel" means "Novels");
+    2. keyword scoring from ``CATEGORY_KEYWORDS``, highest score wins, so
+       "organic chemistry" lands on NEET rather than on the first category in
+       the dict.
+
+    The previous version tested ``word in name.lower()``, which is true for the
+    first keyword of every shelf ('jee' in 'iit-jee') and made every single
+    query resolve to IIT-JEE.
+    """
+    lowered = text.lower()
     tokens = set(re.findall(r'[a-z0-9]+', lowered))
+
+    for category in Category.objects.all():
+        name = category.name.lower()
+        if name in lowered:
+            return category, name
+        if name.endswith('s') and name[:-1] in tokens:
+            return category, name[:-1]
+
+    best_score, best_name, best_word = 0, '', ''
     for name, words in CATEGORY_KEYWORDS.items():
+        score, first_hit = 0, ''
         for word in words:
-            if (' ' in word and word in lowered) or word in tokens or word in name.lower():
-                category = Category.objects.filter(name__iexact=name).first()
-                if category:
-                    return category, word
+            if (' ' in word and word in lowered) or word in tokens:
+                score += 1
+                first_hit = first_hit or word
+        if score > best_score:
+            best_score, best_name, best_word = score, name, first_hit
+
+    if best_name:
+        category = Category.objects.filter(name__iexact=best_name).first()
+        if category:
+            return category, best_word
     return None, ''
 
 

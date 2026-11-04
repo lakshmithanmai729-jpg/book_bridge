@@ -15,12 +15,14 @@ from django.views.decorators.http import require_POST
 from books.models import Book
 from core.ratelimit import friendly_message, throttled
 
+from .answers import answer_question
 from .assistant import parse_query, search
 from .classify import predict_category
 from .describe import draft_description
 from .models import AIEvent
 from .pricing import suggest_price
 from .recommend import picks_for_user, taste_profile
+from .scope import classify_scope, refusal_message
 from .trust import assess_listing
 
 
@@ -167,6 +169,29 @@ def risk_api(request):
     return JsonResponse({'ok': True, **assessment})
 
 
+def ask_api(request):
+    """Answer a question about books, or politely refuse an off-topic one.
+
+    This is the endpoint behind the "Ask anything about books" box.  It is
+    read-only, so a GET is enough; the fetch helper also posts, which is why
+    both methods are accepted.
+    """
+    raw = (request.GET.get('q') or request.POST.get('q') or '').strip()[:300]
+
+    limited = _rate_limited(request)
+    if limited:
+        return limited
+
+    result = answer_question(raw, viewer=request.user)
+    _log('ask', request, {
+        'query': raw[:120],
+        'intent': result['intent'],
+        'in_scope': result['in_scope'],
+        'books': len(result['books']),
+    })
+    return JsonResponse(result)
+
+
 def assistant_search_api(request):
     raw = (request.GET.get('q') or '').strip()[:200]
     if not raw:
@@ -175,6 +200,22 @@ def assistant_search_api(request):
     limited = _rate_limited(request)
     if limited:
         return limited
+
+    # Off-topic questions get the refusal here too, so the search box stops
+    # returning an empty grid for "what is the weather".
+    decision = classify_scope(raw)
+    if not decision['in_scope']:
+        message, suggestions = refusal_message(raw)
+        return JsonResponse({
+            'ok': True,
+            'query': raw,
+            'in_scope': False,
+            'refused': True,
+            'answer': message,
+            'suggestions': suggestions,
+            'count': 0,
+            'results': [],
+        })
 
     parsed = search(raw, viewer=request.user)
     payload = {
@@ -240,5 +281,7 @@ def parse_api(request):
     """Debug-friendly view of how the assistant understood a query."""
     raw = (request.GET.get('q') or '').strip()[:200]
     parsed = parse_query(raw)
+    decision = classify_scope(raw)
     return JsonResponse({'ok': True, 'query': raw, 'filters': parsed['filters'],
-                         'understood': parsed['understood']})
+                         'understood': parsed['understood'],
+                         'scope': decision})

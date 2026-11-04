@@ -13,6 +13,7 @@ urlpatterns = [
     path('api/describe/', views.describe_api, name='describe_api'),
     path('api/classify/', views.classify_api, name='classify_api'),
     path('api/risk/', views.risk_api, name='risk_api'),
+    path('api/ask/', views.ask_api, name='ask_api'),
     path('api/search/', views.assistant_search_api, name='search_api'),
     path('api/parse/', views.parse_api, name='parse_api'),
     path('api/similar/<int:pk>/', views.similar_api, name='similar_api'),

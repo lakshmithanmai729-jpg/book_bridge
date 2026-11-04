@@ -19,6 +19,40 @@
         <span class="bb-chip green"><i class="bi bi-cpu"></i> Runs on our server</span>
     </div>
 
+
+    <!-- ============ Ask anything about books (question answering) ============ -->
+    <div class="bb-panel mb-4 bb-ask-panel">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span class="bb-ask-badge"><i class="bi bi-chat-square-quote-fill"></i></span>
+            <div>
+                <h2 class="mb-0" style="font-size:1.15rem;font-weight:900;color:#0f172a;">Ask anything about books</h2>
+                <small class="text-muted">
+                    A price, an author, whether something is still available — ask in English or Telugu.
+                </small>
+            </div>
+        </div>
+
+        <form id="bbAskForm" class="bb-ask-form" autocomplete="off">
+            <i class="bi bi-stars" style="color:#7c3aed;"></i>
+            <input id="bbAskInput" type="text" enterkeyhint="send" maxlength="300"
+                   placeholder="e.g. how much is HC Verma?"
+                   aria-label="Ask anything about books">
+            <button type="submit" id="bbAskBtn" class="bb-ask-send" aria-label="Ask">
+                <i class="bi bi-arrow-right"></i>
+            </button>
+        </form>
+
+        <div class="bb-ask-suggest" id="bbAskSuggest">
+            <button type="button" class="ai-example" data-ask="how much is HC Verma?">how much is HC Verma?</button>
+            <button type="button" class="ai-example" data-ask="NEET books under ₹300">NEET books under ₹300</button>
+            <button type="button" class="ai-example" data-ask="cheapest novel">cheapest novel</button>
+            <button type="button" class="ai-example" data-ask="free books">free books</button>
+            <button type="button" class="ai-example" data-ask="how do I sell a book?">how do I sell a book?</button>
+        </div>
+
+        <div id="bbAskThread" class="bb-ask-thread" aria-live="polite"></div>
+    </div>
+
     <!-- ================= Assistant ================= -->
     <div class="bb-panel mb-4" style="background:linear-gradient(135deg,#0ea5e9 0%,#2563eb 55%,#4338ca 100%); border:none; color:#fff;">
         <div class="d-flex align-items-center gap-2 mb-2">
@@ -277,5 +311,230 @@
             button.addEventListener('click', function () { runSearch(button.dataset.query); });
         });
     })();
+
+<style>
+    /* ---- Ask anything about books ------------------------------------- */
+    .bb-ask-panel {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 20px;
+        padding: 22px 24px;
+    }
+    .bb-ask-badge {
+        width: 42px; height: 42px; border-radius: 13px; flex: 0 0 auto;
+        background: linear-gradient(135deg, #ede9fe, #dbeafe);
+        color: #6d28d9; font-size: 1.15rem;
+        display: inline-flex; align-items: center; justify-content: center;
+    }
+    .bb-ask-form {
+        display: flex; align-items: center; gap: 10px;
+        background: #f8fafc; border: 1.5px solid #e2e8f0;
+        border-radius: 14px; padding: 4px 4px 4px 14px;
+        transition: border-color .15s, box-shadow .15s;
+    }
+    .bb-ask-form:focus-within {
+        border-color: #a78bfa; box-shadow: 0 0 0 4px rgba(124,58,237,.10);
+        background: #fff;
+    }
+    .bb-ask-form input {
+        flex: 1 1 auto; border: 0; outline: none; background: transparent;
+        font-size: 1rem; padding: 12px 0; color: #0f172a; min-width: 0;
+    }
+    .bb-ask-form input::placeholder { color: #94a3b8; }
+    .bb-ask-send {
+        flex: 0 0 auto; border: 0; border-radius: 11px;
+        width: 42px; height: 42px; cursor: pointer;
+        background: linear-gradient(135deg, #7c3aed, #2563eb); color: #fff;
+        display: inline-flex; align-items: center; justify-content: center;
+        font-size: 1.05rem;
+    }
+    .bb-ask-send:disabled { opacity: .6; cursor: progress; }
+    .bb-ask-suggest { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .bb-ask-thread { display: flex; flex-direction: column; gap: 14px; margin-top: 16px; }
+    .bb-ask-thread:empty { margin-top: 0; }
+
+    .bb-q {
+        align-self: flex-end; max-width: 78%;
+        background: #0f172a; color: #fff; border-radius: 16px 16px 4px 16px;
+        padding: 10px 14px; font-size: .92rem; font-weight: 600;
+    }
+    .bb-a {
+        align-self: flex-start; max-width: 92%;
+        background: #f8fafc; border: 1px solid #e2e8f0;
+        border-radius: 16px 16px 16px 4px; padding: 14px 16px;
+    }
+    .bb-a.refused { background: #fffbeb; border-color: #fde68a; }
+    .bb-a-head {
+        display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+        font-size: .74rem; font-weight: 800; letter-spacing: .5px;
+        text-transform: uppercase; color: #7c3aed;
+    }
+    .bb-a.refused .bb-a-head { color: #b45309; }
+    .bb-a-text { color: #1e293b; font-size: .93rem; line-height: 1.62; white-space: pre-line; }
+    .bb-a-books { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+    .bb-a-book {
+        display: flex; gap: 10px; align-items: center; text-decoration: none;
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 13px;
+        padding: 8px 12px 8px 8px; color: #0f172a; min-width: 220px; flex: 1 1 220px;
+        max-width: 340px; transition: border-color .15s, transform .15s;
+    }
+    .bb-a-book:hover { border-color: #a78bfa; transform: translateY(-1px); color: #0f172a; }
+    .bb-a-book img, .bb-a-book .ph {
+        width: 42px; height: 56px; border-radius: 8px; object-fit: cover; flex: 0 0 auto;
+        background: #f1f5f9; display: grid; place-items: center; font-size: 1.2rem;
+    }
+    .bb-a-book .meta { min-width: 0; }
+    .bb-a-book .t {
+        font-size: .84rem; font-weight: 800; line-height: 1.3;
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    .bb-a-book .p { font-size: .78rem; color: #0284c7; font-weight: 800; }
+    .bb-a-book .s { font-size: .72rem; color: #94a3b8; }
+    .bb-a-try { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+    .bb-a-try button {
+        border: 1px solid #ddd6fe; background: #f5f3ff; color: #6d28d9;
+        border-radius: 999px; padding: 5px 12px; font-size: .75rem; font-weight: 700;
+        cursor: pointer;
+    }
+    .bb-a-try button:hover { background: #ede9fe; }
+    .bb-a-empty {
+        display: flex; align-items: center; gap: 8px;
+        color: #64748b; font-size: .85rem;
+    }
+    .bb-typing span {
+        display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+        background: #a78bfa; margin-right: 3px; animation: bbBlink 1.2s infinite;
+    }
+    .bb-typing span:nth-child(2) { animation-delay: .2s; }
+    .bb-typing span:nth-child(3) { animation-delay: .4s; }
+    @keyframes bbBlink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+    @media (max-width: 576px) {
+        .bb-ask-panel { padding: 18px 16px; border-radius: 16px; }
+        .bb-q { max-width: 88%; }
+        .bb-a { max-width: 100%; }
+    }
+</style>
+
+<script>
+(function () {
+    var form = document.getElementById('bbAskForm');
+    var input = document.getElementById('bbAskInput');
+    var button = document.getElementById('bbAskBtn');
+    var thread = document.getElementById('bbAskThread');
+    var suggest = document.getElementById('bbAskSuggest');
+    var busy = false;
+
+    if (!form || !thread) { return; }
+
+    function esc(value) {
+        return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function bubble() {
+        var wrap = document.createElement('div');
+        wrap.className = 'bb-a';
+        wrap.innerHTML = '<div class="bb-a-head"><i class="bi bi-robot"></i> BookBridge assistant</div>'
+            + '<div class="bb-a-text"></div>'
+            + '<div class="bb-a-books"></div>'
+            + '<div class="bb-a-try"></div>';
+        return wrap;
+    }
+
+    function bookCard(book) {
+        var media = book.image
+            ? '<img src="' + esc(book.image) + '" alt="' + esc(book.title) + '" loading="lazy">'
+            : '<div class="ph">📖</div>';
+        var price = book.is_donation ? 'FREE' : '₹' + Math.round(book.price);
+        var sub = [book.condition, book.seller, book.seller_rating].filter(Boolean).join(' · ');
+        return '<a class="bb-a-book" href="' + esc(book.url) + '">' + media
+            + '<div class="meta"><div class="p">' + esc(price) + '</div>'
+            + '<div class="t">' + esc(book.title) + '</div>'
+            + '<div class="s">' + esc(sub) + '</div></div></a>';
+    }
+
+    function ask(question) {
+        question = (question || '').trim();
+        if (!question || busy) { return; }
+
+        busy = true;
+        button.disabled = true;
+
+        var mine = document.createElement('div');
+        mine.className = 'bb-q';
+        mine.textContent = question;
+        thread.appendChild(mine);
+
+        var pending = document.createElement('div');
+        pending.className = 'bb-a';
+        pending.innerHTML = '<div class="bb-typing"><span></span><span></span><span></span></div>';
+        thread.appendChild(pending);
+
+        input.value = '';
+        thread.scrollIntoView({ behavior: 'smooth', block: 'end' });
+
+        fetch('/ai/api/ask/?q=' + encodeURIComponent(question), {
+            headers: { 'Accept': 'application/json' }
+        }).then(function (response) { return response.json(); })
+          .then(function (data) {
+              pending.remove();
+              var node = bubble();
+              if (data.refused) { node.classList.add('refused'); }
+
+              node.querySelector('.bb-a-text').textContent = data.answer || 'I could not answer that.';
+
+              if (data.books && data.books.length) {
+                  node.querySelector('.bb-a-books').innerHTML = data.books.map(bookCard).join('');
+              }
+
+              var tryBox = node.querySelector('.bb-a-try');
+              (data.suggestions || []).slice(0, 4).forEach(function (text) {
+                  var b = document.createElement('button');
+                  b.type = 'button';
+                  b.textContent = text;
+                  b.addEventListener('click', function () { ask(text); });
+                  tryBox.appendChild(b);
+              });
+
+              thread.appendChild(node);
+              thread.scrollIntoView({ behavior: 'smooth', block: 'end' });
+          })
+          .catch(function () {
+              pending.remove();
+              var node = bubble();
+              node.classList.add('refused');
+              node.querySelector('.bb-a-text').textContent =
+                  'The assistant is unavailable right now. Please try again in a moment.';
+              thread.appendChild(node);
+          })
+          .then(function () {
+              busy = false;
+              button.disabled = false;
+              input.focus({ preventScroll: true });
+          });
+    }
+
+    form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        ask(input.value);
+    });
+
+    document.querySelectorAll('[data-ask]').forEach(function (chip) {
+        chip.addEventListener('click', function () {
+            ask(chip.getAttribute('data-ask'));
+        });
+    });
+
+    // Enter sends, Shift+Enter is a no-op — this is a single-line box.
+    input.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            ask(input.value);
+        }
+    });
+})();
+</script>
 </script>
 {% endblock %}

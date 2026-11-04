@@ -21,6 +21,8 @@ Built with Django, Bootstrap 5, and a full-width responsive UI (mobile-first, sp
 - **Seller dashboard** — mark books sold, relist them, edit or delete listings
 - **Pagination + filters** — 20 books per page with category, condition, price and sort filters
 - **Natural-language search** — “NEET books under ₹300 near Madhapur” works in the AI assistant
+- **Ask anything about books** — price, seller, availability and counts answered from real
+  listings; off-topic questions refused politely, never answered with made-up facts
 - **Reporting & moderation** — buyers report listings, moderators hide them from the admin
 - **Password reset + email verification** — secure account recovery over email
 - **Image optimisation** — uploads are auto-rotated, resized and converted to WebP, plus cached thumbnails
