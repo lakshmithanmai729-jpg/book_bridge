@@ -100,7 +100,7 @@ DJANGO_SUPERUSER_PASSWORD = పొడవైన పాస్‌వర్డ్ (�
 
 | విషయం | ఏమి జరుగుతుంది |
 | --- | --- |
-| 15 నిమిషాలు ఎవరూ open చేయకపోతే | app sleep అవుతుంది. తర్వాత మొదటి load కి ~30 sec |
+| 15 నిమిషాలు ఎవరూ open చేయకపోతే | app sleep అవుతుంది. కింద **⚡ Sleep problem** చూడండి — ఉచిత pinger తో పూర్తిగా పోతుంది |
 | Book cover uploads | free disk ephemeral — redeploy కి పోతాయి (demo కి fine) |
 | Database | free PostgreSQL — data **permanent** గా ఉంటుంది |
 | Email | Render logs లో print అవుతుంది. Gmail SMTP కావాలంటే కింద చూడండి (password reset కి అవసరం) |
@@ -119,6 +119,53 @@ DJANGO_SUPERUSER_PASSWORD = పొడవైన పాస్‌వర్డ్ (�
 (Neon free, ఎప్పటికీ expire అవ్వదు, card అవసరం లేదు).
 
 Deploy అయ్యాక ఏమి connect అయిందో చూడాలంటే Logs లో `db_status` output ఉంటుంది.
+
+### ⚡ Sleep problem పరిష్కారం — "Render loading" ఇక రాదు
+
+Free plan లో 15 నిమిషాలు ఎవరూ వాడకపోతే Render service ఆగిపోతుంది. అప్పుడు
+తెరిచే మొదటి page కి ~40 సెకన్లు "spinning up" screen వస్తుంది. దాన్ని **రెండు
+మార్గాల్లో** తగ్గించాం:
+
+| # | ఏమి చేశాం | ఫలితం |
+| --- | --- | --- |
+| 1 | **Service worker** (`/sw.js`) — చివరిగా చూసిన page ను browser లో దాచి ఉంచుతుంది | App తెరిచిన వెంటనే **పాత page కనిపిస్తుంది** (0.1 sec), వెనుక server మేల్కొంటుంది. మేల్కొన్నాక page తనంతట తానే కొత్తది load అవుతుంది |
+| 2 | **`/healthz/?light=1`** — database ను ముట్టుకోని చిన్న endpoint | బయటి pinger కి పర్ఫెక్ట్ (ms లో reply) |
+
+#### 🟢 100% పరిష్కారం — ఉచిత uptime pinger (5 నిమిషాలు, ₹0)
+
+Service **ఎప్పుడూ మేల్కొని** ఉండాలంటే ఒక ఉచిత monitor సరిపోతుంది:
+
+1. `https://uptimerobot.com` → **Register for FREE** (card అవసరం లేదు)
+2. Email confirm చేయండి → login
+3. **+ Add New Monitor** నొక్కండి
+4. ఇలా నింపండి:
+
+| Field | విలువ |
+| --- | --- |
+| Monitor Type | `HTTP(s)` |
+| Friendly Name | `BookBridge` |
+| URL | `https://bookbridge-aadt.onrender.com/healthz/?light=1` |
+| Monitoring Interval | `5 minutes` (లేదా `10 minutes`) |
+
+5. **Create Monitor**
+
+అంతే. ఇక app **ఎప్పుడూ నిద్రపోదు** → "Render loading" screen **పూర్తిగా పోతుంది**.
+
+> ⏱️ Render free లో నెలకు **750 గంటలు** ఉంటాయి. ఒక నెల = ~730 గంటలు →
+> **ఒక్క service** ను 24/7 మేల్కొలిపితే సరిపోతుంది.
+
+> ⚠️ ఒక service కంటే ఎక్కువ 24/7 మేల్కొలిపితే గంటలు రెట్టింపు అవుతాయి.
+
+### 🔔 Notifications, chat, Buy Now — ఇప్పుడు ఎలా పనిచేస్తాయి
+
+| Feature | ఎలా |
+| --- | --- |
+| Chat message పంపడం | Page reload **లేదు** — AJAX, వెంటనే కనిపిస్తుంది |
+| కొత్త message రావడం | 5 సెకన్లకోసారి ఆటోమేటిక్ (⟳ బటన్ కూడా ఉంది) |
+| Bell icon | 20 సెకన్లకోసారి తనంతట తానే update |
+| **Buy Now** | ప్రతి book page లో — request → seller కి notification → Accept/Decline |
+| Book request పెట్టినప్పుడు | Matching books ఉన్న sellers **అందరికీ** notification |
+| Buy requests page | `/accounts/buy-requests/` — incoming + outgoing |
 
 ### 📧 Email పనిచేయించడం (password reset కి కావాలి)
 

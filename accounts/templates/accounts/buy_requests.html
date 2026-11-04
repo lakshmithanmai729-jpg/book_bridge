@@ -1,0 +1,183 @@
+{% extends 'core/base.html' %}
+{% load book_extras %}
+{% block title %}Buy requests - BookBridge{% endblock %}
+
+{% block content %}
+<div class="bb-page">
+    <div class="bb-page-head justify-content-between flex-wrap">
+        <div class="d-flex align-items-center gap-2">
+            <a href="{% url 'core:home' %}" class="bb-back-btn" aria-label="Back">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <div>
+                <h1>Buy requests</h1>
+                <small class="text-muted">People who want your books — and the books you want</small>
+            </div>
+        </div>
+        <span class="bb-chip green"><i class="bi bi-shield-lock-fill"></i> Pay on hand-over</span>
+    </div>
+
+    <div class="bb-chip-row ps-0 pe-0 mb-3">
+        <a href="?tab=incoming" class="btn {% if tab == 'incoming' %}btn-dark{% else %}btn-outline-secondary{% endif %}">
+            <i class="bi bi-inbox"></i> Incoming
+            {% if pending_incoming %}<span class="badge bg-danger ms-1">{{ pending_incoming }}</span>{% endif %}
+        </a>
+        <a href="?tab=outgoing" class="btn {% if tab == 'outgoing' %}btn-dark{% else %}btn-outline-secondary{% endif %}">
+            <i class="bi bi-bag-check"></i> My requests
+        </a>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-9">
+            <div class="bb-panel p-0 overflow-hidden">
+                {% if tab == 'incoming' %}
+                    {% if incoming %}
+                        <div class="d-flex align-items-center justify-content-between px-4 py-3 border-bottom" style="border-color:#f1f5f9 !important;">
+                            <span class="fw-bold text-dark" style="font-size:0.92rem;">Buyers waiting for your answer</span>
+                            <span class="bb-chip">{{ incoming|length }}</span>
+                        </div>
+                        {% for req in incoming %}
+                            <div class="d-flex gap-3 align-items-start px-4 py-3 {% if not forloop.last %}border-bottom{% endif %}" style="border-color:#f1f5f9 !important;">
+                                <a href="{% url 'books:book_detail' req.book.pk %}" style="flex:0 0 auto;">
+                                    {% if req.book.image %}
+                                        <img src="{{ req.book.image|thumb:200 }}" alt="{{ req.book.title }}"
+                                             style="width:52px; height:68px; object-fit:cover; border-radius:10px;">
+                                    {% else %}
+                                        <div style="width:52px; height:68px; border-radius:10px; background:#f1f5f9; display:grid; place-items:center; font-size:1.3rem;">📖</div>
+                                    {% endif %}
+                                </a>
+                                <div class="flex-grow-1" style="min-width:0;">
+                                    <a href="{% url 'books:book_detail' req.book.pk %}" class="fw-bold text-dark text-decoration-none d-block text-truncate">
+                                        {{ req.book.title }}
+                                    </a>
+                                    <div class="small text-muted">
+                                        <i class="bi bi-person"></i> {{ req.buyer.profile.public_name }}
+                                        · <strong class="text-dark">₹{{ req.price|floatformat:0 }}</strong>
+                                        {% if req.meetup %} · <i class="bi bi-geo-alt"></i> {{ req.meetup }}{% endif %}
+                                    </div>
+                                    {% if req.message %}
+                                        <div class="small mt-1" style="background:#f8fafc; border-radius:9px; padding:7px 10px; color:#475569;">
+                                            {{ req.message|truncatechars:160 }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="d-flex align-items-center gap-2 mt-2 flex-wrap">
+                                        <span class="bb-chip {{ req.status_chip }}">{{ req.get_status_display }}</span>
+                                        <span class="small text-muted">{{ req.created_at|timesince }} ago</span>
+                                    </div>
+                                </div>
+                                <div class="d-flex flex-column gap-2" style="flex:0 0 auto;">
+                                    {% if req.is_pending %}
+                                        <form method="POST" action="{% url 'books:buy_request_respond' req.pk 'accept' %}" class="m-0">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="next" value="?tab=incoming">
+                                            <button type="submit" class="bb-btn bb-btn-primary bb-btn-sm w-100">
+                                                <i class="bi bi-check2"></i> Accept
+                                            </button>
+                                        </form>
+                                        <form method="POST" action="{% url 'books:buy_request_respond' req.pk 'decline' %}" class="m-0">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="next" value="?tab=incoming">
+                                            <button type="submit" class="bb-btn bb-btn-outline bb-btn-sm w-100">
+                                                <i class="bi bi-x"></i> Decline
+                                            </button>
+                                        </form>
+                                    {% else %}
+                                        <a href="{% url 'accounts:chat_detail' req.buyer_id %}?book={{ req.book.pk }}"
+                                           class="bb-btn bb-btn-outline bb-btn-sm">
+                                            <i class="bi bi-chat-dots"></i> Chat
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="bb-empty" style="border:none; box-shadow:none; padding:56px 24px;">
+                            <div class="bb-empty-icon"><i class="bi bi-inbox"></i></div>
+                            <h3>No buy requests yet</h3>
+                            <p>When someone taps <strong>Buy Now</strong> on one of your books, it appears here with a notification.</p>
+                            <a href="{% url 'books:my_listings' %}" class="bb-btn bb-btn-primary">
+                                <i class="bi bi-book-half"></i> My Books
+                            </a>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    {% if outgoing %}
+                        <div class="d-flex align-items-center justify-content-between px-4 py-3 border-bottom" style="border-color:#f1f5f9 !important;">
+                            <span class="fw-bold text-dark" style="font-size:0.92rem;">Books you asked to buy</span>
+                            <span class="bb-chip">{{ outgoing|length }}</span>
+                        </div>
+                        {% for req in outgoing %}
+                            <div class="d-flex gap-3 align-items-start px-4 py-3 {% if not forloop.last %}border-bottom{% endif %}" style="border-color:#f1f5f9 !important;">
+                                <a href="{% url 'books:book_detail' req.book.pk %}" style="flex:0 0 auto;">
+                                    {% if req.book.image %}
+                                        <img src="{{ req.book.image|thumb:200 }}" alt="{{ req.book.title }}"
+                                             style="width:52px; height:68px; object-fit:cover; border-radius:10px;">
+                                    {% else %}
+                                        <div style="width:52px; height:68px; border-radius:10px; background:#f1f5f9; display:grid; place-items:center; font-size:1.3rem;">📖</div>
+                                    {% endif %}
+                                </a>
+                                <div class="flex-grow-1" style="min-width:0;">
+                                    <a href="{% url 'books:book_detail' req.book.pk %}" class="fw-bold text-dark text-decoration-none d-block text-truncate">
+                                        {{ req.book.title }}
+                                    </a>
+                                    <div class="small text-muted">
+                                        <i class="bi bi-person"></i> {{ req.seller.profile.public_name }}
+                                        · <strong class="text-dark">₹{{ req.price|floatformat:0 }}</strong>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2 mt-2 flex-wrap">
+                                        <span class="bb-chip {{ req.status_chip }}">{{ req.get_status_display }}</span>
+                                        <span class="small text-muted">{{ req.created_at|timesince }} ago</span>
+                                    </div>
+                                </div>
+                                <div class="d-flex flex-column gap-2" style="flex:0 0 auto;">
+                                    <a href="{% url 'accounts:chat_detail' req.seller_id %}?book={{ req.book.pk }}"
+                                       class="bb-btn bb-btn-outline bb-btn-sm">
+                                        <i class="bi bi-chat-dots"></i> Chat
+                                    </a>
+                                    {% if req.is_pending %}
+                                        <form method="POST" action="{% url 'books:buy_request_respond' req.pk 'cancel' %}" class="m-0">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="next" value="?tab=outgoing">
+                                            <button type="submit" class="bb-btn bb-btn-soft bb-btn-sm">
+                                                <i class="bi bi-x-circle"></i> Cancel
+                                            </button>
+                                        </form>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="bb-empty" style="border:none; box-shadow:none; padding:56px 24px;">
+                            <div class="bb-empty-icon"><i class="bi bi-bag-check"></i></div>
+                            <h3>You have not asked for a book yet</h3>
+                            <p>Open any listing and tap <strong>Buy Now</strong> — the seller gets a notification and a chat opens.</p>
+                            <a href="{% url 'books:book_list' %}" class="bb-btn bb-btn-primary">
+                                <i class="bi bi-search"></i> Browse books
+                            </a>
+                        </div>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="col-lg-3">
+            <div class="bb-panel" style="background:#f0f9ff; border-color:#e0f2fe;">
+                <h6 class="bb-panel-title"><i class="bi bi-info-circle-fill" style="color:#0284c7;"></i> How buying works</h6>
+                <ol class="small text-muted mb-0 ps-3" style="line-height:1.8;">
+                    <li>Buyer taps <strong>Buy Now</strong>.</li>
+                    <li>Seller accepts or declines.</li>
+                    <li>Both agree on a public place in chat.</li>
+                    <li>Money is paid on hand-over — never in advance.</li>
+                </ol>
+            </div>
+            <div class="bb-panel mt-4">
+                <h6 class="bb-panel-title"><i class="bi bi-shield-lock-fill" style="color:#10b981;"></i> Safe by design</h6>
+                <p class="bb-panel-sub mb-0">
+                    No payment is processed here, so no card or UPI details are ever stored.
+                    Phone numbers stay hidden — everything happens in the in-app chat.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -13,7 +13,13 @@
                 <small class="text-muted">Your BookBridge conversations</small>
             </div>
         </div>
-        <span class="bb-chip green"><i class="bi bi-shield-lock-fill"></i> 100% Privacy Protected</span>
+        <div class="d-flex align-items-center gap-2">
+            <button type="button" id="convRefresh" class="bb-btn bb-btn-outline bb-btn-sm"
+                    title="Check for new messages" aria-label="Refresh conversations">
+                <i class="bi bi-arrow-clockwise"></i> Refresh
+            </button>
+            <span class="bb-chip green"><i class="bi bi-shield-lock-fill"></i> 100% Privacy Protected</span>
+        </div>
     </div>
 
     <div class="row g-4">
@@ -93,6 +99,9 @@
                 <a href="{% url 'accounts:request_book' %}" class="bb-btn bb-btn-primary bb-btn-block">
                     <i class="bi bi-search-heart"></i> Request a Book
                 </a>
+                <a href="{% url 'accounts:buy_requests' %}" class="bb-btn bb-btn-outline bb-btn-block mt-2">
+                    <i class="bi bi-bag-check"></i> Buy requests
+                </a>
             </div>
 
             <div class="bb-panel mt-4">
@@ -106,4 +115,43 @@
         </div>
     </div>
 </div>
+
+<style>
+    #convRefresh.spinning i { animation: bbSpin .7s linear infinite; }
+    .conv-item-new { animation: bbFlashC 1.2s ease; }
+    @keyframes bbFlashC { 0% { background: #e0f2fe; } 100% { background: transparent; } }
+</style>
+<script>
+/* Conversations reload themselves.
+ * Before this, a new message only appeared after pressing F5 — and F5 meant a
+ * full page render.  Now the list quietly re-checks the server and flashes any
+ * conversation that has something new. */
+(function () {
+    var btn = document.getElementById('convRefresh');
+    var POLL_MS = 15000;
+
+    function reloadPage(manual) {
+        if (manual) { btn.classList.add('spinning'); }
+        // Compare the server's badge count with what is on screen: only a real
+        // change is worth a re-render.
+        fetch('{% url "accounts:badge_counts" %}', {
+            cache: 'no-store', credentials: 'same-origin'
+        }).then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (json) {
+              if (manual) { btn.classList.remove('spinning'); }
+              if (!json || !json.ok) { return; }
+              var shown = parseInt(document.querySelector('#bbMsgDot') ? (document.querySelector('#bbMsgDot').textContent || '0') : '0', 10) || 0;
+              if (manual || json.messages !== shown) {
+                  window.location.reload();
+              }
+          })
+          .catch(function () { if (manual) { btn.classList.remove('spinning'); } });
+    }
+
+    if (btn) {
+        btn.addEventListener('click', function () { reloadPage(true); });
+        setInterval(function () { if (!document.hidden) { reloadPage(false); } }, POLL_MS);
+    }
+})();
+</script>
 {% endblock %}

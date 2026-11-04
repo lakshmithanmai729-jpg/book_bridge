@@ -126,7 +126,8 @@ class BackendTourTests(TestCase):
             self.assertIn(label, page)
 
         # The book we created must be counted, not hardcoded.
-        self.assertEqual(response.context['model_total'], 13)
+        # 13 core tables + the new BuyRequest table = 14
+        self.assertEqual(response.context['model_total'], 14)
         books_group = next(g for g in response.context['tour_groups'] if g['app'] == 'books')
         self.assertEqual(books_group['total'], 2)          # 1 category + 1 book
 

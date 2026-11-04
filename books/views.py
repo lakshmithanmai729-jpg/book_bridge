@@ -6,16 +6,21 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
+from django.db import IntegrityError
 from django.db.models import Case, Count, F, IntegerField, Q, Sum, Value, When
+from django.utils import timezone
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from accounts.models import ChatMessage, SellerReview, UserBlock
-from accounts.notify import notify_back_on_sale, notify_price_drop, notify_request_matches
+from accounts.models import BuyRequest, ChatMessage, SellerReview, UserBlock
+from accounts.notify import (
+    notify_back_on_sale, notify_buy_answer, notify_buy_request, notify_price_drop,
+    notify_request_matches,
+)
 from ai_engine.recommend import similar_books
-from core.ratelimit import throttled
+from core.ratelimit import check as check_rate, identity_for, throttled
 from core.validation import length_error
 
 from .forms import BookForm
@@ -253,8 +258,27 @@ def book_detail(request, pk):
             book=book, reporter=request.user, status=Report.STATUS_OPEN
         ).exists()
 
+    # Buy requests: the seller needs them on this page to accept/decline, and a
+    # buyer needs to know whether they already asked.
+    pending_requests = []
+    my_buy_request = None
+    if is_owner:
+        pending_requests = list(
+            BuyRequest.objects
+            .filter(book=book, status=BuyRequest.STATUS_PENDING)
+            .select_related('buyer', 'buyer__profile')
+            .order_by('created_at')
+        )
+    elif request.user.is_authenticated:
+        my_buy_request = BuyRequest.objects.filter(
+            book=book, buyer=request.user
+        ).exclude(status=BuyRequest.STATUS_CANCELLED).first()
+
     return render(request, 'books/book_detail.html', {
         'book': book,
+        'pending_requests': pending_requests,
+        'pending_request_count': len(pending_requests),
+        'my_buy_request': my_buy_request,
         'recommendations': recommendations,
         'seller_profile': seller_profile,
         'seller_rating': seller_rating,
@@ -581,3 +605,143 @@ def wishlist_view(request):
         'page_obj': page_obj,
         'query_without_page': _query_without_page(request),
     })
+
+
+# ===========================================================================
+# Buy Now — the button the marketplace was missing
+# ---------------------------------------------------------------------------
+# No money moves inside BookBridge: the buyer records a firm intent, the seller
+# accepts or declines, and the two of them agree on a public hand-over.  That
+# keeps the whole feature free (no payment gateway) and keeps phone numbers
+# private, because the negotiation happens in the in-app chat.
+# ===========================================================================
+@login_required
+@require_POST
+def buy_now(request, pk):
+    """Buyer taps **Buy Now** on a listing."""
+    book = get_object_or_404(Book.objects.select_related('seller'), pk=pk)
+    next_url = request.POST.get('next') or reverse('books:book_detail', args=[book.pk])
+
+    if book.seller_id == request.user.id:
+        messages.info(request, 'This is your own listing.')
+        return redirect(next_url)
+    if not book.is_available:
+        messages.error(request, 'This book is sold or hidden, so it cannot be bought.')
+        return redirect(next_url)
+    if UserBlock.exists_between(request.user, book.seller):
+        messages.error(request, 'This seller is not available right now.')
+        return redirect(next_url)
+
+    meetup = (request.POST.get('meetup') or '').strip()[:200]
+    note = (request.POST.get('message') or '').strip()[:1000]
+
+    existing = BuyRequest.objects.filter(
+        book=book, buyer=request.user, status=BuyRequest.STATUS_PENDING
+    ).first()
+    if existing:
+        messages.info(request, 'You already sent a buy request for this book. Check your chats.')
+        return redirect(f"{reverse('accounts:chat_detail', args=[book.seller_id])}?book={book.pk}")
+
+    allowed, seconds = check_rate('buy', identity_for(request))
+    if not allowed:
+        messages.error(request, 'Too many buy requests just now. Please try again in a few minutes.')
+        return redirect(next_url)
+
+    try:
+        buy_request = BuyRequest.objects.create(
+            book=book,
+            buyer=request.user,
+            seller=book.seller,
+            price=book.price,
+            meetup=meetup,
+            message=note,
+        )
+    except IntegrityError:
+        messages.info(request, 'You already sent a buy request for this book.')
+        return redirect(next_url)
+
+    # 1) Bell notification for the seller.
+    notify_buy_request(buy_request)
+
+    # 2) Open the chat with a ready-made first message, so neither side has to
+    #    work out what to say.  This is what makes the handover actually happen.
+    price = f'₹{book.price:.0f}' if not book.is_donation else 'FREE'
+    opener = f'Hi! I want to buy “{book.title}” for {price}.'
+    if meetup:
+        opener += f' Pickup: {meetup}.'
+    if note:
+        opener += f' {note}'
+    ChatMessage.objects.create(
+        sender=request.user,
+        receiver=book.seller,
+        book=book,
+        text=opener[:2000],
+    )
+
+    messages.success(
+        request,
+        f'Buy request sent to {book.seller.username}! They will accept or decline — track it in Buy requests.',
+    )
+    return redirect(f"{reverse('accounts:chat_detail', args=[book.seller_id])}?book={book.pk}")
+
+
+@login_required
+@require_POST
+def buy_request_respond(request, pk, action):
+    """Seller accepts or declines a buy request, buyer cancels their own."""
+    buy_request = get_object_or_404(
+        BuyRequest.objects.select_related('book', 'buyer', 'seller'), pk=pk
+    )
+    next_url = request.POST.get('next') or reverse('accounts:buy_requests')
+
+    # ---- buyer cancels --------------------------------------------------
+    if action == 'cancel':
+        if buy_request.buyer_id != request.user.id:
+            return HttpResponseForbidden('Not your request.')
+        if buy_request.respond(status=BuyRequest.STATUS_CANCELLED):
+            messages.success(request, 'Buy request cancelled.')
+        else:
+            messages.info(request, 'That request was already answered.')
+        return redirect(next_url)
+
+    # ---- seller answers -------------------------------------------------
+    if buy_request.seller_id != request.user.id:
+        return HttpResponseForbidden('Only the seller can answer this request.')
+    if action not in ('accept', 'decline'):
+        return HttpResponseForbidden('Unknown action.')
+
+    accepted = action == 'accept'
+    if not buy_request.respond(
+        BuyRequest.STATUS_ACCEPTED if accepted else BuyRequest.STATUS_DECLINED
+    ):
+        messages.info(request, 'That request was already answered.')
+        return redirect(next_url)
+
+    if accepted:
+        book = buy_request.book
+        if book.is_available:
+            book.mark_sold(True)
+        # Decline every other pending request for the same book — it is gone.
+        BuyRequest.objects.filter(
+            book=book, status=BuyRequest.STATUS_PENDING
+        ).exclude(pk=buy_request.pk).update(
+            status=BuyRequest.STATUS_DECLINED, responded_at=timezone.now()
+        )
+        ChatMessage.objects.create(
+            sender=request.user,
+            receiver=buy_request.buyer,
+            book=book,
+            text='Accepted your buy request 👍 Let us meet in a public place for the hand-over.',
+        )
+        messages.success(request, 'Accepted — the book is marked sold and the buyer was notified.')
+    else:
+        ChatMessage.objects.create(
+            sender=request.user,
+            receiver=buy_request.buyer,
+            book=buy_request.book,
+            text='Sorry, this book is not available any more. Thanks for asking!',
+        )
+        messages.info(request, 'Declined — the buyer was notified.')
+
+    notify_buy_answer(buy_request, accepted)
+    return redirect(next_url)

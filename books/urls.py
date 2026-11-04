@@ -14,5 +14,7 @@ urlpatterns = [
     path('<int:pk>/delete/', views.book_delete, name='book_delete'),
     path('<int:pk>/wishlist-toggle/', views.wishlist_toggle, name='wishlist_toggle'),
     path('<int:pk>/toggle-sold/', views.toggle_sold, name='toggle_sold'),
+    path('<int:pk>/buy/', views.buy_now, name='buy_now'),
+    path('buy-requests/<int:pk>/<str:action>/', views.buy_request_respond, name='buy_request_respond'),
     path('<int:pk>/report/', views.report_book, name='report_book'),
 ]

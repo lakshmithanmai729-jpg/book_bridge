@@ -188,6 +188,88 @@ class BookRequest(models.Model):
         return f"{self.book_title} ({self.user.username})"
 
 
+class BuyRequest(models.Model):
+    """A buyer says “I want to buy this book” — the handover happens offline.
+
+    No money moves through BookBridge: the buyer taps **Buy Now**, the seller
+    accepts or declines, and the two of them meet.  Keeping it that way means
+    the feature works with no payment gateway and the ₹0 hosting budget.
+    """
+
+    STATUS_PENDING = 'pending'
+    STATUS_ACCEPTED = 'accepted'
+    STATUS_DECLINED = 'declined'
+    STATUS_CANCELLED = 'cancelled'
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'Waiting for the seller'),
+        (STATUS_ACCEPTED, 'Accepted'),
+        (STATUS_DECLINED, 'Declined'),
+        (STATUS_CANCELLED, 'Cancelled'),
+    ]
+
+    book = models.ForeignKey(
+        'books.Book', on_delete=models.CASCADE, related_name='buy_requests'
+    )
+    buyer = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='buy_requests_made'
+    )
+    seller = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='buy_requests_received'
+    )
+    # Price is copied at the moment of the request so a later edit by the seller
+    # cannot silently change what the buyer agreed to.
+    price = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    meetup = models.CharField(max_length=200, blank=True, default='')
+    message = models.TextField(blank=True, default='')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    created_at = models.DateTimeField(auto_now_add=True)
+    responded_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['seller', 'status', '-created_at']),
+            models.Index(fields=['buyer', 'status', '-created_at']),
+            models.Index(fields=['book', 'status']),
+        ]
+        constraints = [
+            # One open request per buyer per book — tapping Buy twice must not
+            # spam the seller's inbox.
+            models.UniqueConstraint(
+                fields=['book', 'buyer'],
+                condition=models.Q(status='pending'),
+                name='one_pending_buy_request_per_buyer',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.buyer.username} → {self.book.title} ({self.status})'
+
+    @property
+    def is_pending(self):
+        return self.status == self.STATUS_PENDING
+
+    @property
+    def status_chip(self):
+        return {
+            self.STATUS_PENDING: 'amber',
+            self.STATUS_ACCEPTED: 'green',
+            self.STATUS_DECLINED: 'red',
+            self.STATUS_CANCELLED: '',
+        }.get(self.status, '')
+
+    def respond(self, status):
+        """Seller accepts or declines; returns False when the state is wrong."""
+        if not self.is_pending or status not in (self.STATUS_ACCEPTED, self.STATUS_DECLINED):
+            return False
+        from django.utils import timezone as _tz
+
+        self.status = status
+        self.responded_at = _tz.now()
+        self.save(update_fields=['status', 'responded_at'])
+        return True
+
+
 class SellerReview(models.Model):
     """A buyer's rating of a seller after they chatted about a book.
 
@@ -286,12 +368,18 @@ class Notification(models.Model):
     KIND_REQUEST_MATCH = 'request_match'
     KIND_REVIEW = 'review'
     KIND_SYSTEM = 'system'
+    KIND_BOOK_REQUEST = 'book_request'
+    KIND_BUY_REQUEST = 'buy_request'
+    KIND_BUY_ANSWER = 'buy_answer'
     KIND_CHOICES = [
         (KIND_PRICE_DROP, 'Price drop'),
         (KIND_BACK_ON_SALE, 'Back on sale'),
         (KIND_REQUEST_MATCH, 'Book you wanted'),
         (KIND_REVIEW, 'New review'),
         (KIND_SYSTEM, 'BookBridge'),
+        (KIND_BOOK_REQUEST, 'Someone wants a book'),
+        (KIND_BUY_REQUEST, 'New buy request'),
+        (KIND_BUY_ANSWER, 'Buy request answered'),
     ]
 
     recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
@@ -323,6 +411,9 @@ class Notification(models.Model):
             self.KIND_BACK_ON_SALE: 'bi-arrow-repeat',
             self.KIND_REQUEST_MATCH: 'bi-search-heart-fill',
             self.KIND_REVIEW: 'bi-star-fill',
+            self.KIND_BOOK_REQUEST: 'bi-search-heart-fill',
+            self.KIND_BUY_REQUEST: 'bi-bag-check-fill',
+            self.KIND_BUY_ANSWER: 'bi-bag-heart-fill',
         }.get(self.kind, 'bi-bell-fill')
 
     @property
@@ -331,6 +422,9 @@ class Notification(models.Model):
             self.KIND_PRICE_DROP: '#047857',
             self.KIND_BACK_ON_SALE: '#0284c7',
             self.KIND_REQUEST_MATCH: '#7c3aed',
+            self.KIND_BOOK_REQUEST: '#7c3aed',
+            self.KIND_BUY_REQUEST: '#0ea5e9',
+            self.KIND_BUY_ANSWER: '#10b981',
             self.KIND_REVIEW: '#f59e0b',
         }.get(self.kind, '#0284c7')
 

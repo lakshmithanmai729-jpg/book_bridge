@@ -1028,3 +1028,311 @@ class SignupDoesNotLeakTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'already has an account')
         self.assertNotContains(response, 'arjun.private@example.com')
+
+
+# ===========================================================================
+# Live chat API, buy requests, live badges and the "no more loading screen"
+# additions.  These cover the six complaints in one place.
+# ===========================================================================
+from decimal import Decimal  # noqa: E402
+
+from .models import BuyRequest  # noqa: E402
+
+
+class ChatApiTests(TestCase):
+    """Sending a chat message must not reload the whole page."""
+
+    def setUp(self):
+        cache.clear()
+        self.seller = User.objects.create_user('chatseller', password='Bridge!2345')
+        self.buyer = User.objects.create_user('chatbuyer', password='Bridge!2345')
+        self.book = Book.objects.create(
+            seller=self.seller, title='Physics Part 1', author='HC Verma',
+            price=Decimal('250'), location_city='Hyderabad',
+        )
+        self.client.force_login(self.buyer)
+
+    def test_send_returns_the_saved_message_as_json(self):
+        response = self.client.post(
+            reverse('accounts:chat_send', args=[self.seller.id]),
+            {'text': 'Is this still available?', 'book': self.book.pk},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload['ok'])
+        self.assertEqual(payload['message']['text'], 'Is this still available?')
+        self.assertTrue(payload['message']['mine'])
+        self.assertEqual(ChatMessage.objects.count(), 1)
+
+    def test_send_never_renders_the_page(self):
+        response = self.client.post(
+            reverse('accounts:chat_send', args=[self.seller.id]), {'text': 'hi'}
+        )
+        self.assertEqual(response['Content-Type'], 'application/json')
+
+    def test_empty_message_is_rejected(self):
+        response = self.client.post(
+            reverse('accounts:chat_send', args=[self.seller.id]), {'text': '   '}
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.json()['ok'])
+        self.assertEqual(ChatMessage.objects.count(), 0)
+
+    def test_poll_only_returns_newer_messages(self):
+        first = ChatMessage.objects.create(
+            sender=self.buyer, receiver=self.seller, text='one'
+        )
+        second = ChatMessage.objects.create(
+            sender=self.seller, receiver=self.buyer, text='two'
+        )
+        response = self.client.get(
+            reverse('accounts:chat_poll', args=[self.seller.id]) + f'?after={first.id}'
+        )
+        ids = [m['id'] for m in response.json()['messages']]
+        self.assertEqual(ids, [second.id])
+
+    def test_polling_marks_the_other_side_as_read(self):
+        ChatMessage.objects.create(sender=self.seller, receiver=self.buyer, text='hello')
+        self.client.get(reverse('accounts:chat_poll', args=[self.seller.id]))
+        self.assertFalse(
+            ChatMessage.objects.filter(sender=self.seller, is_read=False).exists()
+        )
+
+    def test_cannot_chat_with_yourself(self):
+        response = self.client.post(
+            reverse('accounts:chat_send', args=[self.buyer.id]), {'text': 'hi'}
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_blocked_pair_cannot_send(self):
+        UserBlock.objects.create(blocker=self.seller, blocked=self.buyer)
+        response = self.client.post(
+            reverse('accounts:chat_send', args=[self.seller.id]), {'text': 'hi'}
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_badge_counts_is_small_json(self):
+        Notification.objects.create(recipient=self.buyer, title='hello', kind='system')
+        ChatMessage.objects.create(sender=self.seller, receiver=self.buyer, text='hey')
+        payload = self.client.get(reverse('accounts:badge_counts')).json()
+        self.assertEqual(payload['notifications'], 1)
+        self.assertEqual(payload['messages'], 1)
+
+
+class BuyRequestFlowTests(TestCase):
+    """The Buy Now button: request → notification → accept → sold."""
+
+    def setUp(self):
+        cache.clear()
+        self.seller = User.objects.create_user('seller1', password='Bridge!2345')
+        self.buyer = User.objects.create_user('buyer1', password='Bridge!2345')
+        self.book = Book.objects.create(
+            seller=self.seller, title='Chemistry NCERT', author='NCERT',
+            price=Decimal('300'), location_city='Hyderabad',
+        )
+
+    def test_buy_now_creates_a_request_and_notifies_the_seller(self):
+        self.client.force_login(self.buyer)
+        response = self.client.post(
+            reverse('books:buy_now', args=[self.book.pk]),
+            {'meetup': 'JNTU gate'},
+        )
+        self.assertEqual(response.status_code, 302)
+
+        request_obj = BuyRequest.objects.get()
+        self.assertEqual(request_obj.buyer, self.buyer)
+        self.assertEqual(request_obj.seller, self.seller)
+        self.assertEqual(request_obj.price, Decimal('300'))
+        self.assertEqual(request_obj.status, BuyRequest.STATUS_PENDING)
+
+        note = Notification.objects.get(recipient=self.seller, kind='buy_request')
+        self.assertIn('Chemistry NCERT', note.title)
+
+    def test_buy_now_opens_a_chat_with_a_first_message(self):
+        self.client.force_login(self.buyer)
+        self.client.post(reverse('books:buy_now', args=[self.book.pk]), {'meetup': 'JNTU'})
+        message = ChatMessage.objects.get()
+        self.assertEqual(message.sender, self.buyer)
+        self.assertEqual(message.receiver, self.seller)
+        self.assertIn('Chemistry NCERT', message.text)
+
+    def test_double_tap_does_not_create_two_requests(self):
+        self.client.force_login(self.buyer)
+        self.client.post(reverse('books:buy_now', args=[self.book.pk]))
+        self.client.post(reverse('books:buy_now', args=[self.book.pk]))
+        self.assertEqual(BuyRequest.objects.count(), 1)
+
+    def test_seller_cannot_buy_their_own_book(self):
+        self.client.force_login(self.seller)
+        self.client.post(reverse('books:buy_now', args=[self.book.pk]))
+        self.assertEqual(BuyRequest.objects.count(), 0)
+
+    def test_accepting_marks_the_book_sold_and_notifies_the_buyer(self):
+        self.client.force_login(self.buyer)
+        self.client.post(reverse('books:buy_now', args=[self.book.pk]))
+        buy_request = BuyRequest.objects.get()
+
+        self.client.force_login(self.seller)
+        response = self.client.post(
+            reverse('books:buy_request_respond', args=[buy_request.pk, 'accept'])
+        )
+        self.assertEqual(response.status_code, 302)
+
+        buy_request.refresh_from_db()
+        self.book.refresh_from_db()
+        self.assertEqual(buy_request.status, BuyRequest.STATUS_ACCEPTED)
+        self.assertTrue(self.book.is_sold)
+        self.assertTrue(
+            Notification.objects.filter(recipient=self.buyer, kind='buy_answer').exists()
+        )
+
+    def test_declining_keeps_the_book_available(self):
+        self.client.force_login(self.buyer)
+        self.client.post(reverse('books:buy_now', args=[self.book.pk]))
+        buy_request = BuyRequest.objects.get()
+
+        self.client.force_login(self.seller)
+        self.client.post(reverse('books:buy_request_respond', args=[buy_request.pk, 'decline']))
+
+        buy_request.refresh_from_db()
+        self.book.refresh_from_db()
+        self.assertEqual(buy_request.status, BuyRequest.STATUS_DECLINED)
+        self.assertFalse(self.book.is_sold)
+
+    def test_only_the_seller_can_answer(self):
+        self.client.force_login(self.buyer)
+        self.client.post(reverse('books:buy_now', args=[self.book.pk]))
+        buy_request = BuyRequest.objects.get()
+
+        response = self.client.post(
+            reverse('books:buy_request_respond', args=[buy_request.pk, 'accept'])
+        )
+        self.assertEqual(response.status_code, 403)
+        buy_request.refresh_from_db()
+        self.assertEqual(buy_request.status, BuyRequest.STATUS_PENDING)
+
+    def test_book_detail_shows_the_buy_button(self):
+        self.client.force_login(self.buyer)
+        response = self.client.get(reverse('books:book_detail', args=[self.book.pk]))
+        self.assertContains(response, 'bbBuyNowBtn')
+        self.assertContains(response, 'Send buy request')
+
+    def test_seller_sees_the_waiting_request_on_the_listing(self):
+        self.client.force_login(self.buyer)
+        self.client.post(reverse('books:buy_now', args=[self.book.pk]))
+
+        self.client.force_login(self.seller)
+        response = self.client.get(reverse('books:book_detail', args=[self.book.pk]))
+        self.assertContains(response, 'buy request')
+        self.assertContains(response, 'Accept')
+
+    def test_buy_requests_page_lists_both_sides(self):
+        self.client.force_login(self.buyer)
+        self.client.post(reverse('books:buy_now', args=[self.book.pk]))
+        outgoing = self.client.get(reverse('accounts:buy_requests') + '?tab=outgoing')
+        self.assertContains(outgoing, 'Chemistry NCERT')
+
+        self.client.force_login(self.seller)
+        incoming = self.client.get(reverse('accounts:buy_requests') + '?tab=incoming')
+        self.assertContains(incoming, 'Chemistry NCERT')
+
+
+class BookRequestNotificationTests(TestCase):
+    """The bug: the page said sellers would be notified, and nobody was."""
+
+    def setUp(self):
+        cache.clear()
+        self.seller = User.objects.create_user('owner1', password='Bridge!2345')
+        self.seeker = User.objects.create_user('seeker1', password='Bridge!2345')
+        self.category = Category.objects.create(name='Engineering')
+        Book.objects.create(
+            seller=self.seller, title='Engineering Mathematics', author='B.S. Grewal',
+            price=Decimal('400'), category=self.category, location_city='Hyderabad',
+        )
+
+    def test_posting_a_request_notifies_matching_sellers(self):
+        self.client.force_login(self.seeker)
+        self.client.post(reverse('accounts:request_book'), {
+            'book_title': 'Engineering Mathematics',
+            'category': 'Engineering',
+            'location': 'Hyderabad',
+            'notes': 'Need it before exams',
+        })
+
+        self.assertEqual(BookRequest.objects.count(), 1)
+        note = Notification.objects.get(recipient=self.seller)
+        self.assertEqual(note.kind, 'book_request')
+        self.assertIn('Engineering Mathematics', note.title)
+
+    def test_the_buyer_gets_a_receipt_notification(self):
+        self.client.force_login(self.seeker)
+        self.client.post(reverse('accounts:request_book'), {
+            'book_title': 'Engineering Mathematics',
+            'category': 'Engineering',
+            'location': 'Hyderabad',
+        })
+        self.assertTrue(
+            Notification.objects.filter(recipient=self.seeker, kind='request_match').exists()
+        )
+
+    def test_no_notification_when_nothing_matches(self):
+        self.client.force_login(self.seeker)
+        self.client.post(reverse('accounts:request_book'), {
+            'book_title': 'Underwater Basket Weaving',
+            'category': 'Engineering',
+            'location': 'Kolkata',
+        })
+        self.assertFalse(
+            Notification.objects.filter(recipient=self.seller, kind='book_request').exists()
+        )
+        # The buyer still gets the receipt so the bell is never silent.
+        self.assertTrue(
+            Notification.objects.filter(recipient=self.seeker, kind='request_match').exists()
+        )
+
+    def test_seller_never_gets_told_about_their_own_request(self):
+        self.client.force_login(self.seller)
+        self.client.post(reverse('accounts:request_book'), {
+            'book_title': 'Engineering Mathematics',
+            'location': 'Hyderabad',
+        })
+        self.assertFalse(
+            Notification.objects.filter(recipient=self.seller, kind='book_request').exists()
+        )
+
+
+class WakeAndServiceWorkerTests(TestCase):
+    """The pieces that remove the "Render is spinning up" screen."""
+
+    def test_wake_endpoint_is_tiny_and_uncached(self):
+        response = self.client.get(reverse('core:wake'))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {'ok': True, 'app': 'bookbridge'})
+        self.assertIn('no-store', response['Cache-Control'])
+
+    def test_light_health_check_never_touches_the_database(self):
+        response = self.client.get(reverse('core:healthz') + '?light=1')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['mode'], 'light')
+
+    def test_service_worker_is_served_from_the_site_root(self):
+        response = self.client.get('/sw.js')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/javascript')
+        self.assertEqual(response['Service-Worker-Allowed'], '/')
+        body = response.content.decode()
+        self.assertIn('bookbridge-v', body)
+        self.assertIn("url.pathname.startsWith('/admin')", body)
+
+    def test_every_response_is_stamped_so_render_pages_are_never_cached(self):
+        response = self.client.get(reverse('core:home'))
+        self.assertEqual(response['X-BB-App'], '1')
+
+
+class NoStoreStillWorksTests(TestCase):
+    """The existing no-store rule must survive the new middleware."""
+
+    def test_html_pages_stay_uncached(self):
+        response = self.client.get(reverse('core:home'))
+        self.assertIn('no-store', response['Cache-Control'])
