@@ -36,14 +36,16 @@ services:
         value: ".onrender.com"
       - key: SECURE_SSL_REDIRECT
         value: "True"
-      # Your database. The block at the bottom of this file creates a free
-      # Render Postgres, which EXPIRES 30 DAYS AFTER CREATION. To keep your
-      # data for good, replace this value with a Neon connection string
-      # (see NEON.md) — Neon's free plan does not expire.
+      # Your database.
+      #
+      # `sync: false` means: never read this from render.yaml, never overwrite
+      # it. The value lives only in Dashboard → Environment, which is where the
+      # Neon connection string is pasted (see NEON.md). It used to be
+      # `fromDatabase: bookbridge-db`, and that was a trap: one click on
+      # "Manual sync" would silently swap a working Neon database back to the
+      # free Render Postgres that EXPIRES 30 DAYS AFTER CREATION.
       - key: DATABASE_URL
-        fromDatabase:
-          name: bookbridge-db
-          property: connectionString
+        sync: false
       # Fill the marketplace with demo books/photos/chats. The demo accounts
       # get unusable passwords, so nobody can sign in as them. Remove this for
       # a real marketplace.
@@ -66,6 +68,9 @@ services:
       #   EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
       #   EMAIL_HOST, EMAIL_PORT, EMAIL_USE_TLS, EMAIL_HOST_USER, EMAIL_HOST_PASSWORD
 
+# Kept so Render does not try to delete the (still running, still free) database
+# during a Blueprint sync. Nothing points at it any more — DATABASE_URL above is
+# managed by hand.
 databases:
   - name: bookbridge-db
     plan: free

@@ -5,15 +5,16 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.db import IntegrityError
 from django.db.models import Q
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 from django.utils.http import url_has_allowed_host_and_scheme
 
 from django.utils import timezone
 
 from books.models import Book, Category
-from core.ratelimit import throttled
+from core.ratelimit import check as check_rate, identity_for, throttled
 from core.validation import clamp, length_error
 from . import notify as notify_service
 
@@ -25,7 +26,10 @@ from .emails import (
     send_verification_email,
 )
 from .forms import SignInForm, SignUpForm
-from .models import BookRequest, ChatMessage, Notification, SellerReview, UserBlock, UserProfile
+from .models import (
+    BookRequest, BuyRequest, ChatMessage, Notification, SellerReview, UserBlock,
+    UserProfile,
+)
 
 
 def get_profile(user):
@@ -242,7 +246,7 @@ def _build_conversations(user):
     chat_messages = (
         ChatMessage.objects
         .filter(Q(sender=user) | Q(receiver=user))
-        .select_related('sender', 'receiver', 'book')
+        .select_related('sender', 'sender__profile', 'receiver', 'receiver__profile', 'book')
         .order_by('-created_at')
     )
 
@@ -253,7 +257,10 @@ def _build_conversations(user):
         if key not in conversations:
             conversations[key] = {
                 'other': other,
-                'other_profile': get_profile(other),
+                # select_related already fetched the profile: no extra query
+                # per conversation (this loop used to hit the database once
+                # more for every single chat).
+                'other_profile': getattr(other, 'profile', None) or get_profile(other),
                 'book': message.book,
                 'last_message': message,
                 'unread': 0,
@@ -399,16 +406,25 @@ def request_book(request):
         if not book_title:
             messages.error(request, 'Please tell us which book you need.')
         else:
-            BookRequest.objects.create(
+            book_request = BookRequest.objects.create(
                 user=request.user,
                 book_title=book_title,
                 category=category,
                 location=location or get_profile(request.user).location,
                 notes=notes,
             )
+            # This used to be missing: the message promised a notification and
+            # nothing ever created one.  Now matching sellers really do get a
+            # bell notification and the buyer gets a receipt.
+            told = notify_service.notify_book_request_posted(book_request)
             messages.success(
                 request,
-                f'Request for “{book_title}” submitted! Nearby students who have it will be notified.',
+                f'Request for “{book_title}” submitted! '
+                + (
+                    f'{told} seller' + ('s' if told != 1 else '') + ' who may have it were notified.'
+                    if told
+                    else 'We will notify you as soon as a matching book is listed.'
+                ),
             )
             return redirect('accounts:request_book')
 
@@ -758,4 +774,180 @@ def seller_analytics(request):
         'wishlisted_by_others': wishlisted_by_others,
         'top_books': top_books,
         'profile': get_profile(request.user),
+    })
+
+
+# ===========================================================================
+# Live chat API
+#   The chat page used to be a plain HTML form: every message was a full page
+#   round-trip (POST → 302 → re-render → 3 extra count queries), which felt
+#   slow on a 0.1-CPU free instance.  These two endpoints let the browser send
+#   and fetch only the messages that changed, so typing stays instant.
+# ===========================================================================
+def _open_conversation(request, user_id):
+    """Shared guard for the chat endpoints. Returns (other_user, error_response)."""
+    other_user = get_object_or_404(User, pk=user_id)
+    if other_user.id == request.user.id:
+        return None, JsonResponse(
+            {'ok': False, 'error': 'You cannot chat with yourself.'}, status=400
+        )
+    if UserBlock.exists_between(request.user, other_user):
+        return None, JsonResponse(
+            {'ok': False, 'error': 'This conversation is blocked.'}, status=403
+        )
+    return other_user, None
+
+
+def _conversation_queryset(user, other_user, book):
+    qs = ChatMessage.objects.filter(
+        Q(sender=user, receiver=other_user) | Q(sender=other_user, receiver=user)
+    )
+    if book is not None:
+        qs = qs.filter(book=book)
+    return qs
+
+
+def _message_json(message, viewer):
+    return {
+        'id': message.id,
+        'text': message.text,
+        'mine': message.sender_id == viewer.id,
+        'time': timezone.localtime(message.created_at).strftime('%H:%M'),
+        'day': timezone.localtime(message.created_at).strftime('%d %b %Y'),
+        'today': timezone.localtime(message.created_at).date() == timezone.localdate(),
+    }
+
+
+@login_required
+@require_POST
+def chat_send(request, user_id):
+    """Send one message without leaving the page (JSON)."""
+    other_user, error = _open_conversation(request, user_id)
+    if error:
+        return error
+
+    book = None
+    book_id = request.POST.get('book') or None
+    if book_id:
+        book = Book.objects.filter(pk=book_id).first()
+
+    text = (request.POST.get('text') or '').strip()
+    if not text:
+        return JsonResponse({'ok': False, 'error': 'Type a message first.'}, status=400)
+    if len(text) > 2000:
+        text = text[:2000]
+
+    allowed, seconds = check_rate('chat', identity_for(request))
+    if not allowed:
+        minutes = max(1, seconds // 60)
+        return JsonResponse(
+            {'ok': False, 'error': f'You are sending messages too fast. Try again in {minutes} min.'},
+            status=429,
+        )
+
+    message = ChatMessage.objects.create(
+        sender=request.user,
+        receiver=other_user,
+        book=book,
+        text=text,
+    )
+    # The e-mail copy is best-effort and never blocks the reply.
+    try:
+        notify_new_message(other_user, request.user, book, text)
+    except Exception:  # pragma: no cover
+        pass
+
+    return JsonResponse({'ok': True, 'message': _message_json(message, request.user)})
+
+
+@login_required
+@require_GET
+def chat_poll(request, user_id):
+    """Return messages newer than ``after`` (and mark the other side's as read)."""
+    other_user, error = _open_conversation(request, user_id)
+    if error:
+        return error
+
+    book = None
+    book_id = request.GET.get('book') or None
+    if book_id:
+        book = Book.objects.filter(pk=book_id).first()
+
+    try:
+        after = int(request.GET.get('after') or 0)
+    except (TypeError, ValueError):
+        after = 0
+
+    qs = _conversation_queryset(request.user, other_user, book)
+    fresh = list(
+        qs.filter(id__gt=after).select_related('sender').order_by('created_at')[:100]
+    )
+
+    # Anything the other person sent is now on screen, so it counts as read.
+    qs.filter(sender=other_user, is_read=False).update(is_read=True)
+
+    return JsonResponse({
+        'ok': True,
+        'messages': [_message_json(m, request.user) for m in fresh],
+        'latest': fresh[-1].id if fresh else after,
+    })
+
+
+@login_required
+@require_GET
+def badge_counts(request):
+    """Tiny endpoint behind the live bell + message dots in the top bar.
+
+    Cached for ten seconds per member: the numbers still feel instant, but a
+    tab left open does not run three COUNTs every twenty seconds on a free
+    instance.
+    """
+    from django.core.cache import cache
+
+    key = f'badges:{request.user.pk}'
+    cached = cache.get(key)
+    if cached is None:
+        cached = {
+            'ok': True,
+            'notifications': Notification.objects.filter(
+                recipient=request.user, is_read=False
+            ).count(),
+            'messages': ChatMessage.objects.filter(
+                receiver=request.user, is_read=False
+            ).count(),
+            'buy_requests': BuyRequest.objects.filter(
+                seller=request.user, status=BuyRequest.STATUS_PENDING
+            ).count(),
+        }
+        cache.set(key, cached, 10)
+    return JsonResponse(cached)
+
+
+# ===========================================================================
+# Buy requests — "I want this book"
+# ===========================================================================
+@login_required
+def buy_requests(request):
+    """Everything the member bought or is selling, in one place."""
+    tab = request.GET.get('tab', 'incoming')
+    if tab not in ('incoming', 'outgoing'):
+        tab = 'incoming'
+
+    incoming = (
+        BuyRequest.objects
+        .filter(seller=request.user)
+        .select_related('book', 'buyer', 'buyer__profile')
+        .order_by('-created_at')[:50]
+    )
+    outgoing = (
+        BuyRequest.objects
+        .filter(buyer=request.user)
+        .select_related('book', 'seller', 'seller__profile')
+        .order_by('-created_at')[:50]
+    )
+    return render(request, 'accounts/buy_requests.html', {
+        'tab': tab,
+        'incoming': incoming,
+        'outgoing': outgoing,
+        'pending_incoming': sum(1 for r in incoming if r.is_pending),
     })

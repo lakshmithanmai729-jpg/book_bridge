@@ -53,6 +53,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     # Serves compressed static files in production (no nginx needed).
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    'core.middleware.AppHeaderMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -254,7 +255,7 @@ if not DEBUG:
         'true', '1', 'yes'
     )
     # Some PaaS health checks hit the container over plain HTTP.
-    SECURE_REDIRECT_EXEMPT = [r'^healthz/?$']
+    SECURE_REDIRECT_EXEMPT = [r'^healthz/?$', r'^wake/?$']
     SECURE_HSTS_SECONDS = int(os.environ.get('SECURE_HSTS_SECONDS', '31536000'))
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

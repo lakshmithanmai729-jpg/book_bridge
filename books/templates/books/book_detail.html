@@ -324,6 +324,81 @@
         </div>
     {% endif %}
 
+{% if is_owner and pending_requests %}
+<!-- The seller sees who wants the book and answers with one tap -->
+<div class="bb-panel" id="buyRequestsPanel" style="max-width:1100px; margin:0 auto 18px; border-color:#bae6fd; background:#f0f9ff;">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+        <h6 class="bb-panel-title mb-0" style="color:#0369a1;">
+            <i class="bi bi-bag-heart-fill"></i>
+            {{ pending_request_count }} buy request{{ pending_request_count|pluralize }} waiting
+        </h6>
+        <a href="{% url 'accounts:buy_requests' %}?tab=incoming" class="small fw-bold text-decoration-none" style="color:#0284c7;">
+            See all <i class="bi bi-chevron-right"></i>
+        </a>
+    </div>
+    {% for req in pending_requests %}
+        <div class="d-flex align-items-center gap-3 flex-wrap py-2 {% if not forloop.last %}border-bottom{% endif %}" style="border-color:#e0f2fe !important;">
+            <div class="bb-avatar" style="flex:0 0 auto;">{{ req.buyer.profile.public_name|slice:":1"|upper }}</div>
+            <div class="flex-grow-1" style="min-width:180px;">
+                <div class="fw-bold text-dark" style="font-size:.92rem;">{{ req.buyer.profile.public_name }}</div>
+                <div class="small text-muted">
+                    &#8377;{{ req.price|floatformat:0 }}
+                    {% if req.meetup %} &middot; pickup: {{ req.meetup }}{% endif %}
+                    &middot; {{ req.created_at|timesince }} ago
+                </div>
+            </div>
+            <div class="d-flex gap-2">
+                <form method="POST" action="{% url 'books:buy_request_respond' req.pk 'accept' %}" class="m-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.path }}">
+                    <button type="submit" class="bb-btn bb-btn-primary bb-btn-sm">
+                        <i class="bi bi-check2"></i> Accept
+                    </button>
+                </form>
+                <form method="POST" action="{% url 'books:buy_request_respond' req.pk 'decline' %}" class="m-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.path }}">
+                    <button type="submit" class="bb-btn bb-btn-outline bb-btn-sm">
+                        <i class="bi bi-x"></i> Decline
+                    </button>
+                </form>
+            </div>
+        </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if my_buy_request and my_buy_request.is_pending %}
+<div class="bb-panel" style="max-width:1100px; margin:0 auto 18px; border-color:#fde68a; background:#fffbeb;">
+    <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-hourglass-split" style="color:#d97706; font-size:1.1rem;"></i>
+        <div class="flex-grow-1">
+            <div class="fw-bold" style="font-size:.92rem; color:#92400e;">Buy request sent — waiting for the seller</div>
+            <div class="small" style="color:#b45309;">
+                You asked to buy this book for &#8377;{{ my_buy_request.price|floatformat:0 }} {{ my_buy_request.created_at|timesince }} ago.
+            </div>
+        </div>
+        <a href="{% url 'accounts:chat_detail' book.seller_id %}?book={{ book.pk }}" class="bb-btn bb-btn-outline bb-btn-sm">
+            <i class="bi bi-chat-dots"></i> Open chat
+        </a>
+    </div>
+</div>
+{% elif my_buy_request and my_buy_request.status == 'accepted' %}
+<div class="bb-panel" style="max-width:1100px; margin:0 auto 18px; border-color:#bbf7d0; background:#f0fdf4;">
+    <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-check-circle-fill" style="color:#15803d; font-size:1.1rem;"></i>
+        <div class="flex-grow-1">
+            <div class="fw-bold" style="font-size:.92rem; color:#15803d;">The seller accepted your request 🎉</div>
+            <div class="small" style="color:#166534;">Agree on a public pickup place in chat and pay on hand-over.</div>
+        </div>
+        <a href="{% url 'accounts:chat_detail' book.seller_id %}?book={{ book.pk }}" class="bb-btn bb-btn-primary bb-btn-sm">
+            <i class="bi bi-chat-dots"></i> Open chat
+        </a>
+    </div>
+</div>
+{% endif %}
+
+
     <div style="height:120px;"></div>
 </div>
 
@@ -361,6 +436,18 @@
             </a>
         {% else %}
             {% if user.is_authenticated %}
+                <button type="button" class="bb-btn bb-btn-primary bb-action-cta" id="bbBuyNowBtn"
+                        title="Ask the seller to sell you this book">
+                    <i class="bi bi-bag-check-fill"></i>
+                    <span class="d-none d-sm-inline">Buy Now</span><span class="d-sm-none">Buy</span>
+                </button>
+            {% else %}
+                <a href="{% url 'accounts:login' %}?next={{ request.path|urlencode }}" class="bb-btn bb-btn-primary bb-action-cta" title="Sign in to buy this book">
+                    <i class="bi bi-bag-check-fill"></i>
+                    <span class="d-none d-sm-inline">Buy Now</span><span class="d-sm-none">Buy</span>
+                </a>
+            {% endif %}
+            {% if user.is_authenticated %}
                 <a href="{% url 'accounts:start_chat' book.pk %}" class="bb-btn bb-btn-dark bb-action-cta" title="In-App Chat">
                     <i class="bi bi-chat-dots-fill"></i>
                     <span class="d-none d-sm-inline">In-App Chat</span><span class="d-sm-none">Chat</span>
@@ -395,6 +482,116 @@
         </span>
     </div>
 </div>
+
+{% if user.is_authenticated and not is_owner and book.is_available %}
+<!-- Buy Now: a firm intent, no money moves inside the app -->
+<div class="bb-buy-overlay" id="bbBuyOverlay" aria-hidden="true">
+    <div class="bb-buy-card" role="dialog" aria-modal="true" aria-labelledby="bbBuyTitle">
+        <button type="button" class="bb-buy-close" id="bbBuyClose" aria-label="Close">&times;</button>
+        <div class="bb-buy-head">
+            <div class="bb-buy-icon"><i class="bi bi-bag-check-fill"></i></div>
+            <div>
+                <h3 id="bbBuyTitle">Buy this book</h3>
+                <p>{% if book.is_donation %}Free to a good home{% else %}&#8377;{{ book.price|floatformat:0 }}{% endif %} &middot; {{ book.seller.username }}</p>
+            </div>
+        </div>
+        <form method="POST" action="{% url 'books:buy_now' book.pk %}" id="bbBuyForm">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.path }}">
+            <label class="bb-buy-label" for="bbBuyMeetup">Where will you pick it up?</label>
+            <input type="text" id="bbBuyMeetup" name="meetup" maxlength="200"
+                   placeholder="e.g. JNTU gate, Madhapur" value="{{ book.location_area }}">
+            <label class="bb-buy-label" for="bbBuyMessage">Anything to tell the seller? <span>(optional)</span></label>
+            <textarea id="bbBuyMessage" name="message" maxlength="1000" rows="3"
+                      placeholder="I can meet this weekend."></textarea>
+            <div class="bb-buy-safe">
+                <i class="bi bi-shield-lock-fill"></i>
+                No money is paid here. You meet the seller and pay on hand-over.
+            </div>
+            <div class="bb-buy-actions">
+                <button type="button" class="bb-btn bb-btn-outline" id="bbBuyCancel">Cancel</button>
+                <button type="submit" class="bb-btn bb-btn-primary" id="bbBuySubmit">
+                    <i class="bi bi-check2-circle"></i> Send buy request
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+<style>
+    .bb-buy-overlay {
+        position: fixed; inset: 0; z-index: 1080; display: none;
+        background: rgba(15,23,42,.55); backdrop-filter: blur(3px);
+        align-items: center; justify-content: center; padding: 16px;
+    }
+    .bb-buy-overlay.open { display: flex; }
+    .bb-buy-card {
+        background: #fff; border-radius: 22px; width: 100%; max-width: 460px;
+        padding: 26px 24px 22px; position: relative;
+        box-shadow: 0 24px 60px rgba(15,23,42,.28);
+        animation: bbBuyIn .18s ease-out;
+        max-height: 92vh; overflow-y: auto;
+    }
+    @keyframes bbBuyIn { from { transform: translateY(14px); opacity: 0; } to { transform: none; opacity: 1; } }
+    .bb-buy-close {
+        position: absolute; top: 12px; right: 14px; border: 0; background: none;
+        font-size: 1.6rem; line-height: 1; color: #94a3b8; cursor: pointer;
+    }
+    .bb-buy-head { display: flex; gap: 13px; align-items: center; margin-bottom: 18px; padding-right: 24px; }
+    .bb-buy-icon {
+        width: 46px; height: 46px; border-radius: 14px; flex: 0 0 auto;
+        background: #e0f2fe; color: #0284c7; font-size: 1.3rem;
+        display: grid; place-items: center;
+    }
+    .bb-buy-head h3 { margin: 0; font-size: 1.12rem; font-weight: 800; color: #0f172a; }
+    .bb-buy-head p { margin: 2px 0 0; font-size: .82rem; color: #64748b; }
+    .bb-buy-label { display: block; font-size: .76rem; font-weight: 800; letter-spacing: .4px;
+        text-transform: uppercase; color: #475569; margin: 0 0 6px; }
+    .bb-buy-label span { font-weight: 600; text-transform: none; letter-spacing: 0; color: #94a3b8; }
+    .bb-buy-card input[type=text], .bb-buy-card textarea {
+        width: 100%; border: 1.5px solid #e2e8f0; border-radius: 12px;
+        padding: 11px 13px; font-size: .92rem; margin-bottom: 15px; outline: none;
+        font-family: inherit;
+    }
+    .bb-buy-card input[type=text]:focus, .bb-buy-card textarea:focus {
+        border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(56,189,248,.18);
+    }
+    .bb-buy-safe {
+        display: flex; gap: 8px; align-items: flex-start;
+        background: #f0fdf4; color: #15803d; border-radius: 12px;
+        padding: 10px 12px; font-size: .8rem; font-weight: 600; line-height: 1.45;
+        margin-bottom: 16px;
+    }
+    .bb-buy-actions { display: flex; gap: 10px; }
+    .bb-buy-actions .bb-btn { flex: 1; justify-content: center; }
+    @media (max-width: 480px) {
+        .bb-buy-card { padding: 22px 18px 18px; border-radius: 18px; }
+    }
+</style>
+<script>
+    (function () {
+        var overlay = document.getElementById('bbBuyOverlay');
+        var openBtn = document.getElementById('bbBuyNowBtn');
+        if (!overlay || !openBtn) { return; }
+        function open() { overlay.classList.add('open'); overlay.setAttribute('aria-hidden', 'false');
+            var f = document.getElementById('bbBuyMeetup'); if (f) { setTimeout(function(){ f.focus(); }, 80); } }
+        function close() { overlay.classList.remove('open'); overlay.setAttribute('aria-hidden', 'true'); }
+        openBtn.addEventListener('click', open);
+        ['bbBuyClose', 'bbBuyCancel'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) { el.addEventListener('click', close); }
+        });
+        overlay.addEventListener('click', function (e) { if (e.target === overlay) { close(); } });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { close(); } });
+        var form = document.getElementById('bbBuyForm');
+        if (form) {
+            form.addEventListener('submit', function () {
+                var btn = document.getElementById('bbBuySubmit');
+                if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Sending…'; }
+            });
+        }
+    })();
+</script>
+{% endif %}
 
 <script>
     function shareListing() {

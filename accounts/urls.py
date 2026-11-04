@@ -47,6 +47,13 @@ urlpatterns = [
     path('messages/', views.messages_view, name='messages'),
     path('chat/start/<int:book_id>/', views.start_chat, name='start_chat'),
     path('chat/<int:user_id>/', views.chat_detail, name='chat_detail'),
+    # Live chat (JSON) — the page sends and polls without reloading.
+    path('chat/<int:user_id>/send/', views.chat_send, name='chat_send'),
+    path('chat/<int:user_id>/poll/', views.chat_poll, name='chat_poll'),
+    # Live badge counts for the bell and the message dot.
+    path('badges/', views.badge_counts, name='badge_counts'),
+    # Buy requests ("I want this book")
+    path('buy-requests/', views.buy_requests, name='buy_requests'),
     path('request-book/', views.request_book, name='request_book'),
     path('request-book/<int:pk>/delete/', views.delete_book_request, name='delete_book_request'),
 ]

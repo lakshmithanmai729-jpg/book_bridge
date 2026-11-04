@@ -1196,13 +1196,13 @@
 
         <div class="bb-top-actions">
             {% if user.is_authenticated %}
-                <a href="{% url 'accounts:notifications' %}" class="bb-icon-btn" title="Notifications" aria-label="Notifications">
+                <a href="{% url 'accounts:notifications' %}" class="bb-icon-btn" title="Notifications" aria-label="Notifications" id="bbBellLink">
                     <i class="bi bi-bell-fill"></i>
-                    {% if unread_notification_count %}<span class="bb-unread-dot">{{ unread_notification_count }}</span>{% endif %}
+                    <span class="bb-unread-dot" id="bbBellDot"{% if not unread_notification_count %} hidden{% endif %}>{{ unread_notification_count }}</span>
                 </a>
-                <a href="{% url 'accounts:messages' %}" class="bb-icon-btn" title="Messages" aria-label="Messages">
+                <a href="{% url 'accounts:messages' %}" class="bb-icon-btn" title="Messages" aria-label="Messages" id="bbMsgLink">
                     <i class="bi bi-chat-dots-fill"></i>
-                    {% if unread_message_count %}<span class="bb-unread-dot">{{ unread_message_count }}</span>{% endif %}
+                    <span class="bb-unread-dot" id="bbMsgDot"{% if not unread_message_count %} hidden{% endif %}>{{ unread_message_count }}</span>
                 </a>
                 <a href="{% url 'accounts:profile' %}" class="bb-user-chip" title="Your account">
                     <i class="bi bi-person-circle"></i>
@@ -1354,6 +1354,95 @@
             new bootstrap.Modal(modalEl).show();
         }
     }
+</script>
+<script>
+/* ---- Live badges + "waking up" handling (every page) ---------------------
+ * Two small things that remove the "nothing happens" feeling:
+ *   1. the bell and the message dot refresh themselves, so a new buy request
+ *      or chat message shows up without pressing F5;
+ *   2. if the service worker handed us a saved page while Render boots, we
+ *      poll /wake/ and load the fresh page the moment the server answers.
+ */
+(function () {
+    var signedIn = document.getElementById('bbBellLink') !== null;
+    var wake = document.getElementById('bbWakingBar');
+
+    // ---- 1. "saved copy" banner ---------------------------------------
+    if (wake) {
+        var tries = 0;
+        var retry = function () {
+            tries += 1;
+            fetch('/wake/?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (json) {
+                    if (json && json.ok) {
+                        if (wake.parentNode) {
+                            wake.textContent = 'BookBridge is ready — loading the latest…';
+                        }
+                        window.location.reload();
+                        return;
+                    }
+                    if (tries < 60) { setTimeout(retry, 2000); }
+                })
+                .catch(function () { if (tries < 60) { setTimeout(retry, 2000); } });
+        };
+        setTimeout(retry, 1500);
+    }
+
+    // ---- 2. live badge counts -----------------------------------------
+    if (!signedIn || !window.fetch) { return; }
+
+    function setDot(el, count) {
+        if (!el) { return; }
+        if (count > 0) {
+            el.textContent = count > 99 ? '99+' : count;
+            el.hidden = false;
+            el.style.display = '';
+        } else {
+            el.hidden = true;
+            el.style.display = 'none';
+        }
+    }
+
+    var bellDot = document.getElementById('bbBellDot');
+    var msgDot = document.getElementById('bbMsgDot');
+    var lastNotified = 0;
+
+    function refreshBadges() {
+        if (document.hidden) { return; }
+        fetch('{% url "accounts:badge_counts" %}', {
+            cache: 'no-store',
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (json) {
+              if (!json || !json.ok) { return; }
+              setDot(bellDot, json.notifications);
+              setDot(msgDot, json.messages);
+              if (json.notifications > lastNotified && lastNotified >= 0 && window.bbToast) {
+                  window.bbToast('You have a new notification 🔔', 'info');
+              }
+              lastNotified = json.notifications;
+          })
+          .catch(function () { /* offline — keep the last numbers */ });
+    }
+
+    lastNotified = 0;
+    setInterval(refreshBadges, 20000);
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) { refreshBadges(); }
+    });
+    setTimeout(refreshBadges, 3000);
+})();
+
+/* ---- Service worker: keeps the app usable while Render boots ----------- */
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+        navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function () {
+            /* Private mode / unsupported browser: everything still works. */
+        });
+    });
+}
 </script>
 {% block extra_js %}{% endblock %}
 </body>

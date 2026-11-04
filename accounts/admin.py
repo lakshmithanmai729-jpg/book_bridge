@@ -4,7 +4,8 @@ from django.contrib.auth.models import User
 from django.utils.crypto import get_random_string
 
 from .models import (
-    BookRequest, ChatMessage, Notification, SellerReview, UserBlock, UserProfile,
+    BookRequest, BuyRequest, ChatMessage, Notification, SellerReview, UserBlock,
+    UserProfile,
 )
 
 
@@ -57,6 +58,15 @@ class BookRequestAdmin(admin.ModelAdmin):
     list_display = ('book_title', 'user', 'category', 'location', 'status', 'created_at')
     list_filter = ('status', 'category')
     search_fields = ('book_title', 'user__username', 'category', 'location', 'notes')
+
+
+@admin.register(BuyRequest)
+class BuyRequestAdmin(admin.ModelAdmin):
+    list_display = ('book', 'buyer', 'seller', 'price', 'status', 'created_at', 'responded_at')
+    list_filter = ('status', 'created_at')
+    search_fields = ('book__title', 'buyer__username', 'seller__username', 'meetup', 'message')
+    list_select_related = ('book', 'buyer', 'seller')
+    readonly_fields = ('created_at', 'responded_at')
 
 
 @admin.register(SellerReview)

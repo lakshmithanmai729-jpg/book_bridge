@@ -97,7 +97,16 @@ def serve_media(request, path):
 
 
 def healthz(request):
-    """Liveness/readiness probe for load balancers and uptime monitors."""
+    """Liveness/readiness probe for load balancers and uptime monitors.
+
+    ``?light=1`` skips the database entirely.  That is what an external uptime
+    monitor should hit: it answers in a few milliseconds, so the free Render
+    instance never spins down, and it cannot fail just because Neon is waking
+    up.  The full check stays the default so nothing else changes.
+    """
+    if request.GET.get('light') in ('1', 'true', 'yes'):
+        return JsonResponse({'status': 'ok', 'mode': 'light'})
+
     checks = {'database': 'ok'}
     healthy = True
     try:
@@ -238,6 +247,12 @@ MODEL_TOUR = {
         'description': '“I need this book” requests from students.',
         'order': 7,
     },
+    'accounts.buyrequest': {
+        'label': 'Buy requests',
+        'icon': 'bi-bag-check-fill',
+        'description': '“నాకు ఈ book కావాలి” — buyer taps Buy Now, seller accepts or declines.',
+        'order': 7,
+    },
     'accounts.sellerreview': {
         'label': 'Seller reviews',
         'icon': 'bi-star-fill',
@@ -349,3 +364,35 @@ def backend_tour(request):
         'model_total': sum(len(group['models']) for group in tour_groups),
         'row_total': sum(group['total'] for group in tour_groups),
     })
+
+
+def wake(request):
+    """The lightest possible "are you awake?" answer.
+
+    Used by the browser keep-alive and by external pingers.  No database, no
+    templates, no sessions — a single JSON object.
+    """
+    return JsonResponse(
+        {'ok': True, 'app': 'bookbridge'},
+        headers={'Cache-Control': 'no-store'},
+    )
+
+
+def service_worker(request):
+    """Serve ``/sw.js`` from the project's static folder.
+
+    A service worker can only control pages under its own directory, so it has
+    to live at the site root (``/static/sw.js`` would only see ``/static/*``).
+    Serving it from a view keeps ``collectstatic`` out of the way.
+    """
+    path = settings.BASE_DIR / 'static' / 'sw.js'
+    try:
+        body = path.read_text(encoding='utf-8')
+    except OSError:
+        raise Http404('service worker missing')
+
+    response = HttpResponse(body, content_type='application/javascript')
+    # Allow the worker at "/" even though the script is served from a view.
+    response['Service-Worker-Allowed'] = '/'
+    response['Cache-Control'] = 'no-cache'
+    return response

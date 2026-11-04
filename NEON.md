@@ -165,23 +165,30 @@ Neon కొత్తది కాబట్టి database **ఖాళీగా**
 > మీరు మాన్యువల్ గా add చేసిన ఆ ఒక్క book మాత్రం రాదు (అది పాత database లో ఉంది).
 > `/admin/books/book/add/` లో 1 నిమిషంలో మళ్ళీ add చేయవచ్చు.
 
-### 🔴 ఒక ముఖ్యమైన హెచ్చరిక
+### ✅ ఇప్పుడు `Manual sync` కూడా సురక్షితమే
 
-`render.yaml` లో ఇప్పటికీ ఇది ఉంది:
+ముందు `render.yaml` లో ఇది ఉండేది:
 
 ```yaml
 - key: DATABASE_URL
-  fromDatabase:
+  fromDatabase:          # ← ఇది ప్రమాదం
     name: bookbridge-db
 ```
 
-అంటే **render.yaml ను edit చేసి sync చేస్తే**, `DATABASE_URL` తిరిగి Render
-Postgres కి మారిపోతుంది. మీరు Neon లో శాశ్వతంగా ఉండాలంటే ఆ block తీసేయాలి.
+అంటే **`Manual sync` నొక్కితే** `DATABASE_URL` తిరిగి Render Postgres కి
+మారిపోయేది. **ఇప్పుడు అది తీసేశాం:**
 
-**నాకు చెప్పండి — నేను ఆ మార్పు చేసి ఇస్తాను** (అప్పుడు `DATABASE_URL` ను Render
-"secret" గా అడుగుతుంది, మీరు Neon URL paste చేయాలి).
+```yaml
+- key: DATABASE_URL
+  sync: false            # ← Dashboard లో ఉన్న విలువనే వాడుతుంది
+```
 
-అంతవరకూ: **`Manual sync` బటన్ నొక్కకండి** — సాధారణ deploys కి problem ఉండదు.
+`sync: false` అంటే: **render.yaml నుంచి ఎప్పుడూ చదవదు, ఎప్పుడూ మార్చదు.**
+విలువ మీ Dashboard → Environment లో ఉన్నదే. అంటే మీరు paste చేసిన Neon URL
+**`Manual sync` కి కూడా పోదు** ✅
+
+> 📌 ఇది ఇప్పుడు అమలులో ఉండాలంటే ఒక్కసారి deploy అవ్వాలి. మీరు Neon URL
+> paste చేసి **`Save, rebuild, and deploy`** నొక్కగానే అది జరుగుతుంది.
 
 ### ఇప్పటి Render DB data ను Neon కి తరలించాలంటే (optional)
 

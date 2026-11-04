@@ -169,3 +169,148 @@ def notify_new_review(review):
     except Exception:  # pragma: no cover
         logger.exception('review notification failed for review %s', getattr(review, 'pk', None))
         return None
+
+
+# ---------------------------------------------------------------------------
+# Buy requests ("I want this book") — the missing half of the marketplace.
+# ---------------------------------------------------------------------------
+def notify_buy_request(buy_request):
+    """Tell the seller that somebody wants to buy their book."""
+    try:
+        book = buy_request.book
+        buyer_name = _display_name(buy_request.buyer)
+        meetup = f' · pickup: {buy_request.meetup}' if buy_request.meetup else ''
+        return notify(
+            buy_request.seller,
+            Notification.KIND_BUY_REQUEST,
+            f'{buyer_name} wants to buy “{book.title}”',
+            f'\u20b9{buy_request.price:.0f}{meetup}. Open the request to accept or decline.',
+            reverse('accounts:buy_requests') + '?tab=incoming',
+            actor=buy_request.buyer,
+            book=book,
+        )
+    except Exception:  # pragma: no cover - never break the buy flow
+        logger.exception('buy-request notification failed')
+        return None
+
+
+def notify_buy_answer(buy_request, accepted):
+    """Tell the buyer what the seller decided."""
+    try:
+        book = buy_request.book
+        if accepted:
+            title = f'Your buy request was accepted — “{book.title}”'
+            body = (
+                'The seller accepted. Open the chat to agree on a safe pickup '
+                'place and pay on hand-over.'
+            )
+        else:
+            title = f'“{book.title}” is no longer available for you'
+            body = 'The seller declined this request. Browse similar books nearby.'
+        return notify(
+            buy_request.buyer,
+            Notification.KIND_BUY_ANSWER,
+            title,
+            body,
+            reverse('accounts:chat_detail', args=[buy_request.seller_id])
+            + f'?book={book.pk}',
+            actor=buy_request.seller,
+            book=book,
+        )
+    except Exception:  # pragma: no cover
+        logger.exception('buy-answer notification failed')
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Book requests — a buyer asks for a book they cannot find.
+# ---------------------------------------------------------------------------
+def notify_book_request_posted(book_request):
+    """Tell the sellers who own something close to the requested book.
+
+    This is the half that used to be missing entirely: the confirmation message
+    said "nearby students will be notified" but no notification was ever
+    created, so nothing happened.  Sellers now get a real bell notification and
+    the buyer gets a receipt that the request is live.
+    """
+    from books.models import Book
+
+    sent = 0
+    try:
+        wanted = (book_request.book_title or '').lower().strip()
+        words = [word for word in wanted.split() if len(word) > 2]
+        city = (book_request.location or '').strip().lower()
+
+        candidates = (
+            Book.objects
+            .filter(is_sold=False, is_hidden=False)
+            .exclude(seller_id=book_request.user_id)
+            .select_related('category')
+            .only('id', 'title', 'author', 'location_city', 'seller_id', 'category_id')
+            .order_by('-created_at')[:400]
+        )
+
+        notified_ids = set()
+        for book in candidates:
+            if book.seller_id in notified_ids:
+                continue
+            title = (book.title or '').lower()
+            author = (book.author or '').lower()
+            matches_title = bool(wanted) and (
+                wanted in title or title in wanted
+                or any(word in title or word in author for word in words)
+            )
+            same_category = bool(
+                book_request.category
+                and book.category
+                and book.category.name == book_request.category
+            )
+            same_city = bool(city) and city in (book.location_city or '').lower()
+            # Near enough: the title looks like what they typed, or it is the
+            # same category in the same town.  A title match wins anywhere.
+            if not (matches_title or (same_category and same_city)):
+                continue
+
+            created = notify(
+                book.seller,
+                Notification.KIND_BOOK_REQUEST,
+                f'Someone is looking for “{book_request.book_title}”',
+                f'{_display_name(book_request.user)} posted a request'
+                + (f' in {book_request.location}' if book_request.location else '')
+                + '. You have a matching book — reply in chat.',
+                reverse('books:book_detail', args=[book.pk]),
+                actor=book_request.user,
+                book=book,
+            )
+            if created:
+                notified_ids.add(book.seller_id)
+                sent += 1
+                if sent >= 25:          # never spam a whole city in one go
+                    break
+
+        # A receipt for the buyer, so the bell shows the request went live even
+        # if they close the tab straight away.
+        notify(
+            book_request.user,
+            Notification.KIND_REQUEST_MATCH,
+            f'Your request for “{book_request.book_title}” is live',
+            f'We told {sent} seller' + ('s' if sent != 1 else '')
+            + ' who may have this book. You will be notified when someone replies.',
+            reverse('accounts:request_book'),
+            book=None,
+        )
+        return sent
+    except Exception:  # pragma: no cover
+        logger.exception('book-request notification failed')
+        return sent
+
+
+def _display_name(user):
+    """Prefer the profile name, fall back to the username."""
+    try:
+        profile = getattr(user, 'profile', None)
+        if profile and profile.name:
+            return profile.name[:60]
+    except Exception:  # pragma: no cover
+        pass
+    return getattr(user, 'username', 'Someone')
