@@ -15,12 +15,14 @@ class AIEvent(models.Model):
     KIND_CLASSIFY = 'classify'
     KIND_SEARCH = 'search'
     KIND_RISK = 'risk'
+    KIND_ASK = 'ask'
     KIND_CHOICES = [
         (KIND_PRICE, 'Price suggestion'),
         (KIND_DESCRIBE, 'Description draft'),
         (KIND_CLASSIFY, 'Category guess'),
         (KIND_SEARCH, 'AI search'),
         (KIND_RISK, 'Risk check'),
+        (KIND_ASK, 'Question answered'),
     ]
 
     kind = models.CharField(max_length=20, choices=KIND_CHOICES, db_index=True)

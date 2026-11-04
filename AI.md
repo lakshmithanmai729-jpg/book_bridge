@@ -20,6 +20,7 @@ free, private and easy to reason about.
 | **Category detection** | Sell form → *Guess category* | Multinomial **Naive Bayes** trained on existing listings, blended with a keyword prior so it works on a brand-new catalogue |
 | **AI recommendations** | Book detail page, home page | **TF‑IDF cosine similarity** + wishlist co-occurrence ("readers who saved this also saved…"), with a human-readable reason on each card |
 | **Assistant search** | `/ai/` | Rule-based NLP: budget, category, condition, free-only, area and sort parsed from a sentence such as *"NEET books under ₹300 near Madhapur"* |
+| **Ask anything about books** | `/ai/` (top panel) | Question answering over the live catalogue: a price, a seller, availability, a count, a recommendation or a how-to. Off-topic questions get a calm refusal that names the topic and offers three book questions instead |
 | **Trust / risk score** | Sell form → *Check listing*, staff dashboard | Explainable rules: phone numbers or links in the description, duplicate reposts (fuzzy title match), price far from the category median, missing photo or thin description |
 | **AI usage analytics** | Staff dashboard | `AIEvent` rows count feature usage per week — never the user's text |
 
@@ -35,6 +36,8 @@ ai_engine/
 ├── describe.py    listing copywriter (template NLG, deterministic variations)
 ├── recommend.py   content + collaborative recommendations, taste profile
 ├── assistant.py   natural-language query parsing and search
+├── scope.py       is this question about books? how to refuse politely
+├── answers.py     question answering over the live catalogue
 ├── trust.py       listing risk scoring for moderation
 ├── models.py      AIEvent (feature usage analytics)
 ├── views.py       JSON endpoints + the /ai/ page
@@ -60,6 +63,7 @@ All endpoints return JSON and are safe to call with partial or garbage input.
 | `POST` | `/ai/api/describe/` | `description` |
 | `POST` | `/ai/api/classify/` | `categories[]` with confidences |
 | `POST` | `/ai/api/risk/` (login required) | `score`, `level`, `reasons[]`, `checks[]` |
+| `GET` | `/ai/api/ask/?q=...` (also `POST`) | `intent`, `answer`, `books[]`, `suggestions[]`, `in_scope`, `refused` |
 | `GET` | `/ai/api/search/?q=...` | parsed `filters`, `understood[]`, `count`, `results[]` |
 | `GET` | `/ai/api/similar/<book_id>/` | similar books with `score` + `reason` |
 | `GET` | `/ai/api/parse/?q=...` | how the assistant understood a query (debugging) |
